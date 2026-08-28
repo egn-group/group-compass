@@ -11,6 +11,10 @@ api/dist/
 node_modules/.tmp/
 api/local.settings.json
 .swa/
+# shared/ holds only source .ts — each consumer (api/, the React app)
+# compiles it into its own dist, never in place.
+shared/**/*.js
+shared/**/*.js.map
 
 # OS/Windows artifacts
 *:Zone.Identifier

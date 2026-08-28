@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import AdminUsers from './AdminUsers'
 
 function App() {
   const [apiResult, setApiResult] = useState<string>('')
@@ -20,6 +21,7 @@ function App() {
       <p>Scaffold placeholder page.</p>
       <button onClick={() => void callPing()}>Call /api/ping</button>
       {apiResult && <p data-testid="api-result">{apiResult}</p>}
+      <AdminUsers />
     </main>
   )
 }

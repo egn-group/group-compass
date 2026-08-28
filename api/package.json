@@ -5,12 +5,14 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "db:verify": "npm run build && node dist/scripts/verify-crud.js"
+    "db:verify": "npm run build && node dist/api/scripts/verify-crud.js",
+    "db:verify:users": "npm run build && node dist/api/scripts/verify-users-auth.js"
   },
   "dependencies": {
     "@azure/functions": "^3.5.1",
     "@prisma/client": "^6.19.3",
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "zod": "^4.5.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
