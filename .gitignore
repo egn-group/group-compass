@@ -25,3 +25,13 @@ node_modules/
 /.vscode
 /.zprofile
 /.zshrc
+.claude/agents
+.claude/commands
+.claude/hooks
+.claude/launch.json
+.claude/loop.md
+.claude/output-styles
+.claude/routines
+.claude/scheduled_tasks.json
+.claude/settings.json
+.claude/workflows
