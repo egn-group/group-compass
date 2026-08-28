@@ -4,13 +4,20 @@
   "description": "Azure Functions API for Group Compass",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc -w"
+    "watch": "tsc -w",
+    "db:verify": "npm run build && node dist/scripts/verify-crud.js"
   },
   "dependencies": {
-    "@azure/functions": "^3.5.1"
+    "@azure/functions": "^3.5.1",
+    "@prisma/client": "^6.19.3",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "dotenv": "^16.4.7",
     "typescript": "~6.0.2"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2"
   }
 }
