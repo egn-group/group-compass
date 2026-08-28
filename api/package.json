@@ -1,0 +1,16 @@
+{
+  "name": "group-compass-api",
+  "version": "1.0.0",
+  "description": "Azure Functions API for Group Compass",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "@azure/functions": "^3.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "~6.0.2"
+  }
+}

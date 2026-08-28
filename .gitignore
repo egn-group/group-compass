@@ -5,6 +5,13 @@
 # Dependencies
 node_modules/
 
+# App build output
+dist/
+api/dist/
+node_modules/.tmp/
+api/local.settings.json
+.swa/
+
 # OS/Windows artifacts
 *:Zone.Identifier
 .DS_Store
