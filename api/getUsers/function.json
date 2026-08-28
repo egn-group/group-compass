@@ -13,5 +13,5 @@
       "name": "res"
     }
   ],
-  "scriptFile": "../dist/api/ping/index.js"
+  "scriptFile": "../dist/api/getUsers/index.js"
 }

@@ -1,0 +1,60 @@
+import type { HttpRequest } from '@azure/functions'
+import { describe, expect, it } from 'vitest'
+import { getPrincipal, requireAdmin, requireAuth } from './auth'
+
+function reqWithHeader(value?: string): HttpRequest {
+  return { headers: value === undefined ? {} : { 'x-ms-client-principal': value } } as unknown as HttpRequest
+}
+
+function principalHeader(payload: Record<string, unknown>): string {
+  return Buffer.from(JSON.stringify(payload), 'utf-8').toString('base64')
+}
+
+describe('getPrincipal', () => {
+  it('returns null when the header is missing', () => {
+    expect(getPrincipal(reqWithHeader())).toBeNull()
+  })
+
+  it('returns null when the header is not valid base64/JSON', () => {
+    expect(getPrincipal(reqWithHeader('not-base64-json'))).toBeNull()
+  })
+
+  it('returns null when userDetails is absent', () => {
+    const header = principalHeader({ userId: 'abc' })
+    expect(getPrincipal(reqWithHeader(header))).toBeNull()
+  })
+
+  it('decodes a valid principal and lowercases the email', () => {
+    const header = principalHeader({ userId: 'abc', userDetails: 'Admin@Example.com' })
+    expect(getPrincipal(reqWithHeader(header))).toEqual({ userId: 'abc', email: 'admin@example.com' })
+  })
+})
+
+describe('requireAuth', () => {
+  it('returns a 401 response when there is no principal', () => {
+    const result = requireAuth(reqWithHeader())
+    expect(result?.status).toBe(401)
+  })
+
+  it('returns null (allowed) when a valid principal is present', () => {
+    const header = principalHeader({ userId: 'abc', userDetails: 'user@example.com' })
+    expect(requireAuth(reqWithHeader(header))).toBeNull()
+  })
+})
+
+describe('requireAdmin', () => {
+  it('returns a 403 response when the user is null (no stored User row)', () => {
+    const result = requireAdmin(null)
+    expect(result?.status).toBe(403)
+  })
+
+  it('returns a 403 response when the user lacks the Admin role', () => {
+    const result = requireAdmin({ roles: ['Chair'] })
+    expect(result?.status).toBe(403)
+  })
+
+  it('returns null (allowed) when the user has the Admin role', () => {
+    expect(requireAdmin({ roles: ['Admin'] })).toBeNull()
+    expect(requireAdmin({ roles: ['Chair', 'Admin'] })).toBeNull()
+  })
+})

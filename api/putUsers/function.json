@@ -5,7 +5,7 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": ["get"]
+      "methods": ["put", "post"]
     },
     {
       "type": "http",
@@ -13,5 +13,5 @@
       "name": "res"
     }
   ],
-  "scriptFile": "../dist/api/ping/index.js"
+  "scriptFile": "../dist/api/putUsers/index.js"
 }
