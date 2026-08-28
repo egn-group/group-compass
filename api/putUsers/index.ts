@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { UpsertUserSchema, type UserDto } from '../../shared/schemas/user'
-import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth, serverError } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from '../shared/auth'
+import { errorResponse, serverError } from '../shared/errors'
 
 function trustedBootstrapEmails(): string[] {
   return (process.env.INITIAL_ADMIN_EMAILS ?? '')
@@ -18,7 +19,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
   const parsed = UpsertUserSchema.safeParse(req.body)
   if (!parsed.success) {
-    context.res = { status: 400, body: JSON.stringify({ error: 'Invalid request body.', details: parsed.error.flatten() }) }
+    context.res = errorResponse(400, 'Invalid request body.', parsed.error.flatten())
     return
   }
   const input = parsed.data
@@ -37,15 +38,23 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       // INITIAL_ADMIN_EMAILS bootstrap).
       const trusted = trustedBootstrapEmails()
       if (trusted.length === 0) {
-        context.res = { status: 500, body: JSON.stringify({ error: 'INITIAL_ADMIN_EMAILS not set — cannot bootstrap users.' }) }
+        context.res = errorResponse(500, 'INITIAL_ADMIN_EMAILS not set — cannot bootstrap users.')
         return
       }
       if (!trusted.includes(principal.email)) {
-        context.res = { status: 403, body: JSON.stringify({ error: 'Initial setup must be performed by a server-configured admin account.' }) }
+        context.res = errorResponse(403, 'Initial setup must be performed by a server-configured admin account.')
         return
       }
       if (!trusted.includes(targetEmail)) {
-        context.res = { status: 403, body: JSON.stringify({ error: 'Initial setup may only create a server-configured admin account.' }) }
+        context.res = errorResponse(403, 'Initial setup may only create a server-configured admin account.')
+        return
+      }
+      // The bootstrap account must include Admin. Every future write on this
+      // endpoint requires the caller to already have Admin (see the `else`
+      // branch below) — if the very first user didn't have it, no one could
+      // ever pass that check again, permanently locking out user management.
+      if (!input.roles.includes('Admin')) {
+        context.res = errorResponse(403, 'The initial account must be granted the Admin role.')
         return
       }
     } else {

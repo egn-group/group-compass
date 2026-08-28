@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import type { UserDto } from '../../shared/schemas/user'
-import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth, serverError } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from '../shared/auth'
+import { serverError } from '../shared/errors'
 
 // Admin-only, matching the "Admin-only page to view, add, and edit users"
 // this endpoint serves — unlike My Path's getOrgUsers, which is

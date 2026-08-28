@@ -71,4 +71,32 @@ describe('AdminUsers', () => {
       )
     })
   })
+
+  it('preserves a role not exposed in the UI when editing and saving a user', async () => {
+    const chairLeader = { email: 'lead@example.com', name: 'Chair Leader', initials: 'CL', roles: ['ChairLeader'] }
+    const fetchMock = mockFetch({ getUsers: [chairLeader], putUsers: { status: 200, body: chairLeader } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<AdminUsers />)
+
+    await waitFor(() => {
+      expect(screen.getByText('lead@example.com')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Edit'))
+    fireEvent.click(screen.getByText('Save'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/putUsers',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            email: chairLeader.email,
+            name: chairLeader.name,
+            initials: chairLeader.initials,
+            roles: ['ChairLeader'],
+          }),
+        }),
+      )
+    })
+  })
 })

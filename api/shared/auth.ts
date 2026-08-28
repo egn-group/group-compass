@@ -15,21 +15,13 @@
 
 import type { HttpRequest } from '@azure/functions'
 import { PrismaClient, type User } from '@prisma/client'
+import { errorResponse, type ApiError } from './errors'
 
 export const prisma = new PrismaClient()
 
 export interface Principal {
   userId: string | null
   email: string
-}
-
-export interface ApiError {
-  status: number
-  body: string
-}
-
-function errorResponse(status: number, message: string): ApiError {
-  return { status, body: JSON.stringify({ error: message }) }
 }
 
 /** Decode the SWA-injected client principal header, or null if missing/malformed. */
@@ -61,10 +53,4 @@ export function getUserByEmail(email: string): Promise<User | null> {
 export function requireAdmin(user: Pick<User, 'roles'> | null): ApiError | null {
   if (!user?.roles.includes('Admin')) return errorResponse(403, 'Admin access required.')
   return null
-}
-
-/** Never leak raw error text (DB/driver messages) to the caller. Log server-side instead. */
-export function serverError(log: (...args: unknown[]) => void, err: unknown): ApiError {
-  log(err)
-  return errorResponse(500, 'Something went wrong. Please try again.')
 }

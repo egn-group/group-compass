@@ -66,6 +66,17 @@ async function main() {
   assert(res.status === 403, `expected 403 for bootstrap write targeting a non-trusted email, got ${res.status}`)
   assert((await prisma.user.count()) === 0, 'no user should have been created yet')
 
+  // 3b. Bootstrap: a trusted caller creating themselves without the Admin
+  // role is rejected — otherwise the very first user could permanently lock
+  // everyone out of user management (no one could ever pass requireAdmin).
+  res = await call('/api/putUsers', {
+    method: 'POST',
+    email: trustedAdminEmail,
+    body: { email: trustedAdminEmail, name: 'Admin', initials: 'AD', roles: ['Chair'] },
+  })
+  assert(res.status === 403, `expected 403 for bootstrap without Admin role, got ${res.status}`)
+  assert((await prisma.user.count()) === 0, 'no user should have been created yet')
+
   // 4. Bootstrap: a trusted caller creating themselves succeeds.
   res = await call('/api/putUsers', {
     method: 'POST',

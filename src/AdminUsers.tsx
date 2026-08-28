@@ -14,6 +14,10 @@ function AdminUsers() {
   const [error, setError] = useState('')
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
+  // Roles the edited user already has that this page doesn't expose
+  // checkboxes for (e.g. ChairLeader/SalesLeader, deferred past this pilot).
+  // Carried silently so saving an edit can't accidentally strip them.
+  const [hiddenRoles, setHiddenRoles] = useState<string[]>([])
 
   async function loadUsers() {
     setError('')
@@ -43,11 +47,13 @@ function AdminUsers() {
       initials: user.initials,
       roles: user.roles.filter((r): r is RoleValue => (ASSIGNABLE_ROLES as string[]).includes(r)),
     })
+    setHiddenRoles(user.roles.filter((r) => !(ASSIGNABLE_ROLES as string[]).includes(r)))
   }
 
   async function submit() {
     setError('')
-    const parsed = UpsertUserSchema.safeParse(form)
+    const payload = { ...form, roles: [...form.roles, ...hiddenRoles] }
+    const parsed = UpsertUserSchema.safeParse(payload)
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Invalid input.')
       return
@@ -65,6 +71,7 @@ function AdminUsers() {
         return
       }
       setForm(emptyForm())
+      setHiddenRoles([])
       await loadUsers()
     } finally {
       setSaving(false)

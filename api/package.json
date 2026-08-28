@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
+    "test": "vitest run",
     "db:verify": "npm run build && node dist/api/scripts/verify-crud.js",
     "db:verify:users": "npm run build && node dist/api/scripts/verify-users-auth.js"
   },
@@ -17,7 +18,8 @@
   "devDependencies": {
     "@types/node": "^22.10.2",
     "dotenv": "^16.4.7",
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "deepmerge-ts": "^8.0.2"
