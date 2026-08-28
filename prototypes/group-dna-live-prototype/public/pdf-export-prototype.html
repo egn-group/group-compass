@@ -56,6 +56,7 @@
   .field-block { margin-bottom: 22px; }
   .field-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 
+
   /* --- Variant B: dedicated page, sidebar layout --- */
   .b-layout { display: grid; grid-template-columns: 220px 1fr; gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
   .b-sidebar { background: #FAFBFC; border-right: 1px solid var(--border); }
@@ -130,7 +131,7 @@ const GROUPS = [
   { id: 'g3', name: 'Adm. direktører – Sjælland 3', chair: 'Anders Friis', status: 'Approved' },
 ];
 
-const FIELDS = ['Hvad kendetegner gruppen', 'Hvad får man', 'Udviklingsfokus'];
+const FIELDS = ['Group Profile', 'Member Profile', 'Companies Profile'];
 
 function mockTranscript(groupId, field) {
   const seed = groupId.charCodeAt(1) + field.length;
@@ -178,6 +179,16 @@ function openModal(groupId) {
   document.getElementById('overlayA').classList.add('open');
 }
 function closeModal() { document.getElementById('overlayA').classList.remove('open'); }
+
+// ---- Variant AB: merged — A's modal (all fields stacked) + B's row-button wording
+function renderAB() {
+  document.getElementById('groupsTbody').innerHTML = GROUPS.map(g => `
+    <tr class="group-row">
+      <td>${g.name}</td><td>${g.chair}</td><td><span class="pill">${g.status}</span></td>
+      <td><button class="btn btn-sm" onclick="openModal('${g.id}')">View conversation log →</button></td>
+    </tr>
+  `).join('');
+}
 
 // ---- Variant B: dedicated page, sidebar ---------------------------------
 let bActiveGroup = GROUPS[0].id;
@@ -255,7 +266,8 @@ function toggleExpand(groupId) { cExpanded = cExpanded === groupId ? null : grou
 
 // ---- switcher wiring ------------------------------------------------------
 const VARIANTS = {
-  A: { name: 'Modal overlay from group list', render: renderA },
+  AB: { name: 'Merged: A\'s modal + B\'s row-button wording (current pick)', render: renderAB },
+  A: { name: 'Modal overlay, all fields stacked', render: renderA },
   B: { name: 'Dedicated log page, sidebar nav', render: renderB },
   C: { name: 'Inline expandable table row', render: renderC },
 };
@@ -263,7 +275,7 @@ const KEYS = Object.keys(VARIANTS);
 
 function currentVariant() {
   const v = new URLSearchParams(location.search).get('variant');
-  return VARIANTS[v] ? v : 'A';
+  return VARIANTS[v] ? v : 'AB';
 }
 function setVariant(key) {
   const url = new URL(location.href);
