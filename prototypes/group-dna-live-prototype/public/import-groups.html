@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group DNA — import groups</title>
+<style>
+  :root {
+    --navy: #1F3864; --navy-dark: #14274a; --bg: #F4F5F7; --card: #FFFFFF;
+    --border: #DDE1E8; --text: #1C1F26; --muted: #6B7280; --ai-bg: #EAF1FB; --ai-border: #C4D7F0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  .prototype-flag { background: #FFF7E0; border-bottom: 1px solid #EAD98B; color: #6B5900; font-size: 12px; text-align: center; padding: 6px 12px; }
+  header.topbar { background: var(--navy); color: #fff; }
+  header.topbar .inner { max-width: 1100px; margin: 0 auto; padding: 16px 20px; }
+  header.topbar .brand { font-weight: 700; font-size: 18px; }
+  header.topbar .sub { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 80px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .card h2 { margin: 0 0 4px; font-size: 15px; color: var(--navy); }
+  .card .hint { font-size: 12px; color: var(--muted); margin: 0 0 14px; }
+  button { font-family: inherit; cursor: pointer; }
+  .btn { border-radius: 6px; padding: 8px 14px; font-size: 13px; border: 1px solid var(--border); background: #fff; color: var(--text); }
+  .btn:hover { background: #F0F2F5; }
+  .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-primary[disabled] { opacity: 0.5; cursor: default; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  label { display: block; font-size: 12.5px; font-weight: 600; color: var(--navy); margin: 10px 0 4px; }
+  textarea { width: 100%; min-height: 70px; font-family: inherit; font-size: 13px; line-height: 1.5; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
+  input[type="text"] { width: 100%; font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
+  .field-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .field-row > div { flex: 1; min-width: 220px; }
+  code { background: #F0F2F5; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); border-bottom: 1px solid var(--border); padding: 6px 8px; }
+  td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.wrap-cell { white-space: normal; }
+  .chip { display: inline-block; font-size: 10.5px; padding: 2px 7px; border-radius: 10px; margin: 1px 3px 1px 0; }
+  .chip.good { background: #E6F4EA; color: #1E7A34; }
+  .chip.bad { background: #FDECEA; color: #A5342B; }
+  .chip.neutral { background: #EFF2F6; color: var(--muted); }
+  .banner { border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 12px; }
+  .banner.error { background: #FDECEA; border: 1px solid #F3B4AC; color: #7A2E24; }
+  .banner.warning { background: #FFF7E0; border: 1px solid #EAD98B; color: #6B5900; }
+  .banner ul { margin: 6px 0 0; padding-left: 18px; }
+  .empty-state { color: var(--muted); font-size: 13px; font-style: italic; padding: 10px 0; }
+  .dropzone { border: 2px dashed var(--border); border-radius: 8px; padding: 20px; text-align: center; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="prototype-flag">PROTOTYPE — in-memory only, resets on server restart. Answers wayfinder issue #6.</div>
+<header class="topbar">
+  <div class="inner">
+    <div class="brand">Group DNA — Admin Console</div>
+    <div class="sub">Import groups — manual entry or Salesforce CSV export</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>Add one group manually</h2>
+    <p class="hint">Matches the real Salesforce export columns (spec §12).</p>
+    <div class="field-row">
+      <div><label>EGN Group Name</label><input type="text" id="m_egnGroupName"></div>
+      <div><label>EGN Group Id</label><input type="text" id="m_egnGroupId"></div>
+    </div>
+    <div class="field-row">
+      <div><label>MMSGroup: Name</label><input type="text" id="m_mmsGroupName"></div>
+      <div><label>Partner Code</label><input type="text" id="m_partnerCode"></div>
+    </div>
+    <div class="field-row">
+      <div><label>Responsible Chair</label><input type="text" id="m_responsibleChair"></div>
+      <div><label>Responsible Sales (Network Advisor)</label><input type="text" id="m_responsibleSales"></div>
+    </div>
+    <label>Group Profile</label>
+    <textarea id="m_groupProfile"></textarea>
+    <label>Member Profile</label>
+    <textarea id="m_memberProfile"></textarea>
+    <label>Companies Profile</label>
+    <textarea id="m_companiesProfile"></textarea>
+    <div style="margin-top:12px;">
+      <button class="btn btn-primary" id="manualAddBtn">Add Group</button>
+      <span id="manualMsg" style="font-size:12.5px; margin-left:10px; color:var(--muted);"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Import from CSV</h2>
+    <p class="hint">Required columns: <code>EGN Group Name</code> <code>EGN Group Id</code> <code>MMSGroup: Name</code> <code>Partner Code</code> <code>Group Profile</code> <code>Member Profile</code> <code>Companies Profile</code> <code>Responsible Chair</code> <code>Responsible Sales</code>. Must be UTF-8; delimiter auto-detected.</p>
+    <div class="dropzone">
+      <input type="file" id="csvFile" accept=".csv,text/csv">
+    </div>
+    <div id="csvBanners" style="margin-top:12px;"></div>
+    <div id="csvPreviewWrap" class="hidden" style="display:none; margin-top:12px;">
+      <div style="overflow-x:auto;">
+        <table id="csvPreviewTable"></table>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary" id="csvImportBtn">Import valid rows</button>
+        <span id="csvMsg" style="font-size:12.5px; margin-left:10px; color:var(--muted);"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Imported groups (<span id="groupCount">0</span>)</h2>
+    <p class="hint">Data-quality flags — non-empty profile sections, Chair/NA present — answer wayfinder issue #6 directly.</p>
+    <div id="groupsTableWrap" style="overflow-x:auto;">
+      <div class="empty-state">No groups imported yet.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ==== ported, near-verbatim, from prototypes/Data Import Prototype.html ====
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function headerIndex(h){var idx={};h.forEach(function(x,i){idx[String(x==null?"":x).replace(/^﻿/,"").trim()]=i;});return idx;}
+function decodeUtf8Strict(buf){
+  var b=new Uint8Array(buf),off=(b[0]===0xEF&&b[1]===0xBB&&b[2]===0xBF)?3:0,v=b.subarray(off);
+  try{return {ok:true,text:new TextDecoder("utf-8",{fatal:true}).decode(v),bom:off>0};}
+  catch(e){
+    var pos=-1,val=0,loose=new TextDecoder("utf-8").decode(v),bad=loose.indexOf("�");
+    for(var i=0;i<v.length;i++){if(v[i]>=0x80){try{new TextDecoder("utf-8",{fatal:true}).decode(v.subarray(i,Math.min(i+4,v.length)));}catch(e2){pos=i+off;val=v[i];break;}}}
+    return {ok:false,bytePos:pos,byteVal:val,sample:bad>=0?loose.substr(Math.max(0,bad-30),70):""};
+  }
+}
+function sniff(text){var line="",q=false,i;for(i=0;i<text.length;i++){var c=text[i];if(c==='"')q=!q;if(!q&&(c==="\n"||c==="\r"))break;line+=c;}var ct={";":0,",":0,"\t":0};q=false;for(i=0;i<line.length;i++){var c2=line[i];if(c2==='"'){q=!q;continue;}if(!q&&ct[c2]!==undefined)ct[c2]++;}var best=";",n=-1;Object.keys(ct).forEach(function(d){if(ct[d]>n){n=ct[d];best=d;}});return n>0?best:";";}
+function parseCsv(text,delim){var rows=[],f="",row=[],q=false,i=0;while(i<text.length){var c=text[i];if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=c;i++;continue;}if(c==='"'){q=true;i++;continue;}if(c===delim){row.push(f);f="";i++;continue;}if(c==="\r"){i++;continue;}if(c==="\n"){row.push(f);rows.push(row);row=[];f="";i++;continue;}f+=c;i++;}if(f!==""||row.length){row.push(f);rows.push(row);}return rows.filter(function(r){return !(r.length===1&&r[0].trim()==="");});}
+function renderBanners(el,err,warnTitle,warns){
+  var html="";
+  if(err&&err.items&&err.items.length){html+='<div class="banner error"><strong>'+esc(err.title)+"</strong><ul>"+err.items.map(function(e){return "<li>"+e+"</li>";}).join("")+"</ul>"+(err.fix?'<div style="margin-top:6px;">'+err.fix+"</div>":"")+"</div>";}
+  if(warns&&warns.length){html+='<div class="banner warning"><strong>'+esc(warnTitle)+"</strong><ul>"+warns.slice(0,20).map(function(w){return "<li>"+esc(w)+"</li>";}).join("")+"</ul></div>";}
+  el.innerHTML=html;
+}
+
+// ==== column mapping (real export headers -> our internal field names) ====
+const REQUIRED_COLS = ["EGN Group Name","EGN Group Id","MMSGroup: Name","Partner Code","Group Profile","Member Profile","Companies Profile","Responsible Chair","Responsible Sales"];
+const COL_TO_FIELD = {
+  "EGN Group Name": "egnGroupName", "EGN Group Id": "egnGroupId", "MMSGroup: Name": "mmsGroupName",
+  "Partner Code": "partnerCode", "Group Profile": "groupProfile", "Member Profile": "memberProfile",
+  "Companies Profile": "companiesProfile", "Responsible Chair": "responsibleChair", "Responsible Sales": "responsibleSales",
+};
+
+let pendingCsvRows = []; // validated row objects, ready to POST
+
+document.getElementById("csvFile").addEventListener("change", function (e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = function (ev) { handleCsv(ev.target.result); };
+  reader.readAsArrayBuffer(f);
+});
+
+function handleCsv(buf) {
+  const banEl = document.getElementById("csvBanners");
+  const previewWrap = document.getElementById("csvPreviewWrap");
+  previewWrap.style.display = "none";
+  pendingCsvRows = [];
+
+  const dec = decodeUtf8Strict(buf);
+  if (!dec.ok) {
+    renderBanners(banEl, {
+      title: "This file is not saved as UTF-8 — import blocked",
+      items: ["First invalid byte: <strong>0x" + dec.byteVal.toString(16).toUpperCase() + "</strong> at position " + dec.bytePos + " (typical of a Windows ANSI / Windows-1252 export).",
+              dec.sample ? "Text around it decodes as: <em>" + esc(dec.sample) + "</em>" : "Nordic characters would be corrupted if imported."],
+      fix: "Fix: in Excel use Save As &rarr; CSV UTF-8, or choose UTF-8 in the Salesforce export, then re-upload.",
+    });
+    return;
+  }
+  const text = dec.text;
+  if (!text.trim()) { renderBanners(banEl, { title: "Cannot import", items: ["The file is empty."] }); return; }
+
+  const delim = sniff(text);
+  const aoa = parseCsv(text, delim);
+  if (aoa.length < 2) { renderBanners(banEl, { title: "Cannot import", items: ["No data rows below the header row."] }); return; }
+
+  const idx = headerIndex(aoa[0]);
+  const missing = REQUIRED_COLS.filter((c) => idx[c] === undefined);
+  if (missing.length) {
+    renderBanners(banEl, { title: "Missing required columns", items: missing.map((c) => "<code>" + esc(c) + "</code>") });
+    return;
+  }
+
+  const dataRows = aoa.slice(1);
+  const warnings = [];
+  const rows = [];
+  dataRows.forEach((row, i) => {
+    const ln = i + 2;
+    const obj = {};
+    REQUIRED_COLS.forEach((c) => { obj[COL_TO_FIELD[c]] = String(row[idx[c]] || "").trim(); });
+    if (!obj.egnGroupName && !obj.egnGroupId) { warnings.push("Row " + ln + ": missing both EGN Group Name and EGN Group Id — skipped."); return; }
+    const emptySections = ["groupProfile", "memberProfile", "companiesProfile"].filter((k) => !obj[k]);
+    if (emptySections.length === 3) warnings.push("Row " + ln + " (" + esc(obj.egnGroupName || obj.egnGroupId) + "): all three profile sections are empty — \"no source DNA\", would be excluded from AI rewrite.");
+    else if (emptySections.length) warnings.push("Row " + ln + " (" + esc(obj.egnGroupName || obj.egnGroupId) + "): empty " + emptySections.join(", ") + ".");
+    if (!obj.responsibleChair) warnings.push("Row " + ln + " (" + esc(obj.egnGroupName || obj.egnGroupId) + "): no Responsible Chair — cannot launch until mapped.");
+    if (!obj.responsibleSales) warnings.push("Row " + ln + " (" + esc(obj.egnGroupName || obj.egnGroupId) + "): no Responsible Sales (Network Advisor) — cannot launch until mapped.");
+    rows.push(obj);
+  });
+
+  pendingCsvRows = rows;
+  renderBanners(banEl, null, "Data-quality warnings (rows still import — fix later)", warnings);
+
+  const table = document.getElementById("csvPreviewTable");
+  const shown = rows.slice(0, 20);
+  table.innerHTML = "<thead><tr><th>#</th><th>Group Name</th><th>Group Id</th><th>Chair</th><th>NA</th><th>Profile sections</th></tr></thead>" +
+    "<tbody>" + shown.map((r, i) => {
+      const empties = ["groupProfile", "memberProfile", "companiesProfile"].filter((k) => !r[k]);
+      const sectionsChip = empties.length === 0
+        ? '<span class="chip good">all 3 present</span>'
+        : '<span class="chip bad">' + empties.length + ' empty</span>';
+      return "<tr><td>" + (i + 2) + "</td><td class=\"wrap-cell\">" + esc(r.egnGroupName) + "</td><td>" + esc(r.egnGroupId) + "</td>" +
+        "<td>" + (r.responsibleChair ? esc(r.responsibleChair) : '<span class="chip bad">missing</span>') + "</td>" +
+        "<td>" + (r.responsibleSales ? esc(r.responsibleSales) : '<span class="chip bad">missing</span>') + "</td>" +
+        "<td>" + sectionsChip + "</td></tr>";
+    }).join("") + "</tbody>";
+  document.getElementById("csvPreviewWrap").style.display = "block";
+  document.getElementById("csvMsg").textContent = rows.length + " row" + (rows.length === 1 ? "" : "s") + " ready" + (rows.length > 20 ? " (showing first 20)" : "") + ".";
+}
+
+document.getElementById("csvImportBtn").addEventListener("click", async function () {
+  if (!pendingCsvRows.length) return;
+  const res = await fetch("/api/import-groups/bulk", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rows: pendingCsvRows }),
+  });
+  const data = await res.json();
+  document.getElementById("csvMsg").textContent = "Imported " + data.added.length + " group" + (data.added.length === 1 ? "" : "s") +
+    (data.errors.length ? ", " + data.errors.length + " failed" : "") + ".";
+  pendingCsvRows = [];
+  document.getElementById("csvPreviewWrap").style.display = "none";
+  document.getElementById("csvFile").value = "";
+  loadGroups();
+});
+
+document.getElementById("manualAddBtn").addEventListener("click", async function () {
+  const body = {
+    egnGroupName: document.getElementById("m_egnGroupName").value,
+    egnGroupId: document.getElementById("m_egnGroupId").value,
+    mmsGroupName: document.getElementById("m_mmsGroupName").value,
+    partnerCode: document.getElementById("m_partnerCode").value,
+    groupProfile: document.getElementById("m_groupProfile").value,
+    memberProfile: document.getElementById("m_memberProfile").value,
+    companiesProfile: document.getElementById("m_companiesProfile").value,
+    responsibleChair: document.getElementById("m_responsibleChair").value,
+    responsibleSales: document.getElementById("m_responsibleSales").value,
+  };
+  const res = await fetch("/api/import-groups", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  const msg = document.getElementById("manualMsg");
+  if (!res.ok) { msg.textContent = data.error; msg.style.color = "#A5342B"; return; }
+  msg.style.color = "var(--muted)";
+  msg.textContent = "Added " + (data.group.egnGroupName || data.group.egnGroupId) + ".";
+  ["egnGroupName","egnGroupId","mmsGroupName","partnerCode","groupProfile","memberProfile","companiesProfile","responsibleChair","responsibleSales"]
+    .forEach((k) => { document.getElementById("m_" + k).value = ""; });
+  loadGroups();
+});
+
+async function loadGroups() {
+  const res = await fetch("/api/import-groups");
+  const groups = await res.json();
+  document.getElementById("groupCount").textContent = groups.length;
+  const wrap = document.getElementById("groupsTableWrap");
+  if (!groups.length) { wrap.innerHTML = '<div class="empty-state">No groups imported yet.</div>'; return; }
+  wrap.innerHTML = '<table><thead><tr><th>Group</th><th>Group Id</th><th>Chair</th><th>NA</th><th>Quality</th><th>Source</th><th></th></tr></thead><tbody>' +
+    groups.map((g) => {
+      const chips = [];
+      if (g.flags.noSourceDna) chips.push('<span class="chip bad">no source DNA</span>');
+      else if (g.flags.emptySections.length) chips.push('<span class="chip bad">' + g.flags.emptySections.length + ' empty section(s)</span>');
+      else chips.push('<span class="chip good">profile complete</span>');
+      if (g.flags.missingChair) chips.push('<span class="chip bad">no Chair</span>');
+      if (g.flags.missingNA) chips.push('<span class="chip bad">no NA</span>');
+      if (!g.flags.missingChair && !g.flags.missingNA) chips.push('<span class="chip good">Chair+NA set</span>');
+      return "<tr><td class=\"wrap-cell\">" + esc(g.egnGroupName || "(no name)") + "</td><td>" + esc(g.egnGroupId) + "</td>" +
+        "<td>" + esc(g.responsibleChair) + "</td><td>" + esc(g.responsibleSales) + "</td>" +
+        "<td class=\"wrap-cell\">" + chips.join(" ") + "</td>" +
+        "<td><span class=\"chip neutral\">" + esc(g.source) + "</span></td>" +
+        "<td><button class=\"btn btn-sm\" onclick=\"removeGroup('" + g.id + "')\">Remove</button></td></tr>";
+    }).join("") + "</tbody></table>";
+}
+
+async function removeGroup(id) {
+  await fetch("/api/import-groups/" + id, { method: "DELETE" });
+  loadGroups();
+}
+
+loadGroups();
+</script>
+</body>
+</html>

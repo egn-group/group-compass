@@ -628,9 +628,102 @@ app.post("/api/na-comment", (req, res) => {
   }
 });
 
+/* ============================================================
+   Import: raw groups (pre-pipeline), imported either manually
+   (one field-by-field form) or in bulk from a Salesforce export
+   CSV. In-memory only, like everything else in this prototype —
+   answers wayfinder issue #6 (confirm the pilot groups' data
+   quality) by giving the Admin a way to actually load and inspect
+   real rows instead of pasting them into chat.
+
+   Schema matches the real export columns (spec section 12):
+   EGN Group Name, EGN Group Id, MMSGroup: Name, Partner Code,
+   Group Profile, Member Profile, Companies Profile,
+   Responsible Chair, Responsible Sales (= Network Advisor).
+   ============================================================ */
+let importedGroups = [];
+let importedGroupSeq = 1;
+
+function qualityFlags(g) {
+  const emptySections = ["groupProfile", "memberProfile", "companiesProfile"].filter(
+    (k) => !String(g[k] || "").trim()
+  );
+  return {
+    emptySections, // which of the 3 profile sections are blank
+    noSourceDna: emptySections.length === 3, // spec's "no source DNA" case — excluded from AI rewrite
+    missingChair: !String(g.responsibleChair || "").trim(),
+    missingNA: !String(g.responsibleSales || "").trim(),
+  };
+}
+
+function normalizeGroupInput(body) {
+  return {
+    egnGroupName: String(body.egnGroupName || "").trim(),
+    egnGroupId: String(body.egnGroupId || "").trim(),
+    mmsGroupName: String(body.mmsGroupName || "").trim(),
+    partnerCode: String(body.partnerCode || "").trim(),
+    groupProfile: String(body.groupProfile || "").trim(),
+    memberProfile: String(body.memberProfile || "").trim(),
+    companiesProfile: String(body.companiesProfile || "").trim(),
+    responsibleChair: String(body.responsibleChair || "").trim(),
+    responsibleSales: String(body.responsibleSales || "").trim(),
+  };
+}
+
+function addImportedGroup(body, source) {
+  const g = normalizeGroupInput(body);
+  if (!g.egnGroupName && !g.egnGroupId) {
+    return { error: "Missing both EGN Group Name and EGN Group Id — need at least one to identify the group." };
+  }
+  const record = {
+    id: "ig" + importedGroupSeq++,
+    ...g,
+    source, // "manual" | "csv"
+    importedAt: new Date().toISOString(),
+    flags: qualityFlags(g),
+  };
+  importedGroups.push(record);
+  return { record };
+}
+
+app.get("/api/import-groups", (req, res) => {
+  res.json(importedGroups);
+});
+
+app.post("/api/import-groups", (req, res) => {
+  const result = addImportedGroup(req.body, "manual");
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json({ group: result.record });
+});
+
+app.post("/api/import-groups/bulk", (req, res) => {
+  const rows = req.body.rows;
+  if (!Array.isArray(rows) || !rows.length) {
+    return res.status(400).json({ error: "No rows provided." });
+  }
+  const added = [];
+  const errors = [];
+  rows.forEach((row, i) => {
+    const result = addImportedGroup(row, "csv");
+    if (result.error) errors.push({ row: i + 1, error: result.error });
+    else added.push(result.record);
+  });
+  res.json({ added, errors });
+});
+
+app.delete("/api/import-groups/:id", (req, res) => {
+  const before = importedGroups.length;
+  importedGroups = importedGroups.filter((g) => g.id !== req.params.id);
+  if (importedGroups.length === before) {
+    return res.status(404).json({ error: "Group not found." });
+  }
+  res.json({ ok: true });
+});
+
 app.listen(PORT, () => {
   console.log(`Group DNA live prototype running at http://localhost:${PORT}`);
   console.log(`  - Step 1, Admin conversion:      http://localhost:${PORT}/ai-pipeline-test.html`);
   console.log(`  - Step 2, Network Advisor:        http://localhost:${PORT}/na-review.html`);
   console.log(`  - Step 3, Chair review (live):    http://localhost:${PORT}/chair-groups-live.html`);
+  console.log(`  - Import groups (manual + CSV):   http://localhost:${PORT}/import-groups.html`);
 });
