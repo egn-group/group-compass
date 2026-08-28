@@ -1,6 +1,18 @@
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 
+// This script creates and deletes rows. Refuse to run against anything
+// but a local database — a misconfigured DATABASE_URL must not point
+// this at a shared or production instance.
+const databaseUrl = process.env.DATABASE_URL ?? ''
+const databaseHost = new URL(databaseUrl).hostname
+if (databaseHost !== 'localhost' && databaseHost !== '127.0.0.1') {
+  throw new Error(
+    `Refusing to run verify-crud against non-local DATABASE_URL host "${databaseHost}". ` +
+      'This script writes and deletes rows and must only run against a local database.',
+  )
+}
+
 const prisma = new PrismaClient()
 
 function assert(condition: unknown, message: string): asserts condition {
