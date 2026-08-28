@@ -53,6 +53,10 @@
   .modal-head { position: sticky; top: 0; background: #fff; padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
   .modal-head h3 { margin: 0; font-size: 15px; color: var(--navy); }
   .modal-body { padding: 16px 20px; }
+  .modal-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .modal-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 4px; margin-right: 16px; font-size: 13px; color: var(--muted); }
+  .modal-tab:hover { color: var(--text); }
+  .modal-tab.active { color: var(--navy); font-weight: 700; border-bottom-color: var(--navy); }
   .field-block { margin-bottom: 22px; }
   .field-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 
@@ -164,19 +168,29 @@ function renderA() {
     </tr>
   `).join('');
 }
+let modalGroupId = null;
+let modalActiveField = FIELDS[0];
 function openModal(groupId) {
+  modalGroupId = groupId;
+  modalActiveField = FIELDS[0];
   const g = GROUPS.find(x => x.id === groupId);
   document.getElementById('modalTitle').textContent = 'Conversations — ' + g.name;
-  document.getElementById('modalBody').innerHTML = FIELDS.map(f => `
+  renderModalBody();
+  document.getElementById('overlayA').classList.add('open');
+}
+function renderModalBody() {
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-tabs">
+      ${FIELDS.map(f => `<button class="modal-tab ${f === modalActiveField ? 'active' : ''}" onclick="modalActiveField='${f}'; renderModalBody();">${f}</button>`).join('')}
+    </div>
     <div class="field-block">
       <div class="field-block-head">
-        <div class="field-title">${f}</div>
-        <button class="btn btn-sm" onclick="alert('PROTOTYPE: would export PDF for field \\'${f}\\'')">Export PDF</button>
+        <div class="field-title">${modalActiveField}</div>
+        <button class="btn btn-sm" onclick="alert('PROTOTYPE: would export PDF for field \\'${modalActiveField}\\'')">Export PDF</button>
       </div>
-      ${renderTranscript(mockTranscript(groupId, f))}
+      ${renderTranscript(mockTranscript(modalGroupId, modalActiveField))}
     </div>
-  `).join('');
-  document.getElementById('overlayA').classList.add('open');
+  `;
 }
 function closeModal() { document.getElementById('overlayA').classList.remove('open'); }
 
