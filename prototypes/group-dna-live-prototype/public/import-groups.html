@@ -63,33 +63,43 @@
   <div class="card">
     <h2>Add one group manually</h2>
     <p class="hint">Matches the real Salesforce export columns (spec §12).</p>
+    <p class="hint">All fields are required — an incomplete group is rejected rather than imported with gaps.</p>
     <div class="field-row">
-      <div><label>EGN Group Name</label><input type="text" id="m_egnGroupName"></div>
-      <div><label>EGN Group Id</label><input type="text" id="m_egnGroupId"></div>
+      <div><label>EGN Group Name *</label><input type="text" id="m_egnGroupName" required></div>
+      <div><label>EGN Group Id *</label><input type="text" id="m_egnGroupId" required></div>
     </div>
     <div class="field-row">
-      <div><label>MMSGroup: Name</label><input type="text" id="m_mmsGroupName"></div>
-      <div><label>Partner Code</label><input type="text" id="m_partnerCode"></div>
+      <div><label>MMSGroup: Name *</label><input type="text" id="m_mmsGroupName" required></div>
+      <div><label>Partner Code *</label><input type="text" id="m_partnerCode" required></div>
     </div>
     <div class="field-row">
-      <div><label>Responsible Chair</label><input type="text" id="m_responsibleChair"></div>
-      <div><label>Responsible Sales (Network Advisor)</label><input type="text" id="m_responsibleSales"></div>
+      <div>
+        <label>Responsible Chair *</label>
+        <input type="text" id="m_responsibleChair" list="chairList" required autocomplete="off">
+        <datalist id="chairList"></datalist>
+      </div>
+      <div>
+        <label>Responsible Sales (Network Advisor) *</label>
+        <input type="text" id="m_responsibleSales" list="naList" required autocomplete="off">
+        <datalist id="naList"></datalist>
+      </div>
     </div>
-    <label>Group Profile</label>
-    <textarea id="m_groupProfile"></textarea>
-    <label>Member Profile</label>
-    <textarea id="m_memberProfile"></textarea>
-    <label>Companies Profile</label>
-    <textarea id="m_companiesProfile"></textarea>
+    <label>Group Profile *</label>
+    <textarea id="m_groupProfile" required></textarea>
+    <label>Member Profile *</label>
+    <textarea id="m_memberProfile" required></textarea>
+    <label>Companies Profile *</label>
+    <textarea id="m_companiesProfile" required></textarea>
     <div style="margin-top:12px;">
       <button class="btn btn-primary" id="manualAddBtn">Add Group</button>
       <span id="manualMsg" style="font-size:12.5px; margin-left:10px; color:var(--muted);"></span>
     </div>
+    <p class="hint" style="margin-top:10px;">"Add Group" only stores the raw group — it does not start the AI/Group DNA conversion. Running the pipeline is a separate action.</p>
   </div>
 
   <div class="card">
     <h2>Import from CSV</h2>
-    <p class="hint">Required columns: <code>EGN Group Name</code> <code>EGN Group Id</code> <code>MMSGroup: Name</code> <code>Partner Code</code> <code>Group Profile</code> <code>Member Profile</code> <code>Companies Profile</code> <code>Responsible Chair</code> <code>Responsible Sales</code>. Must be UTF-8; delimiter auto-detected.</p>
+    <p class="hint">Required columns: <code>EGN Group Name</code> <code>EGN Group Id</code> <code>MMSGroup: Name</code> <code>Partner Code</code> <code>Group Profile</code> <code>Member Profile</code> <code>Companies Profile</code> <code>Responsible Chair</code> <code>Responsible Sales</code>. Must be UTF-8; delimiter auto-detected. Rows missing any column's value are rejected, not imported with gaps.</p>
     <div class="dropzone">
       <input type="file" id="csvFile" accept=".csv,text/csv">
     </div>
@@ -186,39 +196,31 @@ function handleCsv(buf) {
   }
 
   const dataRows = aoa.slice(1);
-  const warnings = [];
+  const rejections = [];
   const rows = [];
   dataRows.forEach((row, i) => {
     const ln = i + 2;
     const obj = {};
     REQUIRED_COLS.forEach((c) => { obj[COL_TO_FIELD[c]] = String(row[idx[c]] || "").trim(); });
-    if (!obj.egnGroupName && !obj.egnGroupId) { warnings.push("Row " + ln + ": missing both EGN Group Name and EGN Group Id — skipped."); return; }
-    const emptySections = ["groupProfile", "memberProfile", "companiesProfile"].filter((k) => !obj[k]);
-    if (emptySections.length === 3) warnings.push("Row " + ln + " (" + esc(obj.egnGroupName || obj.egnGroupId) + "): all three profile sections are empty — \"no source DNA\", would be excluded from AI rewrite.");
-    else if (emptySections.length) warnings.push("Row " + ln + " (" + esc(obj.egnGroupName || obj.egnGroupId) + "): empty " + emptySections.join(", ") + ".");
-    if (!obj.responsibleChair) warnings.push("Row " + ln + " (" + esc(obj.egnGroupName || obj.egnGroupId) + "): no Responsible Chair — cannot launch until mapped.");
-    if (!obj.responsibleSales) warnings.push("Row " + ln + " (" + esc(obj.egnGroupName || obj.egnGroupId) + "): no Responsible Sales (Network Advisor) — cannot launch until mapped.");
+    const missing = REQUIRED_COLS.filter((c) => !obj[COL_TO_FIELD[c]]);
+    const label = obj.egnGroupName || obj.egnGroupId || "(unidentified row)";
+    if (missing.length) { rejections.push("Row " + ln + " (" + esc(label) + "): missing " + missing.map((c) => "<code>" + esc(c) + "</code>").join(", ") + " — will be rejected."); return; }
     rows.push(obj);
   });
 
   pendingCsvRows = rows;
-  renderBanners(banEl, null, "Data-quality warnings (rows still import — fix later)", warnings);
+  renderBanners(banEl, null, rows.length ? "Rows that will be rejected (missing required fields)" : null, rejections);
 
   const table = document.getElementById("csvPreviewTable");
   const shown = rows.slice(0, 20);
-  table.innerHTML = "<thead><tr><th>#</th><th>Group Name</th><th>Group Id</th><th>Chair</th><th>NA</th><th>Profile sections</th></tr></thead>" +
+  table.innerHTML = "<thead><tr><th>#</th><th>Group Name</th><th>Group Id</th><th>Chair</th><th>NA</th></tr></thead>" +
     "<tbody>" + shown.map((r, i) => {
-      const empties = ["groupProfile", "memberProfile", "companiesProfile"].filter((k) => !r[k]);
-      const sectionsChip = empties.length === 0
-        ? '<span class="chip good">all 3 present</span>'
-        : '<span class="chip bad">' + empties.length + ' empty</span>';
       return "<tr><td>" + (i + 2) + "</td><td class=\"wrap-cell\">" + esc(r.egnGroupName) + "</td><td>" + esc(r.egnGroupId) + "</td>" +
-        "<td>" + (r.responsibleChair ? esc(r.responsibleChair) : '<span class="chip bad">missing</span>') + "</td>" +
-        "<td>" + (r.responsibleSales ? esc(r.responsibleSales) : '<span class="chip bad">missing</span>') + "</td>" +
-        "<td>" + sectionsChip + "</td></tr>";
+        "<td>" + esc(r.responsibleChair) + "</td><td>" + esc(r.responsibleSales) + "</td></tr>";
     }).join("") + "</tbody>";
-  document.getElementById("csvPreviewWrap").style.display = "block";
-  document.getElementById("csvMsg").textContent = rows.length + " row" + (rows.length === 1 ? "" : "s") + " ready" + (rows.length > 20 ? " (showing first 20)" : "") + ".";
+  document.getElementById("csvPreviewWrap").style.display = rows.length ? "block" : "none";
+  document.getElementById("csvMsg").textContent = rows.length + " complete row" + (rows.length === 1 ? "" : "s") + " ready to import" +
+    (rejections.length ? ", " + rejections.length + " rejected" : "") + (rows.length > 20 ? " (showing first 20)" : "") + ".";
 }
 
 document.getElementById("csvImportBtn").addEventListener("click", async function () {
@@ -236,6 +238,12 @@ document.getElementById("csvImportBtn").addEventListener("click", async function
   loadGroups();
 });
 
+const FIELD_LABELS = {
+  egnGroupName: "EGN Group Name", egnGroupId: "EGN Group Id", mmsGroupName: "MMSGroup: Name",
+  partnerCode: "Partner Code", groupProfile: "Group Profile", memberProfile: "Member Profile",
+  companiesProfile: "Companies Profile", responsibleChair: "Responsible Chair", responsibleSales: "Responsible Sales",
+};
+
 document.getElementById("manualAddBtn").addEventListener("click", async function () {
   const body = {
     egnGroupName: document.getElementById("m_egnGroupName").value,
@@ -248,18 +256,33 @@ document.getElementById("manualAddBtn").addEventListener("click", async function
     responsibleChair: document.getElementById("m_responsibleChair").value,
     responsibleSales: document.getElementById("m_responsibleSales").value,
   };
+  const msg = document.getElementById("manualMsg");
+  const missing = Object.keys(FIELD_LABELS).filter((k) => !String(body[k] || "").trim());
+  if (missing.length) {
+    msg.style.color = "#A5342B";
+    msg.textContent = "Missing: " + missing.map((k) => FIELD_LABELS[k]).join(", ");
+    return;
+  }
   const res = await fetch("/api/import-groups", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
   const data = await res.json();
-  const msg = document.getElementById("manualMsg");
-  if (!res.ok) { msg.textContent = data.error; msg.style.color = "#A5342B"; return; }
+  if (!res.ok) { msg.style.color = "#A5342B"; msg.textContent = data.error; return; }
   msg.style.color = "var(--muted)";
   msg.textContent = "Added " + (data.group.egnGroupName || data.group.egnGroupId) + ".";
-  ["egnGroupName","egnGroupId","mmsGroupName","partnerCode","groupProfile","memberProfile","companiesProfile","responsibleChair","responsibleSales"]
-    .forEach((k) => { document.getElementById("m_" + k).value = ""; });
+  Object.keys(FIELD_LABELS).forEach((k) => { document.getElementById("m_" + k).value = ""; });
   loadGroups();
 });
+
+async function loadUsers() {
+  const res = await fetch("/api/users");
+  const users = await res.json();
+  const chairs = users.filter((u) => (u.roles || []).includes("Chair"));
+  const nas = users.filter((u) => (u.roles || []).includes("Network Advisor"));
+  document.getElementById("chairList").innerHTML = chairs.map((u) => '<option value="' + esc(u.name) + '">').join("");
+  document.getElementById("naList").innerHTML = nas.map((u) => '<option value="' + esc(u.name) + '">').join("");
+}
+loadUsers();
 
 async function loadGroups() {
   const res = await fetch("/api/import-groups");

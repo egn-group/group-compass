@@ -644,13 +644,45 @@ app.post("/api/na-comment", (req, res) => {
 let importedGroups = [];
 let importedGroupSeq = 1;
 
+/* Pilot user roster — backs the Responsible Chair / Responsible Sales
+   autocomplete on the import form. No "import users" feature exists yet
+   (spec section 12 describes one for the real build); seeded directly
+   from documentation/GroupDNABot - PilotGroups.xlsx (the real pilot
+   roster: 3 Chairs, 3 Responsible Sales / Network Advisors — no email
+   addresses exist in that file, so `email` is left null here). */
+let USERS = [
+  { name: "Jørli Birk", initials: "JIB", email: null, roles: ["Chair"] },
+  { name: "Susanne Svejgaard", initials: "SUS", email: null, roles: ["Chair"] },
+  { name: "Pernille Grabe", initials: "PGR", email: null, roles: ["Chair"] },
+  { name: "Jacob Bernhard Bech", initials: "JBB", email: null, roles: ["Network Advisor"] },
+  { name: "Jannick Aagaard Haslund", initials: "JAD", email: null, roles: ["Network Advisor"] },
+  { name: "Rasmus Müller", initials: "RMU", email: null, roles: ["Network Advisor"] },
+];
+
+app.get("/api/users", (req, res) => {
+  res.json(USERS);
+});
+
+const REQUIRED_GROUP_FIELDS = [
+  "egnGroupName", "egnGroupId", "mmsGroupName", "partnerCode",
+  "groupProfile", "memberProfile", "companiesProfile",
+  "responsibleChair", "responsibleSales",
+];
+const FIELD_LABELS = {
+  egnGroupName: "EGN Group Name", egnGroupId: "EGN Group Id", mmsGroupName: "MMSGroup: Name",
+  partnerCode: "Partner Code", groupProfile: "Group Profile", memberProfile: "Member Profile",
+  companiesProfile: "Companies Profile", responsibleChair: "Responsible Chair", responsibleSales: "Responsible Sales",
+};
+
 function qualityFlags(g) {
+  // Kept as a defense-in-depth signal even though addImportedGroup now rejects
+  // incomplete records outright — a record should never actually show these true.
   const emptySections = ["groupProfile", "memberProfile", "companiesProfile"].filter(
     (k) => !String(g[k] || "").trim()
   );
   return {
-    emptySections, // which of the 3 profile sections are blank
-    noSourceDna: emptySections.length === 3, // spec's "no source DNA" case — excluded from AI rewrite
+    emptySections,
+    noSourceDna: emptySections.length === 3,
     missingChair: !String(g.responsibleChair || "").trim(),
     missingNA: !String(g.responsibleSales || "").trim(),
   };
@@ -672,8 +704,9 @@ function normalizeGroupInput(body) {
 
 function addImportedGroup(body, source) {
   const g = normalizeGroupInput(body);
-  if (!g.egnGroupName && !g.egnGroupId) {
-    return { error: "Missing both EGN Group Name and EGN Group Id — need at least one to identify the group." };
+  const missing = REQUIRED_GROUP_FIELDS.filter((k) => !g[k]);
+  if (missing.length) {
+    return { error: "Missing required field" + (missing.length > 1 ? "s" : "") + ": " + missing.map((k) => FIELD_LABELS[k]).join(", ") };
   }
   const record = {
     id: "ig" + importedGroupSeq++,
