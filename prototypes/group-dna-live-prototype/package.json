@@ -1,0 +1,14 @@
+{
+  "name": "group-dna-live-prototype",
+  "version": "0.1.0",
+  "description": "Bare-bones local server that hooks the Group DNA AI pipeline and Chair-editing screen up to a real Claude API call. For prototyping only.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

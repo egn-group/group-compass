@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group Compass — Data import (prototype)</title>
+<style>
+  :root{--navy:#1F3864;--navy-dark:#14274a;--bg:#F4F5F7;--card:#FFFFFF;--border:#DDE1E8;--text:#1C1F26;--muted:#6B7280;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .prototype-flag{background:#FFF7E0;border-bottom:1px solid #EAD98B;color:#6B5900;font-size:12px;text-align:center;padding:6px 12px;}
+  header.topbar{background:var(--navy);color:#fff;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  header.topbar .brand{font-weight:700;font-size:16px;}
+  header.topbar .brand .tag{font-weight:400;font-size:12px;opacity:.75;margin-left:6px;}
+  header.topbar .crumb{font-size:13px;opacity:.85;}
+  header.topbar .spacer{flex:1;}
+  .role-pill{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:4px 12px;font-size:12px;}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 20px 90px;}
+  h1{font-size:20px;color:var(--navy);margin:0 0 4px;}
+  .subtitle{font-size:13px;color:var(--muted);margin:0 0 20px;}
+  .tabbar{display:flex;gap:4px;border-bottom:1px solid var(--border);}
+  .tab{background:none;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;padding:10px 20px;font-size:13.5px;font-weight:600;color:var(--muted);position:relative;top:1px;cursor:pointer;}
+  .tab:hover{color:var(--text);}
+  .tab.active{background:var(--card);border-color:var(--border);color:var(--navy);}
+  .tab .count{font-weight:400;font-size:11.5px;color:var(--muted);margin-left:6px;}
+  .tabpanel{background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;padding:22px 24px 26px;}
+  .panel-lead{font-size:12.5px;color:var(--muted);margin:0 0 16px;line-height:1.6;}
+  button{font-family:inherit;cursor:pointer;}
+  select{font-family:inherit;font-size:12px;padding:5px 6px;border-radius:5px;border:1px solid var(--border);background:#fff;color:var(--text);max-width:210px;}
+  .btn{border-radius:6px;padding:9px 16px;font-size:13px;border:1px solid var(--border);background:#fff;color:var(--text);}
+  .btn:hover{background:#F0F2F5;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .btn-primary:hover{background:var(--navy-dark);}
+  .btn-primary:disabled{background:#9AA6BD;border-color:#9AA6BD;}
+  .btn-small{font-size:12px;padding:6px 12px;border-radius:5px;}
+  .btn-link{background:none;border:none;color:var(--navy);font-size:12px;text-decoration:underline;padding:4px 2px;}
+  .upload-card{background:#FAFBFC;border:1px dashed var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;}
+  .upload-hint{font-size:11.5px;color:var(--muted);line-height:1.55;margin:8px 0 0;}
+  .upload-hint code{background:#EDF1F7;border-radius:3px;padding:1px 4px;font-size:11px;}
+  .sample-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .sample-row .hint{font-size:11.5px;color:var(--muted);}
+  .step{margin-top:20px;}
+  .step-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin:0 0 8px;}
+  .filemeta{font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.7;}
+  .filemeta strong{color:var(--text);font-weight:600;}
+  .chip{display:inline-block;background:#EDF1F7;border:1px solid var(--border);border-radius:999px;padding:2px 9px;font-size:11px;margin-right:6px;color:var(--text);}
+  .chip.good{background:#E7F6EC;border-color:#BFE6CC;color:#2F7D4F;}
+  .chip.bad{background:#FCEBEB;border-color:#F0C1C1;color:#A32D2D;}
+  .banner{border-radius:6px;padding:10px 14px;font-size:12.5px;margin:10px 0;line-height:1.6;}
+  .banner.error{background:#FCEBEB;border:1px solid #F0C1C1;color:#7A1F1F;}
+  .banner.warning{background:#FAEEDA;border:1px solid #F0DCB8;color:#5C4813;}
+  .banner ul{margin:6px 0 0;padding-left:18px;}
+  .banner li{margin-bottom:2px;}
+  .banner strong.title{display:block;margin-bottom:2px;}
+  .banner .fix{display:block;margin-top:6px;font-style:italic;}
+  .banner .actions{margin-top:8px;}
+  .raw-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
+  table.raw-table{width:100%;border-collapse:collapse;background:#fff;font-size:11.5px;white-space:nowrap;}
+  table.raw-table th,table.raw-table td{padding:6px 10px;border-bottom:1px solid #EEF0F3;border-right:1px solid #EEF0F3;max-width:230px;overflow:hidden;text-overflow:ellipsis;}
+  table.raw-table th{background:#FAFBFC;color:var(--muted);font-weight:600;text-transform:uppercase;font-size:10.5px;letter-spacing:.02em;text-align:left;}
+  table.raw-table td.rownum,table.raw-table th.rownum{color:var(--muted);background:#FAFBFC;text-align:right;width:34px;}
+  .summary-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .summary-pill{border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;border:1px solid transparent;}
+  .summary-pill.new{background:#E6F1FB;color:#0C447C;border-color:#B5D4F4;}
+  .summary-pill.updated{background:#FAEEDA;color:#854F0B;border-color:#F0DCB8;}
+  .summary-pill.unchanged{background:#E7F6EC;color:#2F7D4F;border-color:#BFE6CC;}
+  .summary-pill.problem{background:#FCEBEB;color:#A32D2D;border-color:#F0C1C1;}
+  .summary-pill.info{background:#EDECFB;color:#4B3F9E;border-color:#CFC9F0;}
+  table.preview-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:12.5px;}
+  table.preview-table th{text-align:left;background:#FAFBFC;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.02em;padding:9px 10px;border-bottom:1px solid var(--border);}
+  table.preview-table td{padding:9px 10px;border-bottom:1px solid #EEF0F3;vertical-align:top;}
+  table.preview-table tr.row-main.clickable{cursor:pointer;}
+  table.preview-table tr.row-main.clickable:hover{background:#FAFBFC;}
+  .badge{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+  .badge.new{background:#E6F1FB;color:#0C447C;}
+  .badge.updated{background:#FAEEDA;color:#854F0B;}
+  .badge.unchanged{background:#E7F6EC;color:#2F7D4F;}
+  .badge.launch-ok{background:#E7F6EC;color:#2F7D4F;}
+  .badge.launch-no{background:#FCEBEB;color:#A32D2D;}
+  .badge.nosrc{background:#EDECFB;color:#4B3F9E;}
+  .primary-cell{font-weight:600;}
+  .sub-cell{font-size:11px;color:var(--muted);}
+  .map-cell{display:flex;flex-direction:column;gap:3px;}
+  .map-tag{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;}
+  .map-tag.proposed{color:#854F0B;}
+  .map-tag.confirmed{color:#2F7D4F;}
+  .map-tag.needs{color:#A32D2D;}
+  .conflict-box{margin-top:8px;background:#FAEEDA;border:1px solid #F0DCB8;border-radius:6px;padding:8px 10px;font-size:12px;color:#5C4813;}
+  .conflict-box label{display:block;margin:3px 0;cursor:pointer;}
+  .conflict-box .warn{color:#7A1F1F;font-style:italic;margin-top:4px;}
+  .row-detail td{background:#FAFBFC;padding:12px 16px;font-size:12.5px;line-height:1.6;}
+  .field-block{margin-bottom:10px;}
+  .field-block h4{margin:0 0 4px;font-size:12px;color:var(--navy);}
+  .field-text{white-space:pre-line;max-height:140px;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+  .field-text.empty{color:var(--muted);font-style:italic;}
+  .callout{border-radius:6px;padding:8px 10px;font-size:12.5px;margin-bottom:10px;}
+  .callout.updated{background:#FAEEDA;border:1px solid #F0DCB8;color:#5C4813;}
+  .callout.missing{background:#FCEBEB;border:1px solid #F0C1C1;color:#7A1F1F;}
+  .callout.info{background:#EDF1F7;border:1px solid var(--border);color:#33415C;}
+  .callout.nosrc{background:#EDECFB;border:1px solid #CFC9F0;color:#4B3F9E;}
+  .confirm-row{margin-top:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .confirm-row .hint{font-size:12px;color:var(--muted);}
+  .import-summary{margin-top:22px;background:#FAFBFC;border:1px solid var(--border);border-radius:10px;padding:16px 20px;}
+  .import-summary h3{margin:0 0 10px;font-size:14px;color:var(--navy);}
+  .import-summary ul{margin:0;padding-left:18px;font-size:12.5px;line-height:1.8;max-height:320px;overflow-y:auto;}
+  .import-summary .followup{margin-top:12px;font-size:12.5px;color:var(--muted);}
+  .hidden{display:none;}
+  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-10px);background:var(--navy);color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;z-index:200;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="prototype-flag">Prototype — Admin data import only. Files are parsed in the browser and never uploaded anywhere.</div>
+<div class="toast" id="toast"></div>
+<header class="topbar">
+  <div class="brand">Group Compass <span class="tag">DNA module</span></div>
+  <div class="crumb">Admin / Data import</div>
+  <div class="spacer"></div>
+  <div class="role-pill">Admin</div>
+</header>
+<div class="wrap">
+  <h1>Data import</h1>
+  <p class="subtitle">Groups and users are imported separately from CSV; re-importing updates existing records without losing history.</p>
+  <div class="tabbar">
+    <button class="tab active" id="tabBtnGroups" data-tab="groups">Groups <span class="count" id="tabCountGroups"></span></button>
+    <button class="tab" id="tabBtnUsers" data-tab="users">Users <span class="count" id="tabCountUsers"></span></button>
+  </div>
+
+  <!-- GROUPS -->
+  <div class="tabpanel" id="panelGroups">
+    <p class="panel-lead">Salesforce group export. Each group gets an internal record and is matched to existing <strong>users</strong> for its Chair and Network Advisor — you confirm every match. Country is derived from <strong>Partner Code</strong>. A group is not launchable until both Chair and Network Advisor are mapped.</p>
+    <div class="upload-card">
+      <input type="file" id="grpFile" accept=".csv,text/csv">
+      <p class="upload-hint">Required columns: <code>EGN Group Name</code> <code>EGN Group Id</code> <code>MMSGroup: Name</code> <code>Partner Code</code> <code>Group Profile</code> <code>Member Profile</code> <code>Companies Profile</code> <code>Responsible Chair</code> <code>Responsible Sales</code> (Responsible Sales = Network Advisor). CSV must be <strong>UTF-8</strong>; delimiter auto-detected.</p>
+    </div>
+    <div class="sample-row">
+      <span class="hint">No file handy? Load sample data:</span>
+      <select id="grpSample">
+        <option value="clean">Clean sample (6 groups)</option>
+        <option value="rowErrors">Row errors (blank id, duplicate, short row)</option>
+        <option value="missingColumn">Missing column (Partner Code)</option>
+        <option value="badEncoding">Wrong encoding (ANSI / Windows-1252)</option>
+        <option value="v2">Re-import v2 (run after your first confirm)</option>
+      </select>
+      <button class="btn btn-small" id="grpLoadSample">Load sample</button>
+    </div>
+    <div class="step hidden" id="grpStep1">
+      <p class="step-label">Step 1 — File preview</p>
+      <p class="filemeta" id="grpMeta"></p>
+      <div class="raw-scroll"><table class="raw-table" id="grpRaw"></table></div>
+      <div id="grpBanners"></div>
+      <button class="btn btn-primary btn-small" id="grpContinue">Continue to import preview</button>
+    </div>
+    <div class="step hidden" id="grpStep2">
+      <p class="step-label">Step 2 — Import preview &amp; user mapping</p>
+      <div class="summary-bar" id="grpSummary"></div>
+      <table class="preview-table">
+        <thead><tr>
+          <th style="width:84px;">Status</th><th>Group</th><th style="width:78px;">Country</th>
+          <th style="width:220px;">Chair</th><th style="width:220px;">Network Advisor</th><th style="width:104px;">Launchable</th>
+        </tr></thead>
+        <tbody id="grpBody"></tbody>
+      </table>
+      <div class="confirm-row">
+        <button class="btn btn-primary" id="grpConfirm">Confirm import</button>
+        <span class="hint" id="grpConfirmHint"></span>
+      </div>
+    </div>
+    <div id="grpDone" class="import-summary hidden">
+      <h3>Groups import complete</h3>
+      <ul id="grpDoneList"></ul>
+      <p class="followup">Groups marked <strong>Needs mapping</strong> imported but can't be launched until their Chair and Network Advisor are mapped. Import the missing people on the Users tab, then re-open this preview to resolve them.</p>
+    </div>
+  </div>
+
+  <!-- USERS -->
+  <div class="tabpanel hidden" id="panelUsers">
+    <p class="panel-lead">People list — one row per person, identified by <strong>email</strong>. Re-importing updates a person in place and <strong>adds</strong> any new role without removing existing ones. Chair Leaders and Sales Leaders are usually created here or in the Admin UI rather than imported.</p>
+    <div class="upload-card">
+      <input type="file" id="usrFile" accept=".csv,text/csv">
+      <p class="upload-hint">Required columns: <code>Initials</code> <code>Name</code> <code>Email</code> <code>Role</code>. Recognised roles: Chair, Network Advisor, Chair Leader, Sales Leader, Admin. Multiple roles comma-separated. CSV must be <strong>UTF-8</strong>.</p>
+    </div>
+    <div class="sample-row">
+      <span class="hint">No file handy? Load sample data:</span>
+      <select id="usrSample">
+        <option value="clean">Clean sample (13 people)</option>
+        <option value="rowErrors">Row errors (blank initials, duplicate, bad email)</option>
+        <option value="missingColumn">Missing column (Email)</option>
+        <option value="badRole">Unrecognised / added role</option>
+      </select>
+      <button class="btn btn-small" id="usrLoadSample">Load sample</button>
+    </div>
+    <div class="step hidden" id="usrStep1">
+      <p class="step-label">Step 1 — File preview</p>
+      <p class="filemeta" id="usrMeta"></p>
+      <div class="raw-scroll"><table class="raw-table" id="usrRaw"></table></div>
+      <div id="usrBanners"></div>
+      <button class="btn btn-primary btn-small" id="usrContinue">Continue to import preview</button>
+    </div>
+    <div class="step hidden" id="usrStep2">
+      <p class="step-label">Step 2 — Import preview</p>
+      <div class="summary-bar" id="usrSummary"></div>
+      <table class="preview-table">
+        <thead><tr>
+          <th style="width:84px;">Status</th><th style="width:70px;">Initials</th><th>Name</th><th>Email</th><th>Role(s) after import</th><th style="width:80px;">Groups</th>
+        </tr></thead>
+        <tbody id="usrBody"></tbody>
+      </table>
+      <div class="confirm-row">
+        <button class="btn btn-primary" id="usrConfirm">Confirm import</button>
+        <span class="hint" id="usrConfirmHint"></span>
+      </div>
+    </div>
+    <div id="usrDone" class="import-summary hidden">
+      <h3>Users import complete</h3>
+      <ul id="usrDoneList"></ul>
+      <p class="followup">Roles are additive — a person keeps roles from earlier imports. Any group mapping that was waiting on these people has been refreshed on the Groups tab.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+var SAMPLE_GROUPS = [["Leadership Peer Group Vest 6 (02811-EGDK)", "72327", "02811-EGDK", "EGDK", "Nye ledere fra store og mellemstore virksomheder og organisationer i Vestdanmark med mere end 250 ansatte. Medlemmerne er typisk fra 30-45 år. Medlemmerne sidder i deres første lederstilling og har mellem 2 - 5 års ledelseserfaring.\n \n Personaleledelse -medarbejdere i direkte reference er et krav til gruppen (min. +5 medarbejdere)\n \n Mulige temaer:\n \n Eksempler og forslag til temaer - den færdige liste besluttes i fællesskab\n \n \"\tKrav til fremtidens leder \n \n \"\tDelegering og forventningsafstemning\n \n \"\tDet Personlige Lederskab \n \n \"\tPrioritering af egen tid og ressourcer\n \n \"\tForandringsledelse \n \n \"\tLedelse opad\n \n \"\tKonflikthåndtering \n \n \"\tPersonprofiler\n \n \"\tKarriereplanlægning \n \n \"\tStakeholder management", "Titler: Head of, Manager, Teamleder, Afdelingsleder, Team Lead, \n \n Alder: 30-45\n \n Uddannelse: Kan have diverse lederkurser, men ingen reel lederuddannelse krævet, nogle har dog.\n \n Andet: Personaleledelse er et krav, min 5. i ref.", "Mellemstore og store virksomheder Jylland/Fyn, +250 ansatte", "GAM - Gitte Astrup Melgaard", "FRN - Frederik Nellemann"], ["Leadership Peer Group Øst 3 (02813-EGDK)", "72333", "02813-EGDK", "EGDK", "Nye ledere fra store og mellemstore virksomheder og organisationer i Østdanmark med mere end 250 ansatte. Medlemmerne er typisk fra 30-45 år. Medlemmerne sidder i deres første lederstilling og har mellem 0-2 års ledelseserfaring.\n \n Personaleledelse -medarbejdere i direkte reference er et krav til gruppen (min. +5 medarbejdere)\n \n Mulige temaer:\n \n Eksempler og forslag til temaer - den færdige liste besluttes i fællesskab\n \n \"\tKrav til fremtidens leder \n \n \"\tDelegering og forventningsafstemning\n \n \"\tDet Personlige Lederskab \n \n \"\tPrioritering af egen tid og ressourcer\n \n \"\tForandringsledelse \n \n \"\tLedelse opad\n \n \"\tKonflikthåndtering \n \n \"\tPersonprofiler\n \n \"\tKarriereplanlægning \n \n \"\tStakeholder management", "Titler: Head of, Manager, Teamleder, Afdelingsleder, Team Lead, \n \n Alder: 30-45\n \n Uddannelse: Kan have diverse lederkurser, men ingen reel lederuddannelse krævet, nogle har dog.\n \n Andet: Personaleledelse er et krav, min 5. i ref.", "Mellemstore og store virksomheder Sjælland +250 ansatte", "SOV - Søren Villadsen", "KNP - Kristine Neperus Pryds"], ["Økonomi - Fyn (Jylland) (01003-EGDK)", "7", "01003-EGDK", "EGDK", "Gruppen henvender sig til økonomiansvarlige på Fyn og i trekantsområdet. Der lægges stor vægt på gensidig sparring. Gruppen holder møder (kl.9-15) for at få tid til at komme frem med udfordringerne. Der er stor åbenhed i gruppen omkring problemer og udfordringer - og det forventes også af nye medlemmer.\n \n \n \n Gruppe opstartet 26/5-1999\n \n \n \n Udfordringer har været:\n \n Udvikling af økonomi-organisationen\n \n Excel-løsninger\n \n Forandringsledelse\n \n Udskiftning af C5\n \n Etablering af selskab i Frankrig\n \n Worklife balance\n \n Pensionsordninger\n \n \n \n Seneste sparringsrunder har arbejdet med erfaringer med free-seating ordninger, for hurtige ERP Go live forløb, outplacement og nedlukning i Danmark samt distanceledelse - den nye disciplin for rigtigt mange. Desuden recessionsovervejelser, hvad forventer vi?", "Den økonomi- eller regnskabsansvarlige, gerne den øverstansvarlige for mindre organisationer.\n \n Ikke noget specielt krav til uddannelse - opgaverne og ansvaret er det vigtigste.\n \n Aldersspredning primo 40 til medio 50. \n \n \n \n Generelt uddannelsesniveau HD-Regnskab, men ikke et krav.", "Målgruppe mindre til mellemstore virksomheder, 50-250 ansatte. Derudover institutioner, halv- og heloffentlige virksomheder.\n \n Omsætning under 500 mio, men geografien overstyrer.", "SHF - Søren Hyre-Fenneberg", "FRE - Frank Egsvang"], ["Logistik - Midt- & Nordjylland 1 (01022-EGDK)", "494", "01022-EGDK", "EGDK", "Updated 2026-04-28 \n Gruppen faglighed tager afset i den logistiske verden, men primært med fokus på lederens rolle, det handler primært om operationel ledelse, med afset i det taktisk niveau. \n Gruppens temaer vil som ofte taget afset i ledelse eller udvikling af personlig lederskab, men kan også være logistiske temaer \n Logistiske temaer håndteres typisk i forbindelse med sparringsrunderne, og det er medlemmers eget ansvar at bringe disse til bords", "Updated 2026-04-28 Medlemmer af gruppen kommer typisk fra SMV?er i Midt og Nordjylland, det er mellemledere som oftest har ledelse af specialister og/eller operationel personale (eks. lager folk, shipping medarbejdere, lager operatører, varemodtagelse, chauffører osv.) .", "Updated 2026-04-28 ? SMV'er i Midt- og Nordjylland", "MPO - Mads Porsmose Larsen", "HK - Helle Kast"], ["CFO-Sjælland 1 (02459-EGDK)", "70312", "02459-EGDK", "EGDK", "", "", "", "NST - Niels Stub", "JBB - Jacob Bernhard Bech"], ["Senior Specialister Øst 7 (02810-EGDK)", "72304", "02810-EGDK", "EGDK", "OBS: denne gruppe har yngre profiler end de øvrige senior specialist grupper. Nye medlemmer skal være under 45 år. Mangler kvinder\n \n \n \n Senior specialister som oftest sidder med fagligt ledelsesansvar, fra mellemstore og store virksomheder i Øst Danmark. \n \n Mulige temaer:\n \n Eksempler og forslag til temaer - den færdige liste besluttes i fællesskab\n \n \"\tLedelse opad\n \n \"\tNavigering i organisationen\n \n \"\tBeslutningsoplæg (der virker)\n \n \"\tEgen kompetenceudvikling\n \n \"\tProjektkoordinering\n \n \"\tFeedback/kommunikation til udvalgte personprofiler\n \n \"\tHåndtering af forandringer\n \n \"\tPrioritering af sin tid", "Titler: Senior Quality Engineer, Senior Specialist, Specialist, Senior Engineer Consultant, Chief Engineer, Lead Mechanical Engineer, Mechanical Engineer\n \n Alder: 35+", "Mellemstore og store virksomheder Sjælland +500 ansatte", "SUS - Susanne Svejgaard", "Unknown"]];
+var SAMPLE_PEOPLE = [{"initials": "GAM", "name": "Gitte Astrup Melgaard", "email": "gitte.melgaard@egn.com", "role": "Chair"}, {"initials": "FRN", "name": "Frederik Nellemann", "email": "frederik.nellemann@egn.com", "role": "Network Advisor"}, {"initials": "SOV", "name": "Søren Villadsen", "email": "soeren.villadsen@egn.com", "role": "Chair"}, {"initials": "KNP", "name": "Kristine Neperus Pryds", "email": "kristine.pryds@egn.com", "role": "Network Advisor"}, {"initials": "SHF", "name": "Søren Hyre-Fenneberg", "email": "soeren.fenneberg@egn.com", "role": "Chair"}, {"initials": "FRE", "name": "Frank Egsvang", "email": "frank.egsvang@egn.com", "role": "Network Advisor"}, {"initials": "MPO", "name": "Mads Porsmose Larsen", "email": "mads.larsen@egn.com", "role": "Chair"}, {"initials": "HK", "name": "Helle Kast", "email": "helle.kast@egn.com", "role": "Network Advisor"}, {"initials": "NST", "name": "Niels Stub", "email": "niels.stub@egn.com", "role": "Chair"}, {"initials": "JBB", "name": "Jacob Bernhard Bech", "email": "jacob.bech@egn.com", "role": "Network Advisor"}, {"initials": "SUS", "name": "Susanne Svejgaard", "email": "susanne.svejgaard@egn.com", "role": "Chair"}, {"initials": "JAP", "name": "Jacob Amdisen Pedersen", "email": "jap@egn.com", "role": "Admin"}, {"initials": "SOK", "name": "Søren Kjær", "email": "soeren.kjaer@egn.com", "role": "Chair Leader"}];
+var ANSI_B64 = "RUdOIEdyb3VwIE5hbWU7RUdOIEdyb3VwIElkO01NU0dyb3VwOiBOYW1lO1BhcnRuZXIgQ29kZTtHcm91cCBQcm9maWxlO01lbWJlciBQcm9maWxlO0NvbXBhbmllcyBQcm9maWxlO1Jlc3BvbnNpYmxlIENoYWlyO1Jlc3BvbnNpYmxlIFNhbGVzDQpMZWFkZXJzaGlwIFBlZXIgR3JvdXAgVmVzdCA2ICgwMjgxMS1FR0RLKTs3MjMyNzswMjgxMS1FR0RLO0VHREs7Ik55ZSBsZWRlcmUgZnJhIHN0b3JlIG9nIG1lbGxlbXN0b3JlIHZpcmtzb21oZWRlciBvZyBvcmdhbmlzYXRpb25lciBpIFZlc3RkYW5tYXJrIG1lZCBtZXJlIGVuZCAyNTAgYW5zYXR0ZS4gTWVkbGVtbWVybmUgZXIgdHlwaXNrIGZyYSAzMC00NSDlci4gTWVkbGVtbWVybmUgc2lkZGVyIGkgZGVyZXMgZvhyc3RlIGxlZGVyc3RpbGxpbmcgb2cgaGFyIG1lbGxlbSAyIC0gNSDlcnMgbGVkZWxzZXNlcmZhcmluZy4KIAogUGVyc29uYWxlbGVkZWxzZSAtbWVkYXJiZWpkZXJlIGkgZGlyZWt0ZSByZWZlcmVuY2UgZXIgZXQga3JhdiB0aWwgZ3J1cHBlbiAobWluLiArNSBtZWRhcmJlamRlcmUpCiAKIE11bGlnZSB0ZW1hZXI6CiAKIEVrc2VtcGxlciBvZyBmb3JzbGFnIHRpbCB0ZW1hZXIgLSBkZW4gZuZyZGlnZSBsaXN0ZSBiZXNsdXR0ZXMgaSBm5mxsZXNza2FiCiAKICIiCUtyYXYgdGlsIGZyZW10aWRlbnMgbGVkZXIgCiAKICIiCURlbGVnZXJpbmcgb2cgZm9ydmVudG5pbmdzYWZzdGVtbmluZwogCiAiIglEZXQgUGVyc29ubGlnZSBMZWRlcnNrYWIgCiAKICIiCVByaW9yaXRlcmluZyBhZiBlZ2VuIHRpZCBvZyByZXNzb3VyY2VyCiAKICIiCUZvcmFuZHJpbmdzbGVkZWxzZSAKIAogIiIJTGVkZWxzZSBvcGFkCiAKICIiCUtvbmZsaWt0aOVuZHRlcmluZyAKIAogIiIJUGVyc29ucHJvZmlsZXIKIAogIiIJS2FycmllcmVwbGFubOZnbmluZyAKIAogIiIJU3Rha2Vob2xkZXIgbWFuYWdlbWVudCI7IlRpdGxlcjogSGVhZCBvZiwgTWFuYWdlciwgVGVhbWxlZGVyLCBBZmRlbGluZ3NsZWRlciwgVGVhbSBMZWFkLCAKIAogQWxkZXI6IDMwLTQ1CiAKIFVkZGFubmVsc2U6IEthbiBoYXZlIGRpdmVyc2UgbGVkZXJrdXJzZXIsIG1lbiBpbmdlbiByZWVsIGxlZGVydWRkYW5uZWxzZSBrcuZ2ZXQsIG5vZ2xlIGhhciBkb2cuCiAKIEFuZGV0OiBQZXJzb25hbGVsZWRlbHNlIGVyIGV0IGtyYXYsIG1pbiA1LiBpIHJlZi4iO01lbGxlbXN0b3JlIG9nIHN0b3JlIHZpcmtzb21oZWRlciBKeWxsYW5kL0Z5biwgKzI1MCBhbnNhdHRlO0dBTSAtIEdpdHRlIEFzdHJ1cCBNZWxnYWFyZDtGUk4gLSBGcmVkZXJpayBOZWxsZW1hbm4NCkxlYWRlcnNoaXAgUGVlciBHcm91cCDYc3QgMyAoMDI4MTMtRUdESyk7NzIzMzM7MDI4MTMtRUdESztFR0RLOyJOeWUgbGVkZXJlIGZyYSBzdG9yZSBvZyBtZWxsZW1zdG9yZSB2aXJrc29taGVkZXIgb2cgb3JnYW5pc2F0aW9uZXIgaSDYc3RkYW5tYXJrIG1lZCBtZXJlIGVuZCAyNTAgYW5zYXR0ZS4gTWVkbGVtbWVybmUgZXIgdHlwaXNrIGZyYSAzMC00NSDlci4gTWVkbGVtbWVybmUgc2lkZGVyIGkgZGVyZXMgZvhyc3RlIGxlZGVyc3RpbGxpbmcgb2cgaGFyIG1lbGxlbSAwLTIg5XJzIGxlZGVsc2VzZXJmYXJpbmcuCiAKIFBlcnNvbmFsZWxlZGVsc2UgLW1lZGFyYmVqZGVyZSBpIGRpcmVrdGUgcmVmZXJlbmNlIGVyIGV0IGtyYXYgdGlsIGdydXBwZW4gKG1pbi4gKzUgbWVkYXJiZWpkZXJlKQogCiBNdWxpZ2UgdGVtYWVyOgogCiBFa3NlbXBsZXIgb2cgZm9yc2xhZyB0aWwgdGVtYWVyIC0gZGVuIGbmcmRpZ2UgbGlzdGUgYmVzbHV0dGVzIGkgZuZsbGVzc2thYgogCiAiIglLcmF2IHRpbCBmcmVtdGlkZW5zIGxlZGVyIAogCiAiIglEZWxlZ2VyaW5nIG9nIGZvcnZlbnRuaW5nc2Fmc3RlbW5pbmcKIAogIiIJRGV0IFBlcnNvbmxpZ2UgTGVkZXJza2FiIAogCiAiIglQcmlvcml0ZXJpbmcgYWYgZWdlbiB0aWQgb2cgcmVzc291cmNlcgogCiAiIglGb3JhbmRyaW5nc2xlZGVsc2UgCiAKICIiCUxlZGVsc2Ugb3BhZAogCiAiIglLb25mbGlrdGjlbmR0ZXJpbmcgCiAKICIiCVBlcnNvbnByb2ZpbGVyCiAKICIiCUthcnJpZXJlcGxhbmzmZ25pbmcgCiAKICIiCVN0YWtlaG9sZGVyIG1hbmFnZW1lbnQiOyJUaXRsZXI6IEhlYWQgb2YsIE1hbmFnZXIsIFRlYW1sZWRlciwgQWZkZWxpbmdzbGVkZXIsIFRlYW0gTGVhZCwgCiAKIEFsZGVyOiAzMC00NQogCiBVZGRhbm5lbHNlOiBLYW4gaGF2ZSBkaXZlcnNlIGxlZGVya3Vyc2VyLCBtZW4gaW5nZW4gcmVlbCBsZWRlcnVkZGFubmVsc2Uga3LmdmV0LCBub2dsZSBoYXIgZG9nLgogCiBBbmRldDogUGVyc29uYWxlbGVkZWxzZSBlciBldCBrcmF2LCBtaW4gNS4gaSByZWYuIjtNZWxsZW1zdG9yZSBvZyBzdG9yZSB2aXJrc29taGVkZXIgU2rmbGxhbmQgKzI1MCBhbnNhdHRlO1NPViAtIFP4cmVuIFZpbGxhZHNlbjtLTlAgLSBLcmlzdGluZSBOZXBlcnVzIFByeWRzDQo=";
+
+var GROUP_COLS=["EGN Group Name","EGN Group Id","MMSGroup: Name","Partner Code","Group Profile","Member Profile","Companies Profile","Responsible Chair","Responsible Sales"];
+var USER_COLS=["Initials","Name","Email","Role"];
+var PARTNER_COUNTRY={EGDK:"Denmark",EGSE:"Sweden",EGNO:"Norway",EGFI:"Finland",EGNL:"Netherlands",EGDE:"Germany"};
+var KNOWN_ROLES=["Chair","Network Advisor","Chair Leader","Sales Leader","Admin"];
+
+/* ---- stores ---- */
+// Users keyed by email (identity). Seed only a few so first group import shows matched + unmatched.
+var USERS={};                 // email -> {email,name,initials,roles:[]}
+var USERS_VER={};
+function seedUser(ini){var p=SAMPLE_PEOPLE.filter(function(x){return x.initials===ini;})[0];if(p){USERS[p.email]={email:p.email,name:p.name,initials:p.initials,roles:[p.role]};USERS_VER[p.email]=1;}}
+seedUser("GAM"); seedUser("FRN"); seedUser("SOV");
+
+// Groups keyed by internal recordId; index egnGroupId -> [recordId,...]
+var GROUPS={};                // recordId -> record
+var GROUP_IDX={};             // egnGroupId -> [recordId]
+var RECORD_SEQ=1000;
+function nextRecordId(){RECORD_SEQ+=1;return "R"+RECORD_SEQ;}
+function norm(s){return String(s==null?"":s).replace(/\s+/g," ").trim();}
+
+// Seed two existing records so the clean import shows Unchanged + Updated(+mid-review).
+(function seedGroups(){
+  var g1=SAMPLE_GROUPS[0]; // 72327 -> identical -> Unchanged
+  var r1=nextRecordId();
+  GROUPS[r1]={recordId:r1,egnGroupId:g1[1],name:g1[0],mms:g1[2],partnerCode:g1[3],
+    groupProfile:g1[4],memberProfile:g1[5],companiesProfile:g1[6],
+    chairInitials:hintIni(g1[7]).ini, naInitials:hintIni(g1[8]).ini,
+    status:"Imported", versions:1};
+  GROUP_IDX[g1[1]]=[r1];
+  var g2=SAMPLE_GROUPS[1]; // 72333 -> different profile + mid-review -> Updated
+  var r2=nextRecordId();
+  GROUPS[r2]={recordId:r2,egnGroupId:g2[1],name:g2[0],mms:g2[2],partnerCode:g2[3],
+    groupProfile:"(older imported profile text — differs from the current export)",
+    memberProfile:g2[5],companiesProfile:g2[6],
+    chairInitials:hintIni(g2[7]).ini, naInitials:hintIni(g2[8]).ini,
+    status:"Chair review", versions:2};
+  GROUP_IDX[g2[1]]=[r2];
+})();
+
+/* ---- helpers ---- */
+var toastEl=document.getElementById("toast"),toastT=null;
+function showToast(m){toastEl.textContent=m;toastEl.classList.add("show");clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove("show");},2200);}
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function hintIni(s){var m=String(s||"").match(/^\s*([A-ZÆØÅ0-9]{1,5})\s*-\s*(.+)$/);return m?{ini:m[1],name:m[2].trim()}:{ini:null,name:String(s||"").trim()};}
+var EMAIL_RE=/^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]{2,}$/;
+function headerIndex(h){var idx={};h.forEach(function(x,i){idx[String(x==null?"":x).replace(/^﻿/,"").trim()]=i;});return idx;}
+
+function decodeUtf8Strict(buf){
+  var b=new Uint8Array(buf),off=(b[0]===0xEF&&b[1]===0xBB&&b[2]===0xBF)?3:0,v=b.subarray(off);
+  try{return {ok:true,text:new TextDecoder("utf-8",{fatal:true}).decode(v),bom:off>0};}
+  catch(e){
+    var pos=-1,val=0,loose=new TextDecoder("utf-8").decode(v),bad=loose.indexOf("�");
+    for(var i=0;i<v.length;i++){if(v[i]>=0x80){try{new TextDecoder("utf-8",{fatal:true}).decode(v.subarray(i,Math.min(i+4,v.length)));}catch(e2){pos=i+off;val=v[i];break;}}}
+    return {ok:false,bytePos:pos,byteVal:val,sample:bad>=0?loose.substr(Math.max(0,bad-30),70):""};
+  }
+}
+function sniff(text){var line="",q=false,i;for(i=0;i<text.length;i++){var c=text[i];if(c==='"')q=!q;if(!q&&(c==="\n"||c==="\r"))break;line+=c;}var ct={";":0,",":0,"\t":0};q=false;for(i=0;i<line.length;i++){var c2=line[i];if(c2==='"'){q=!q;continue;}if(!q&&ct[c2]!==undefined)ct[c2]++;}var best=";",n=-1;Object.keys(ct).forEach(function(d){if(ct[d]>n){n=ct[d];best=d;}});return n>0?best:";";}
+function parseCsv(text,delim){var rows=[],f="",row=[],q=false,i=0;while(i<text.length){var c=text[i];if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=c;i++;continue;}if(c==='"'){q=true;i++;continue;}if(c===delim){row.push(f);f="";i++;continue;}if(c==="\r"){i++;continue;}if(c==="\n"){row.push(f);rows.push(row);row=[];f="";i++;continue;}f+=c;i++;}if(f!==""||row.length){row.push(f);rows.push(row);}return rows.filter(function(r){return !(r.length===1&&r[0].trim()==="");});}
+function serialize(headers,rows,delim){function qq(v){var s=String(v==null?"":v);return /["\r\n]/.test(s)||s.indexOf(delim)!==-1?'"'+s.replace(/"/g,'""')+'"':s;}return [headers.map(qq).join(delim)].concat(rows.map(function(r){return r.map(qq).join(delim);})).join("\r\n");}
+function utf8(text){return new TextEncoder().encode(text).buffer;}
+function b64buf(b64){var s=atob(b64),a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a.buffer;}
+function download(name,text){var blob=new Blob([text],{type:"text/csv;charset=utf-8"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url);},1000);}
+
+function renderRaw(tableEl,aoa){
+  var h=aoa[0]||[],d=aoa.slice(1),shown=d.slice(0,5);
+  var thead='<thead><tr><th class="rownum">#</th>'+h.map(function(x){return "<th>"+esc(x)+"</th>";}).join("")+"</tr></thead>";
+  var tbody="<tbody>"+shown.map(function(r,i){return '<tr><td class="rownum">'+(i+2)+"</td>"+h.map(function(_,c){var v=r[c]!=null?String(r[c]).replace(/\s+/g," ").trim():"";return '<td title="'+esc(v).replace(/"/g,"&quot;")+'">'+esc(v)+"</td>";}).join("")+"</tr>";}).join("")+"</tbody>";
+  tableEl.innerHTML=thead+tbody;
+  return {total:d.length,shown:shown.length,cols:h.length};
+}
+function renderBanners(el,err,warnTitle,warns,onDownload){
+  var html="";
+  if(err&&err.items&&err.items.length){html+='<div class="banner error"><strong class="title">'+esc(err.title)+"</strong><ul>"+err.items.map(function(e){return "<li>"+e+"</li>";}).join("")+"</ul>"+(err.fix?'<span class="fix">'+err.fix+"</span>":"")+"</div>";}
+  if(warns&&warns.length){var cap=warns.slice(0,20);html+='<div class="banner warning"><strong class="title">'+esc(warnTitle)+"</strong><ul>"+cap.map(function(w){return "<li>"+w+"</li>";}).join("")+(warns.length>cap.length?"<li>… and "+(warns.length-cap.length)+" more</li>":"")+"</ul>"+(onDownload?'<div class="actions"><button class="btn btn-small" id="'+onDownload+'">Download issues (CSV)</button></div>':"")+"</div>";}
+  el.innerHTML=html;
+}
+function scanRows(dataRows,idx,keyCol,requiredCols,colCount){
+  var seen={},valid=[],skipped=[];
+  dataRows.forEach(function(row,i){
+    var ln=i+2;
+    if(row.length<colCount){skipped.push({row:ln,key:"",reason:"only "+row.length+" of "+colCount+" columns"});return;}
+    var miss=requiredCols.filter(function(c){return !String(row[idx[c]]||"").trim();});
+    if(miss.length){skipped.push({row:ln,key:"",reason:"empty "+miss.join(" and ")});return;}
+    var k=String(row[idx[keyCol]]).trim();
+    if(seen[k]!==undefined){skipped.push({row:ln,key:k,reason:"duplicate "+keyCol+" (first seen row "+seen[k]+", kept)"});return;}
+    seen[k]=ln;valid.push(row);
+  });
+  return {valid:valid,skipped:skipped};
+}
+
+/* tabs */
+function showTab(n){["groups","users"].forEach(function(t){var on=t===n;document.getElementById("panel"+(t==="groups"?"Groups":"Users")).classList.toggle("hidden",!on);document.getElementById("tabBtn"+(t==="groups"?"Groups":"Users")).classList.toggle("active",on);});}
+document.getElementById("tabBtnGroups").addEventListener("click",function(){showTab("groups");});
+document.getElementById("tabBtnUsers").addEventListener("click",function(){showTab("users");});
+function counts(){document.getElementById("tabCountGroups").textContent="("+Object.keys(GROUPS).length+")";document.getElementById("tabCountUsers").textContent="("+Object.keys(USERS).length+")";}
+
+/* generic ingest */
+function ingest(cfg,buf,label){
+  var s1=document.getElementById(cfg.step1),ban=document.getElementById(cfg.banners),cont=document.getElementById(cfg.cont),meta=document.getElementById(cfg.meta),raw=document.getElementById(cfg.raw);
+  s1.classList.remove("hidden");document.getElementById(cfg.step2).classList.add("hidden");document.getElementById(cfg.done).classList.add("hidden");
+  cont.classList.remove("hidden");cfg.state.pending=null;cfg.state.expanded={};
+  var dec=decodeUtf8Strict(buf);
+  if(!dec.ok){
+    raw.innerHTML="";meta.innerHTML="<strong>"+esc(label)+'</strong> · <span class="chip bad">Not valid UTF-8</span>';
+    renderBanners(ban,{title:"This file is not saved as UTF-8 — import blocked",items:["First invalid byte: <strong>0x"+dec.byteVal.toString(16).toUpperCase()+"</strong> at position "+dec.bytePos+" (typical of a Windows ANSI / Windows-1252 export).",dec.sample?"Text around it decodes as: <em>"+esc(dec.sample)+"</em>":"Nordic characters would be corrupted if imported."],fix:"Fix: in Excel use Save As → CSV UTF-8, or choose UTF-8 in the Salesforce export, then re-upload."},null,null,null);
+    cont.classList.add("hidden");return;
+  }
+  var text=dec.text;
+  if(!text.trim()){raw.innerHTML="";meta.innerHTML="<strong>"+esc(label)+"</strong>";renderBanners(ban,{title:"Cannot import",items:["The file is empty."]},null,null,null);cont.classList.add("hidden");return;}
+  var delim=sniff(text),aoa=parseCsv(text,delim),dn=delim===";"?"semicolon":delim===","?"comma":"tab",info=renderRaw(raw,aoa);
+  meta.innerHTML="<strong>"+esc(label)+"</strong><br>"+'<span class="chip good">UTF-8'+(dec.bom?" (BOM)":"")+'</span><span class="chip">Delimiter: '+dn+'</span><span class="chip">'+info.cols+" columns</span><span class=\"chip\">"+info.total+" data row"+(info.total===1?"":"s")+"</span> Showing the first "+info.shown+" row"+(info.shown===1?"":"s")+".";
+  if(aoa.length<2){renderBanners(ban,{title:"Cannot import",items:["No data rows below the header row."]},null,null,null);cont.classList.add("hidden");return;}
+  var idx=headerIndex(aoa[0]),missing=cfg.cols.filter(function(c){return idx[c]===undefined;});
+  if(missing.length){renderBanners(ban,{title:"Missing required column"+(missing.length>1?"s":"")+" — import blocked",items:missing.map(function(c){return "<strong>"+esc(c)+"</strong>";}),fix:"Fix: re-export with the column"+(missing.length>1?"s":"")+" included, or rename the header to match exactly."},null,null,null);cont.classList.add("hidden");return;}
+  var scan=scanRows(aoa.slice(1),idx,cfg.keyCol,cfg.requiredCols,aoa[0].length);
+  var extra=cfg.extra?cfg.extra(scan.valid,idx):[];
+  var warnItems=scan.skipped.map(function(s){return "Row "+s.row+": "+esc(s.reason)+(s.key?" ("+esc(s.key)+")":"")+" — skipped.";}).concat(extra);
+  if(!scan.valid.length){renderBanners(ban,{title:"Nothing left to import",items:["Every data row was skipped."].concat(scan.skipped.map(function(s){return "Row "+s.row+": "+esc(s.reason);}))},null,null,null);cont.classList.add("hidden");return;}
+  var dlId=scan.skipped.length?cfg.prefix+"DlIssues":null;
+  renderBanners(ban,null,warnItems.length+" issue"+(warnItems.length===1?"":"s")+" found — "+scan.skipped.length+" row"+(scan.skipped.length===1?"":"s")+" will be skipped, the rest import as normal",warnItems.length?warnItems:null,dlId);
+  if(dlId){document.getElementById(dlId).addEventListener("click",function(){var rows=scan.skipped.map(function(s){return [s.row,s.key,s.reason];});download(cfg.prefix+"-import-issues.csv",serialize(["row","key","reason"],rows,","));});}
+  cfg.state.pending={idx:idx,rows:scan.valid};showToast(label+" loaded");
+}
+function wireFile(cfg){document.getElementById(cfg.file).addEventListener("change",function(e){var f=e.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(ev){ingest(cfg,ev.target.result,f.name);};rd.onerror=function(){document.getElementById(cfg.step1).classList.remove("hidden");document.getElementById(cfg.raw).innerHTML="";document.getElementById(cfg.meta).textContent="";renderBanners(document.getElementById(cfg.banners),{title:"Could not read this file",items:["Check it is a plain .csv file."]},null,null,null);document.getElementById(cfg.cont).classList.add("hidden");};rd.readAsArrayBuffer(f);});}
+
+/* ================= GROUPS ================= */
+var grpState={pending:null,rows:[],expanded:{}};
+var GRP_CFG={step1:"grpStep1",step2:"grpStep2",banners:"grpBanners",cont:"grpContinue",meta:"grpMeta",raw:"grpRaw",done:"grpDone",file:"grpFile",prefix:"groups",cols:GROUP_COLS,keyCol:"EGN Group Id",requiredCols:["EGN Group Id","EGN Group Name"],state:grpState,
+  extra:function(valid,idx){var out=[];valid.forEach(function(row){var id=String(row[idx["EGN Group Id"]]).trim();var pc=String(row[idx["Partner Code"]]||"").trim();if(!pc||!PARTNER_COUNTRY[pc])out.push("Group "+esc(id)+": Partner Code "+(pc?"<strong>"+esc(pc)+"</strong>":"(empty)")+" not in the country lookup — Country unset.");});return out;}};
+wireFile(GRP_CFG);
+
+function grpMap(row,idx){
+  var ch=hintIni(String(row[idx["Responsible Chair"]]||"").trim());
+  var na=hintIni(String(row[idx["Responsible Sales"]]||"").trim());
+  var pc=String(row[idx["Partner Code"]]||"").trim();
+  var gp=String(row[idx["Group Profile"]]||""),mp=String(row[idx["Member Profile"]]||""),cp=String(row[idx["Companies Profile"]]||"");
+  return {egnGroupId:String(row[idx["EGN Group Id"]]).trim(),name:String(row[idx["EGN Group Name"]]).trim(),mms:String(row[idx["MMSGroup: Name"]]||"").trim(),
+    partnerCode:pc,country:PARTNER_COUNTRY[pc]||"",groupProfile:gp,memberProfile:mp,companiesProfile:cp,
+    chairHint:String(row[idx["Responsible Chair"]]||"").trim(),chairIni:ch.ini,chairName:ch.name,
+    naHint:String(row[idx["Responsible Sales"]]||"").trim(),naIni:na.ini,naName:na.name,
+    emptyAll:!(gp.trim()||mp.trim()||cp.trim())};
+}
+function usersByIni(ini){if(!ini)return [];return Object.keys(USERS).map(function(e){return USERS[e];}).filter(function(u){return u.initials===ini;});}
+function proposeUser(ini){var m=usersByIni(ini);return m.length===1?m[0].email:"";}
+function grpClassify(g){
+  var recs=GROUP_IDX[g.egnGroupId]||[];
+  if(!recs.length)return {status:"new"};
+  // compare against the most recent record for that id
+  var rec=GROUPS[recs[recs.length-1]];
+  var changed=[];
+  if(norm(rec.groupProfile)!==norm(g.groupProfile))changed.push("Group Profile");
+  if(norm(rec.memberProfile)!==norm(g.memberProfile))changed.push("Member Profile");
+  if(norm(rec.companiesProfile)!==norm(g.companiesProfile))changed.push("Companies Profile");
+  if(norm(rec.name)!==norm(g.name))changed.push("Name");
+  if((rec.chairInitials||"")!==(g.chairIni||""))changed.push("Chair");
+  if((rec.naInitials||"")!==(g.naIni||""))changed.push("Network Advisor");
+  return changed.length?{status:"updated",changed:changed,rec:rec}:{status:"unchanged",rec:rec};
+}
+document.getElementById("grpContinue").addEventListener("click",function(){
+  if(!grpState.pending)return;var idx=grpState.pending.idx;
+  grpState.rows=grpState.pending.rows.map(function(row){
+    var g=grpMap(row,idx);var c=grpClassify(g);
+    return {g:g,status:c.status,changed:c.changed||[],rec:c.rec||null,
+      chairSel:proposeUser(g.chairIni),chairProposed:!!proposeUser(g.chairIni),
+      naSel:proposeUser(g.naIni),naProposed:!!proposeUser(g.naIni),
+      conflict:c.status==="updated"?"overwrite":null};
+  });
+  grpRender();document.getElementById("grpStep2").classList.remove("hidden");
+});
+function userOptions(sel){
+  var opts='<option value="">— needs mapping —</option>';
+  Object.keys(USERS).map(function(e){return USERS[e];}).sort(function(a,b){return a.name<b.name?-1:1;}).forEach(function(u){
+    opts+='<option value="'+esc(u.email)+'"'+(u.email===sel?" selected":"")+">"+esc(u.name)+" ("+esc(u.initials)+")</option>";
+  });
+  return opts;
+}
+function mapCell(role,i,hintName,hintIniVal,sel,proposed){
+  var tag=sel?(proposed?'<span class="map-tag proposed">Proposed — confirm</span>':'<span class="map-tag confirmed">Mapped</span>'):'<span class="map-tag needs">Needs mapping</span>';
+  var hint=hintIniVal?esc(hintIniVal)+" · "+esc(hintName):(hintName?'<em>'+esc(hintName)+'</em> (no initials)':"—");
+  return '<div class="map-cell"><div class="sub-cell">hint: '+hint+'</div><select data-map="'+role+'" data-i="'+i+'">'+userOptions(sel)+"</select>"+tag+"</div>";
+}
+function grpRender(){
+  if(!grpState.rows.length)return;
+  var c={new:0,updated:0,unchanged:0},nomap=0,nosrc=0;
+  grpState.rows.forEach(function(r){c[r.status]++;if(!r.chairSel||!r.naSel)nomap++;if(r.g.emptyAll)nosrc++;});
+  document.getElementById("grpSummary").innerHTML=
+    '<span class="summary-pill new">'+c.new+" new</span>"+
+    '<span class="summary-pill updated">'+c.updated+" updated</span>"+
+    '<span class="summary-pill unchanged">'+c.unchanged+" unchanged</span>"+
+    (nomap?'<span class="summary-pill problem">'+nomap+" need mapping</span>":"")+
+    (nosrc?'<span class="summary-pill info">'+nosrc+" no source DNA</span>":"");
+  document.getElementById("grpBody").innerHTML=grpState.rows.map(function(r,i){
+    var g=r.g,launch=r.chairSel&&r.naSel;
+    var statusBadge='<span class="badge '+r.status+'">'+(r.status==="new"?"New":r.status==="updated"?"Updated":"Unchanged")+"</span>"+(g.emptyAll?'<div style="margin-top:4px;"><span class="badge nosrc">No source DNA</span></div>':"");
+    var main='<tr class="row-main clickable" data-toggle="'+i+'">'+
+      "<td>"+statusBadge+"</td>"+
+      '<td><div class="primary-cell">'+esc(g.name)+'</div><div class="sub-cell">'+esc(g.mms)+" · id "+esc(g.egnGroupId)+"</div></td>"+
+      "<td>"+(g.country?esc(g.country):'<span class="badge launch-no">'+esc(g.partnerCode||"—")+"</span>")+"</td>"+
+      "<td>"+mapCell("chair",i,g.chairName,g.chairIni,r.chairSel,r.chairProposed)+"</td>"+
+      "<td>"+mapCell("na",i,g.naName,g.naIni,r.naSel,r.naProposed)+"</td>"+
+      '<td><span class="badge '+(launch?"launch-ok":"launch-no")+'">'+(launch?"Launchable":"Needs mapping")+"</span></td>"+
+      "</tr>";
+    if(!grpState.expanded[i])return main;
+    var co="";
+    if(r.status==="updated"){
+      co+='<div class="conflict-box">This group already exists (record '+esc(r.rec.recordId)+', status '+esc(r.rec.status)+'). Changed: '+r.changed.map(esc).join(", ")+'.'+
+        '<label><input type="radio" name="cf'+i+'" data-cf="overwrite" data-i="'+i+'"'+(r.conflict==="overwrite"?" checked":"")+"> Overwrite existing record (keeps history as a new version)</label>"+
+        '<label><input type="radio" name="cf'+i+'" data-cf="new" data-i="'+i+'"'+(r.conflict==="new"?" checked":"")+"> Create a new record (keep the existing one untouched)</label>"+
+        (r.rec.status!=="Imported"&&r.rec.status!=="Approved"?'<div class="warn">⚠ This group is mid-review ('+esc(r.rec.status)+"). Overwriting resets it and discards the NA comments and Chair edits made since launch.</div>":"")+
+        "</div>";
+    }
+    if(g.emptyAll)co+='<div class="callout nosrc">All three profile fields are empty — flagged <strong>no source DNA</strong>. It imports but is excluded from the AI rewrite; it will be routed to the new-group / empty-template flow (to be defined).</div>';
+    if(!r.chairSel||!r.naSel)co+='<div class="callout missing">'+(!r.chairSel&&!r.naSel?"Chair and Network Advisor are":(!r.chairSel?"Chair is":"Network Advisor is"))+' not mapped to a user. The group imports but can\'t be launched until both are mapped — pick a user above, or import the person on the Users tab.</div>';
+    var fields=[["Group profile",g.groupProfile],["Member profile",g.memberProfile],["Companies profile",g.companiesProfile]].map(function(f){var e=!f[1].trim();return '<div class="field-block"><h4>'+esc(f[0])+'</h4><div class="field-text'+(e?" empty":"")+'">'+(e?"(empty in the export)":esc(f[1]))+"</div></div>";}).join("");
+    return main+'<tr class="row-detail"><td colspan="6">'+co+fields+"</td></tr>";
+  }).join("");
+  var launchable=grpState.rows.filter(function(r){return r.chairSel&&r.naSel;}).length;
+  document.getElementById("grpConfirm").textContent="Confirm import ("+grpState.rows.length+" groups)";
+  document.getElementById("grpConfirmHint").textContent=(grpState.rows.length-launchable)>0?(grpState.rows.length-launchable)+" group(s) will import but won't be launchable until mapped.":"All groups mapped and launchable.";
+}
+document.getElementById("grpBody").addEventListener("click",function(e){
+  if(e.target.tagName==="SELECT"||e.target.tagName==="INPUT"||e.target.tagName==="OPTION")return;
+  var tr=e.target.closest("tr.row-main");if(tr){var i=tr.getAttribute("data-toggle");grpState.expanded[i]=!grpState.expanded[i];grpRender();}
+});
+document.getElementById("grpBody").addEventListener("change",function(e){
+  var m=e.target.getAttribute("data-map"),cf=e.target.getAttribute("data-cf");
+  if(m){var i=+e.target.getAttribute("data-i");if(m==="chair"){grpState.rows[i].chairSel=e.target.value;grpState.rows[i].chairProposed=false;}else{grpState.rows[i].naSel=e.target.value;grpState.rows[i].naProposed=false;}grpRender();}
+  else if(cf){var j=+e.target.getAttribute("data-i");grpState.rows[j].conflict=cf;}
+});
+document.getElementById("grpConfirm").addEventListener("click",function(){
+  var log=grpState.rows.map(function(r){
+    var g=r.g;var recs=GROUP_IDX[g.egnGroupId]||[];var targetId,verNote,action;
+    if(r.status==="new"){targetId=nextRecordId();GROUP_IDX[g.egnGroupId]=[targetId];action="new group";verNote="version 1";}
+    else if(r.status==="unchanged"){targetId=r.rec.recordId;action="unchanged";verNote="version "+r.rec.versions;}
+    else{ // updated
+      if(r.conflict==="new"){targetId=nextRecordId();(GROUP_IDX[g.egnGroupId]=GROUP_IDX[g.egnGroupId]||[]).push(targetId);action="new record kept alongside existing "+r.rec.recordId;verNote="version 1 of new record";}
+      else{targetId=r.rec.recordId;action="overwritten"+(r.rec.status!=="Imported"&&r.rec.status!=="Approved"?" (was "+r.rec.status+", reset)":"")+"; changed "+r.changed.join(", ");verNote="version "+(r.rec.versions+1);}
+    }
+    var prev=GROUPS[targetId];
+    GROUPS[targetId]={recordId:targetId,egnGroupId:g.egnGroupId,name:g.name,mms:g.mms,partnerCode:g.partnerCode,country:g.country,
+      groupProfile:g.groupProfile,memberProfile:g.memberProfile,companiesProfile:g.companiesProfile,
+      chairInitials:g.chairIni,naInitials:g.naIni,chairEmail:r.chairSel||null,naEmail:r.naSel||null,
+      emptyAll:g.emptyAll,noSourceDna:g.emptyAll,
+      status:(r.status==="unchanged"&&prev)?prev.status:"Imported",
+      versions:(r.status==="unchanged"&&prev)?prev.versions:((r.status==="updated"&&r.conflict!=="new"&&prev)?prev.versions+1:1)};
+    var launch=r.chairSel&&r.naSel;
+    return esc(g.name)+" ["+targetId+"] — "+esc(action)+", "+verNote+(g.emptyAll?" · no source DNA":"")+(launch?"":" · ⚠ not launchable (needs mapping)");
+  });
+  document.getElementById("grpDoneList").innerHTML=log.map(function(l){return "<li>"+l+"</li>";}).join("");
+  document.getElementById("grpDone").classList.remove("hidden");
+  showToast("Groups import confirmed");counts();grpRender();
+});
+
+/* ================= USERS ================= */
+var usrState={pending:null,rows:[],expanded:{}};
+var USR_CFG={step1:"usrStep1",step2:"usrStep2",banners:"usrBanners",cont:"usrContinue",meta:"usrMeta",raw:"usrRaw",done:"usrDone",file:"usrFile",prefix:"users",cols:USER_COLS,keyCol:"Initials",requiredCols:["Initials","Name","Email"],state:usrState,
+  extra:function(valid,idx){var out=[],byEmail={};valid.forEach(function(row){var ini=String(row[idx["Initials"]]).trim();var email=String(row[idx["Email"]]||"").trim();if(email&&!EMAIL_RE.test(email))out.push(esc(ini)+": <em>"+esc(email)+"</em> is not a valid email — notifications would fail.");var lo=email.toLowerCase();if(lo){if(byEmail[lo])out.push(esc(ini)+" and "+esc(byEmail[lo])+" share email <em>"+esc(email)+"</em>.");else byEmail[lo]=ini;}var roles=String(row[idx["Role"]]||"").split(",").map(function(s){return s.trim();}).filter(Boolean);if(!roles.length)out.push(esc(ini)+": no Role — imports with no access.");roles.forEach(function(rl){if(KNOWN_ROLES.indexOf(rl)===-1)out.push(esc(ini)+": unrecognised role <strong>"+esc(rl)+"</strong> — ignored.");});});return out;}};
+wireFile(USR_CFG);
+
+function usrMap(row,idx){var roles=String(row[idx["Role"]]||"").split(",").map(function(s){return s.trim();}).filter(Boolean);return {initials:String(row[idx["Initials"]]).trim(),name:String(row[idx["Name"]]||"").trim(),email:String(row[idx["Email"]]||"").trim(),roles:roles,validRoles:roles.filter(function(r){return KNOWN_ROLES.indexOf(r)!==-1;}),emailOk:EMAIL_RE.test(String(row[idx["Email"]]||"").trim())};}
+function union(a,b){var s={},o=[];a.concat(b).forEach(function(x){if(!s[x]){s[x]=1;o.push(x);}});return o;}
+function usrClassify(u){var e=USERS[u.email];if(!e)return {status:"new",resultRoles:u.validRoles.slice(),added:u.validRoles.slice()};var res=union(e.roles,u.validRoles);var added=u.validRoles.filter(function(r){return e.roles.indexOf(r)===-1;});var changed=(e.name!==u.name)||added.length;return {status:changed?"updated":"unchanged",resultRoles:res,added:added,existing:e};}
+document.getElementById("usrContinue").addEventListener("click",function(){
+  if(!usrState.pending)return;var idx=usrState.pending.idx;
+  usrState.rows=usrState.pending.rows.map(function(row){var u=usrMap(row,idx);var c=usrClassify(u);return {u:u,status:c.status,resultRoles:c.resultRoles,added:c.added,existing:c.existing};});
+  usrRender();document.getElementById("usrStep2").classList.remove("hidden");
+});
+function usrGroupRefs(ini){var n=0;Object.keys(GROUPS).forEach(function(rid){var g=GROUPS[rid];if(g.chairInitials===ini||g.naInitials===ini)n++;});return n;}
+function usrRender(){
+  if(!usrState.rows.length)return;
+  var c={new:0,updated:0,unchanged:0},prob=0;
+  usrState.rows.forEach(function(r){c[r.status]++;if(!r.u.emailOk||!r.u.validRoles.length)prob++;});
+  document.getElementById("usrSummary").innerHTML='<span class="summary-pill new">'+c.new+" new</span><span class=\"summary-pill updated\">"+c.updated+" updated</span><span class=\"summary-pill unchanged\">"+c.unchanged+" unchanged</span>"+(prob?'<span class="summary-pill problem">'+prob+" with a problem</span>":"");
+  document.getElementById("usrBody").innerHTML=usrState.rows.map(function(r,i){
+    var u=r.u,refs=usrGroupRefs(u.initials);
+    var rolesCell=(r.resultRoles.length?esc(r.resultRoles.join(", ")):'<span class="badge launch-no">none valid</span>')+(r.added&&r.added.length&&r.status!=="new"?'<div class="sub-cell">added: '+esc(r.added.join(", "))+"</div>":"")+(r.u.roles.length>r.u.validRoles.length?'<div class="sub-cell">ignored: '+esc(r.u.roles.filter(function(x){return r.u.validRoles.indexOf(x)===-1;}).join(", "))+"</div>":"");
+    var main='<tr class="row-main clickable" data-toggle="'+i+'">'+
+      '<td><span class="badge '+r.status+'">'+(r.status==="new"?"New":r.status==="updated"?"Updated":"Unchanged")+"</span></td>"+
+      '<td class="primary-cell">'+esc(u.initials)+"</td><td>"+esc(u.name)+"</td>"+
+      "<td>"+(u.emailOk?esc(u.email):'<span class="badge launch-no">'+esc(u.email||"—")+"</span>")+"</td>"+
+      "<td>"+rolesCell+"</td>"+
+      "<td>"+(refs?refs+" grp":'<span class="sub-cell">—</span>')+"</td></tr>";
+    if(!usrState.expanded[i])return main;
+    var co="";
+    if(!u.emailOk)co+='<div class="callout missing">Email '+esc(u.email||"(empty)")+" is not valid; the person imports but no notification can reach them.</div>";
+    if(r.status==="updated"&&r.added&&r.added.length)co+='<div class="callout updated">Existing roles '+esc(r.existing.roles.join(", "))+' + added '+esc(r.added.join(", "))+' = '+esc(r.resultRoles.join(", "))+'. Roles are additive; nothing is removed.</div>';
+    if(refs)co+='<div class="callout info">Referenced as Chair/NA hint by '+refs+' imported group record(s).</div>';
+    return main+'<tr class="row-detail"><td colspan="6">'+co+'<div class="field-block"><h4>Record</h4><div class="field-text">Initials: '+esc(u.initials)+"\nName: "+esc(u.name)+"\nEmail: "+esc(u.email)+"\nRoles in file: "+esc(u.roles.join(", ")||"(none)")+"\nRoles after import: "+esc(r.resultRoles.join(", ")||"(none)")+"</div></div></td></tr>";
+  }).join("");
+  document.getElementById("usrConfirm").textContent="Confirm import ("+usrState.rows.length+" people)";
+  document.getElementById("usrConfirmHint").textContent=prob?prob+" person(s) import with a problem flagged.":"";
+}
+document.getElementById("usrBody").addEventListener("click",function(e){var tr=e.target.closest("tr.row-main");if(tr){var i=tr.getAttribute("data-toggle");usrState.expanded[i]=!usrState.expanded[i];usrRender();}});
+document.getElementById("usrConfirm").addEventListener("click",function(){
+  var log=usrState.rows.map(function(r){
+    var u=r.u;var e=USERS[u.email];
+    USERS_VER[u.email]=(USERS_VER[u.email]||0)+1;
+    var roles=e?union(e.roles,u.validRoles):u.validRoles.slice();
+    USERS[u.email]={email:u.email,name:u.name,initials:u.initials,roles:roles};
+    var note=r.status==="new"?"new person":(r.added&&r.added.length?"updated, added "+r.added.join(", "):"updated");
+    if(r.status==="unchanged")note="no changes";
+    return esc(u.initials)+" "+esc(u.name)+" — "+note+" · roles: "+esc(roles.join(", ")||"(none)");
+  });
+  document.getElementById("usrDoneList").innerHTML=log.map(function(l){return "<li>"+l+"</li>";}).join("");
+  document.getElementById("usrDone").classList.remove("hidden");
+  showToast("Users import confirmed");counts();usrRender();
+  // refresh group proposals for any still-open group preview
+  if(grpState.rows.length){grpState.rows.forEach(function(r){if(!r.chairSel){var p=proposeUser(r.g.chairIni);if(p){r.chairSel=p;r.chairProposed=true;}}if(!r.naSel){var p2=proposeUser(r.g.naIni);if(p2){r.naSel=p2;r.naProposed=true;}}});grpRender();}
+});
+
+/* ================= samples ================= */
+function grpSampleBuf(kind){
+  var rows=SAMPLE_GROUPS.map(function(r){return r.slice();}),cols=GROUP_COLS.slice(),delim=";";
+  if(kind==="v2"){rows[2][7]="HGL - Hanne Gall Larsen";rows[3][6]="Mellemstore og store virksomheder i hele landet, +100 ansatte.";rows.push(["IT Chefer Vest 2 (02900-EGDK)","74010","02900-EGDK","EGDK","Nyetableret gruppe for IT-chefer i Vestdanmark.","IT-chefer med personaleansvar.","Produktions- og handelsvirksomheder i Syd- og Midtjylland.","MPO - Mads Porsmose Larsen","HK - Helle Kast"]);}
+  if(kind==="missingColumn"){var d=cols.indexOf("Partner Code");cols.splice(d,1);rows=rows.map(function(r){var c=r.slice();c.splice(d,1);return c;});}
+  if(kind==="rowErrors"){rows[3][1]="";rows[4][1]=rows[2][1];rows[5]=rows[5].slice(0,5);rows[1][3]="EGXX";}
+  if(kind==="badEncoding")return b64buf(ANSI_B64);
+  return utf8(serialize(cols,rows,delim));
+}
+function usrSampleBuf(kind){
+  var cols=USER_COLS.slice(),rows=SAMPLE_PEOPLE.map(function(p){return [p.initials,p.name,p.email,p.role];});
+  if(kind==="missingColumn"){var d=cols.indexOf("Email");cols.splice(d,1);rows=rows.map(function(r){var c=r.slice();c.splice(d,1);return c;});}
+  if(kind==="rowErrors"){rows=rows.map(function(r){return r.slice();});rows[2][0]="";rows[3][0]=rows[1][0];rows[4][2]="soeren.fenneberg(at)egn.com";rows[6][2]=rows[5][2];rows[8]=rows[8].slice(0,2);}
+  if(kind==="badRole"){rows=rows.map(function(r){return r.slice();});rows[0][3]="Netværksleder";rows[1][3]="";rows[2][3]="Chair, Superuser";
+    // demonstrate additive: SOV already seeded as Chair; give SOV an extra role here
+    rows[2][0]="SOV";rows[2][1]="Søren Villadsen";rows[2][2]="soeren.villadsen@egn.com";rows[2][3]="Chair, Sales Leader";}
+  return utf8(serialize(cols,rows,";"));
+}
+document.getElementById("grpLoadSample").addEventListener("click",function(){var k=document.getElementById("grpSample").value;ingest(GRP_CFG,grpSampleBuf(k),"Sample: "+document.getElementById("grpSample").selectedOptions[0].textContent);});
+document.getElementById("usrLoadSample").addEventListener("click",function(){var k=document.getElementById("usrSample").value;ingest(USR_CFG,usrSampleBuf(k),"Sample: "+document.getElementById("usrSample").selectedOptions[0].textContent);});
+
+counts();
+</script>
+</body>
+</html>

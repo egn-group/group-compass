@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group DNA — My groups (prototype)</title>
+<style>
+  :root {
+    --navy: #1F3864;
+    --navy-dark: #14274a;
+    --bg: #F4F5F7;
+    --card: #FFFFFF;
+    --border: #DDE1E8;
+    --text: #1C1F26;
+    --muted: #6B7280;
+    --na: #B5651D;
+    --na-bg: #FEF3E7;
+    --ai-bg: #EAF1FB;
+    --ai-border: #C4D7F0;
+    --action-bg: #FDECC8;
+    --action-border: #F0CE84;
+    --action-text: #7A5B00;
+    --wait-bg: #EEF0F3;
+    --wait-text: #6B7280;
+    --approved-bg: #E7F6EC;
+    --approved-border: #BFE6CC;
+    --approved-text: #2F7D4F;
+    --reedit-bg: #EAF1FB;
+    --reedit-border: #C4D7F0;
+    --reedit-text: #1B3A6B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .prototype-flag {
+    background: #FFF7E0;
+    border-bottom: 1px solid #EAD98B;
+    color: #6B5900;
+    font-size: 12px;
+    text-align: center;
+    padding: 6px 12px;
+  }
+  header.topbar {
+    background: var(--navy);
+    color: #fff;
+  }
+  header.topbar .topbar-inner {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 16px 20px;
+  }
+  header.topbar .brand { font-weight: 700; font-size: 18px; text-align: left; }
+  .stepper { display: flex; gap: 6px; font-size: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .stepper a, .stepper span.current { color: #fff; opacity: 0.85; text-decoration: none; }
+  .stepper a:hover { opacity: 1; }
+  .stepper span.current { font-weight: 700; opacity: 1; text-decoration: underline; }
+  .stepper .sep { opacity: 0.5; }
+  nav.subnav {
+    background: var(--navy);
+    border-top: 1px solid rgba(255,255,255,0.18);
+    color: #fff;
+  }
+  nav.subnav .subnav-inner {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    text-align: left;
+    font-size: 13px;
+    opacity: 0.9;
+  }
+  nav.subnav a { color: #fff; text-decoration: underline; cursor: pointer; }
+  nav.subnav a:hover { opacity: 0.85; }
+  .status-pill {
+    background: rgba(31,56,100,0.08);
+    border: 1px solid var(--border);
+    color: var(--navy);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .who-pill {
+    background: rgba(31,56,100,0.08);
+    border: 1px solid var(--border);
+    color: var(--navy);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  /* ---------- list view ---------- */
+  .page-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .page-head h1 { margin: 0 0 2px; font-size: 22px; color: var(--navy); }
+  .page-head .sub { font-size: 13px; color: var(--muted); }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0 16px;
+  }
+  .search-input {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    min-width: 320px;
+  }
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .summary-chip {
+    border: 1px solid var(--border);
+    background: var(--card);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .summary-chip.active { border-color: var(--navy); color: var(--navy); font-weight: 600; background: #EAF1FB; }
+  .summary-chip .count { background: var(--navy); color: #fff; border-radius: 999px; font-size: 11px; padding: 1px 7px; }
+
+  table.groups-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  table.groups-table th, table.groups-table td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid #EEF0F3;
+  }
+  table.groups-table thead th {
+    background: #FAFBFC;
+    color: var(--navy);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    user-select: none;
+    white-space: normal;
+    line-height: 1.35;
+    vertical-align: bottom;
+  }
+  table.groups-table thead th:hover { background: #F0F2F5; }
+  table.groups-table thead th .arrow { opacity: 0.6; font-size: 10px; margin-left: 3px; }
+  table.groups-table tbody tr { cursor: pointer; }
+  table.groups-table tbody tr:hover { background: #F7F9FC; }
+  table.groups-table tbody tr:last-child td { border-bottom: none; }
+  table.groups-table td.name-cell { color: var(--navy); font-weight: 600; }
+  table.groups-table td.muted-cell { color: var(--muted); }
+  .row-action-marker {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-right: 8px;
+    background: var(--action-border);
+    vertical-align: middle;
+  }
+  tr.is-action .row-action-marker { background: #E0A800; }
+  tr:not(.is-action) .row-action-marker { background: transparent; }
+
+  .pill { border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 600; white-space: normal; line-height: 1.3; display: inline-block; }
+  .pill.action { background: var(--action-bg); border: 1px solid var(--action-border); color: var(--action-text); }
+  .pill.wait { background: var(--wait-bg); border: 1px solid var(--border); color: var(--wait-text); }
+  .pill.approved { background: var(--approved-bg); border: 1px solid var(--approved-border); color: var(--approved-text); }
+  .pill.reedit { background: var(--reedit-bg); border: 1px solid var(--reedit-border); color: var(--reedit-text); }
+
+  .export-tag { font-size: 12px; white-space: nowrap; }
+  .export-tag.exported { color: var(--approved-text); font-weight: 600; }
+  .export-tag.pending { color: #8A6D00; }
+  .export-tag.na { color: var(--muted); }
+
+  .empty-state { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 0; }
+
+  /* ---------- waiting view ---------- */
+  .info-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+  }
+  .info-card p { font-size: 14px; line-height: 1.6; margin: 0 0 16px; }
+
+  /* ---------- review view (from Chair Review Prototype) ---------- */
+  .group-header {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .group-header h1 { margin: 0 0 4px; font-size: 20px; color: var(--navy); }
+  .group-header .meta { font-size: 13px; color: var(--muted); }
+  button { font-family: inherit; cursor: pointer; }
+  .btn { border-radius: 6px; padding: 9px 16px; font-size: 13px; border: 1px solid var(--border); background: #fff; color: var(--text); }
+  .btn:hover { background: #F0F2F5; }
+  .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-small { font-size: 12px; padding: 5px 10px; border-radius: 5px; flex-shrink: 0; }
+  .section-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFBFC; }
+  .card-head h2 { font-size: 14px; color: var(--navy); margin: 0; }
+  .field-body { padding: 16px 20px; }
+  .field-text { font-size: 13.5px; line-height: 1.6; white-space: pre-line; }
+  .field-text strong { color: var(--navy); }
+  .field-body textarea { width: 100%; min-height: 280px; font-family: inherit; font-size: 13px; line-height: 1.5; padding: 10px 12px; border: 1px solid var(--navy); border-radius: 6px; resize: vertical; }
+  .edit-actions { margin-top: 8px; display: flex; gap: 8px; }
+  .na-comment { background: var(--na-bg); border: 1px solid #F0DCB8; border-radius: 6px; padding: 8px 10px; margin-top: 12px; font-size: 12.5px; color: #5C4813; }
+  .na-comment .who, .na-comment-readonly .who { font-weight: 600; color: var(--na); display: block; margin-bottom: 4px; }
+  .na-comment-readonly { background: var(--na-bg); border: 1px solid #F0DCB8; border-radius: 6px; padding: 8px 10px; margin-top: 8px; font-size: 12.5px; color: #5C4813; }
+  .na-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .na-actions-spacer { flex: 1; }
+  .btn-copy { background: none; border: none; color: var(--muted); font-size: 11.5px; text-decoration: underline; padding: 4px 2px; }
+  .btn-copy:hover { color: var(--text); }
+  .na-toggle { background: none; border: none; color: var(--muted); font-size: 12px; padding: 4px 0; margin-top: 10px; display: inline-block; }
+  .na-toggle:hover { color: var(--text); }
+  .ai-feedback { background: var(--ai-bg); border: 1px solid var(--ai-border); border-radius: 6px; padding: 8px 10px; margin-top: 12px; font-size: 12.5px; color: #1B3A6B; position: relative; }
+  .ai-feedback .who { font-weight: 600; margin-right: 4px; }
+  .ai-feedback .dismiss { position: absolute; top: 6px; right: 8px; background: none; border: none; color: #1B3A6B; font-size: 13px; opacity: 0.6; }
+  .field-footer { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #EEF0F3; flex-wrap: wrap; }
+  .approved-badge { font-size: 11px; font-weight: 600; color: #2F7D4F; background: #E7F6EC; border: 1px solid #BFE6CC; border-radius: 999px; padding: 2px 10px; }
+  .approved-label { font-size: 12.5px; font-weight: 600; color: #2F7D4F; }
+  .top-approve-bar { margin-bottom: 18px; }
+  .top-approve-bar.status-bar {
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .top-approve-bar.status-bar.approved-status { color: #2F7D4F; background: #E7F6EC; border: 1px solid #BFE6CC; }
+  .top-approve-bar.status-bar.reedit-status { color: #1B3A6B; background: #EAF1FB; border: 1px solid #C4D7F0; }
+  .top-approve-bar.status-bar .sub { font-weight: 400; font-size: 12px; margin-top: 3px; opacity: 0.9; }
+  .chat-panel { position: fixed; top: 0; right: -440px; width: 420px; height: 100%; background: #fff; border-left: 1px solid var(--border); box-shadow: -4px 0 16px rgba(0,0,0,0.08); transition: right 0.25s ease; display: flex; flex-direction: column; z-index: 50; }
+  .chat-panel.open { right: 0; }
+  .chat-head { background: var(--navy); color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; }
+  .chat-head button { background: none; border: none; color: #fff; font-size: 16px; opacity: 0.8; }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { font-size: 12.5px; line-height: 1.5; padding: 8px 10px; border-radius: 8px; max-width: 90%; white-space: pre-line; }
+  .msg.user { background: var(--navy); color: #fff; align-self: flex-end; }
+  .msg.ai { background: #F1F3F6; color: var(--text); align-self: flex-start; }
+  .msg.system { background: none; color: var(--muted); font-style: italic; align-self: center; font-size: 11.5px; }
+  .proposal { background: var(--ai-bg); border: 1px solid var(--ai-border); border-radius: 8px; padding: 10px; align-self: flex-start; max-width: 92%; font-size: 12.5px; }
+  .proposal .ptitle { font-weight: 600; margin-bottom: 6px; color: #1B3A6B; }
+  .proposal .ptext { white-space: pre-line; margin-bottom: 8px; }
+  .proposal .pactions { display: flex; gap: 8px; }
+  .chat-input-row { display: flex; gap: 8px; padding: 10px 12px 4px; border-top: 1px solid var(--border); align-items: flex-end; }
+  .chat-input-row textarea { flex: 1; min-height: 38px; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: none; max-height: 120px; line-height: 1.4; }
+  .chat-hint { font-size: 11px; color: var(--muted); padding: 0 12px 10px; }
+  #chatFieldLabel { font-weight: 400; opacity: 0.85; }
+  .overlay { position: fixed; inset: 0; background: rgba(20,25,35,0.45); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .overlay.open { display: flex; }
+  .modal-box { background: #fff; border-radius: 10px; max-width: 380px; padding: 24px; text-align: center; }
+  .modal-box p { font-size: 14px; line-height: 1.6; margin: 0 0 18px; }
+  .flash { animation: flashbg 1.4s ease; }
+  @keyframes flashbg { 0% { background: #FFF3C4; } 100% { background: transparent; } }
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-10px); background: var(--navy); color: #fff; padding: 8px 18px; border-radius: 6px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; z-index: 200; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="prototype-flag" id="protoFlag">Prototype — step 3 of 3. Chair "My groups" and DNA review, combined. "Edit with AI", "Include" and post-edit feedback call a real Claude model through a local server (see /api/chat and /api/edit-feedback). The 5 starting groups are mock data; any group launched from step 1 arrives here for real via step 2.</div>
+<div class="toast" id="toast"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">Group DNA</div>
+    <div class="stepper">
+      <a href="ai-pipeline-test.html">1. Admin conversion</a>
+      <span class="sep">→</span>
+      <a href="na-review.html">2. Network Advisor comment</a>
+      <span class="sep">→</span>
+      <span class="current">3. Chair review</span>
+    </div>
+  </div>
+</header>
+
+<nav class="subnav" id="subnav" style="display:none;">
+  <div class="subnav-inner" id="crumb"></div>
+</nav>
+
+<div id="app"></div>
+
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-head">
+    <span>AI assistant<span id="chatFieldLabel"></span></span>
+    <button id="chatCloseBtn" aria-label="Close">&times;</button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-row">
+    <textarea id="chatInput" rows="1" placeholder="Type your reply…"></textarea>
+    <button class="btn btn-small" id="chatSendBtn">Send</button>
+  </div>
+  <div class="chat-hint">Enter to send · Shift+Enter for a new line</div>
+</div>
+
+<div class="overlay" id="finalApproveOverlay">
+  <div class="modal-box">
+    <p>All profile fields are approved.</p>
+    <div id="suggestionsArea" style="text-align:left;"></div>
+    <button class="btn btn-primary" id="finalApproveBtn">Approve full Group DNA</button>
+    <div style="margin-top: 10px;">
+      <button class="btn-copy" id="finalApproveDismissBtn">Not now</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="approveOverlay">
+  <div class="modal-box">
+    <p>Thank you — the DNA has been updated. It will be updated in Salesforce within five business days.</p>
+    <button class="btn btn-primary" id="modalCloseBtn">Close</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Data — 5 groups for Chair "Carsten Wædeled". DNA text for
+   Jylland 1 / Sjælland 3 / Vest 12 is adapted from the real
+   before/after example documents; Fyn 2 / Øst 5 are shorter
+   illustrative fills so the table has enough rows to sort/filter.
+   ============================================================ */
+
+function fields(list) {
+  return list.map(function (f) {
+    return {
+      id: f.id, label: f.label, text: f.text,
+      // Single-level undo: set whenever text changes (Include, Edit with
+      // AI accept, or a manual Save), cleared once Undo is used.
+      previousText: null,
+      naComment: f.naComment || null,
+      naResolved: !f.naComment,
+      naResolution: null,
+      naExpanded: false,
+      approved: !!f.approved,
+      // Each field keeps its own AI conversation, so switching between
+      // fields never mixes up what was discussed for a different one.
+      chatLog: []
+    };
+  });
+}
+
+var GROUPS = [
+  {
+    id: "jylland1",
+    name: "Adm. direktører – Jylland 1",
+    country: "Denmark",
+    na: "Simon Arun Vrabel",
+    status: "chairReview",
+    approvedAt: null,
+    exportedAt: null,
+    lastUpdateText: "Simon Arun Vrabel commented on 2 fields · today, 09:14",
+    daysAgo: 0.1,
+    dnaFields: fields([
+      { id: "group", label: "Group profile",
+        text: "**Hvem er gruppen for**\nCEO'er og Group CEOs med fuldt P&L-ansvar i mellemstore og større virksomheder (typisk 150–500+ ansatte) med høj organisatorisk kompleksitet. Typisk omsætningsniveau fra ca. 200 mio. kr. og opefter, afhængigt af struktur og kompleksitet.\nGeografi: Jylland\n\n**Hvad får man**\nFortrolig sparring med ligestillede top-CEO'er med høj kompleksitet og tilsvarende ansvar.\nPerspektiv på strategi, governance, bestyrelsessamspil og transformation.\nCase-baseret sparring på kritiske beslutninger i komplekse organisationer.\nAdgang til et forum hvor topledere arbejder med deres mest strategiske og forretningskritiske dilemmaer.\n\n**Hvad kendetegner gruppen**\n- En af de tungeste CEO-grupper i Jylland\n- Høj organisatorisk og forretningsmæssig kompleksitet\n- Fokus på governance, bestyrelse og transformation frem for drift\n- Sparring udelukkende mellem reelle topledere\n\n**Udviklingsfokus**\n- Fastholde gruppen som en tydelig top-CEO-gruppe\n- Styrke strategisk ledelse og governance-kompetencer\n- Sikre ensartet kompleksitet i medlemsbasen\n- Øge kvaliteten i bestyrelsessamspil og transformationsledelse",
+        naComment: "Vi har historisk vægtet ESG kraftigt i denne gruppe — nogle medlemmer er stadig med primært pga. det. Kan vi nævne det kort under \"Hvad kendetegner gruppen\", så det ikke overrasker dem?" },
+      { id: "member", label: "Member profile",
+        text: "**Titler / erfaring**\nCEO / Group CEO med dokumenteret erfaring på topledelsesniveau.\nAnsvar for virksomhedens samlede performance og strategi.\nErfaring med bestyrelse og governance.\n\n**Ledelsesspænd**\nLeder gennem etableret ledergruppe og flere ledelseslag.\nOrganisation med kompleksitet der kræver strategisk ledelse frem for operativ drift.\n\n**Matcher / matcher ikke**\nMatcher:\n- CEO / Group CEO med fuldt P&L-ansvar\n- Profil med høj organisatorisk kompleksitet\n- Erfaring med bestyrelsessamspil\n\nMatcher ikke:\n- Profiler uden samlet ansvar\n- Virksomheder med for lav kompleksitet\n- Funktionelle ledere uden CEO-mandat",
+        naComment: "Vi plejer at gøre en undtagelse for ejerledere, der er majoritetsejere — den er væk nu, under \"Matcher / matcher ikke\". Er det med vilje, eller skal vi have den med igen?" },
+      { id: "company", label: "Companies profile",
+        text: "**Størrelse / type**\nTypisk 150–500+ ansatte.\nTypisk omsætning fra 200 mio. kr. til flere mia. kr. afhængigt af struktur.\nVirksomheder med kompleks organisation og ledelsesstruktur.\n\n**Branche / marked**\nDiversitet på tværs af brancher.\nFokus på virksomheder med kompleks drift og strategisk tyngde.\nIngen direkte konkurrence mellem medlemmer.\n\n**Matcher / matcher ikke**\nMatcher: virksomheder med kompleks organisation og strategiske udfordringer.\nMatcher ikke: virksomheder uden ledelsesstruktur eller tilstrækkelig kompleksitet.",
+        naComment: null }
+    ])
+  },
+  {
+    id: "vest12",
+    name: "Ledelse & Udvikling – Vest 12",
+    country: "Denmark",
+    na: "Arthur Alaverdyan",
+    status: "waitingNA",
+    approvedAt: null,
+    exportedAt: null,
+    lastUpdateText: "Launched · invitation sent to Arthur Alaverdyan · 3 days ago",
+    daysAgo: 3,
+    dnaFields: null
+  },
+  {
+    id: "fyn2",
+    name: "Adm. direktører – Fyn 2",
+    country: "Denmark",
+    na: "Signe Bruun",
+    status: "approved",
+    approvedAt: "2 days ago",
+    exportedAt: null,
+    lastUpdateText: "Approved by you · 2 days ago",
+    daysAgo: 2,
+    dnaFields: fields([
+      { id: "group", label: "Group profile", approved: true,
+        text: "**Hvem er gruppen for**\nAdministrerende direktører med fuldt ledelsesansvar i mellemstore virksomheder (typisk 50–150 ansatte), primært på Fyn.\nTypisk omsætning fra ca. 50–200 mio. kr.\n\n**Hvad får man**\nFortrolig sparring med ligestillede CEO'er i samme kompleksitetsniveau.\nStruktureret erfaringsudveksling på tværs af brancher.\n\n**Hvad kendetegner gruppen**\n- Stærkt sammenhold og høj fremmøde\n- Fokus på drift og vækst frem for transformation\n\n**Udviklingsfokus**\n- Skærpe det kommercielle fokus i sparringen\n- Tiltrække flere profiler fra vækstvirksomheder" },
+      { id: "member", label: "Member profile", approved: true,
+        text: "**Titler / erfaring**\nAdministrerende direktør med samlet ledelsesansvar.\n\n**Ledelsesspænd**\nLeder gennem et etableret ledelseslag, typisk 20–80 medarbejdere.\n\n**Matcher / matcher ikke**\nMatcher: CEO med fuldt driftsansvar.\nMatcher ikke: funktionsledere uden samlet P&L-ansvar." },
+      { id: "company", label: "Companies profile", approved: true,
+        text: "**Størrelse / type**\nTypisk 50–150 ansatte, omsætning 50–200 mio. kr.\n\n**Branche / marked**\nBred branchespredning, ingen direkte konkurrenter i gruppen.\n\n**Matcher / matcher ikke**\nMatcher: virksomheder med vækstambitioner.\nMatcher ikke: mikrovirksomheder uden ledelsesstruktur." }
+    ])
+  },
+  {
+    id: "sjaelland3",
+    name: "Adm. direktører – Sjælland 3",
+    country: "Denmark",
+    na: "Lars Jensen",
+    status: "approved",
+    approvedAt: "12 days ago",
+    exportedAt: "9 days ago",
+    lastUpdateText: "Approved by you · 12 days ago",
+    daysAgo: 12,
+    dnaFields: fields([
+      { id: "group", label: "Group profile", approved: true,
+        text: "**Hvem er gruppen for**\nCEO'er / administrerende direktører med fuldt P&L-ansvar i SMV-virksomheder (typisk 75–250 ansatte) med reel organisatorisk kompleksitet.\nTypisk omsætning fra ca. 75–400 mio. kr., afhængigt af branche og struktur.\nGeografi: Storkøbenhavn\n\n**Hvad får man**\nFortrolig sparring med ligestillede CEO'er med sammenlignelig kompleksitet.\nPerspektiv på strategi, organisation og CEO-rolle.\nCase-baseret sparring på konkrete ledelses- og forretningsudfordringer.\nEt struktureret forum med høj kvalitet i sparring og erfaringsudveksling.\n\n**Hvad kendetegner gruppen**\n- Fokus på strategiske og forretningskritiske problemstillinger\n- Arbejder med samspil mellem CEO, ejer og bestyrelse\n- Kombination af case-sparring og faglig input\n- Høj relevans for CEO'er i komplekse SMV-organisationer\n\n**Udviklingsfokus**\n- Styrke strategisk ledelse og forretningsudvikling\n- Øge kvaliteten i beslutninger og bestyrelsessamspil\n- Arbejde med organisationsudvikling og skalering\n- Øge diversitet, herunder flere kvindelige CEO-profiler\n- Skabe mere ensartet kompleksitet i gruppen" },
+      { id: "member", label: "Member profile", approved: true,
+        text: "**Titler / erfaring**\nCEO / administrerende direktør med ansvar for virksomhedens samlede performance.\nErfaring med strategisk ledelse og beslutningstagning.\nArbejder aktivt med bestyrelse og governance.\n\n**Ledelsesspænd**\nLeder gennem organisation og typisk flere ledelseslag.\nKompleksitet der kræver strategisk frem for operativ ledelse.\n\n**Matcher / matcher ikke**\nMatcher: CEO med fuldt P&L-ansvar og strategisk ansvar.\nMatcher ikke: profiler uden samlet ledelsesansvar eller med lav kompleksitet." },
+      { id: "company", label: "Companies profile", approved: true,
+        text: "**Størrelse / type**\nTypisk 75–250 ansatte.\nOmsætning ca. 75–400 mio. kr.\nSMV med reel ledelsesstruktur.\n\n**Branche / marked**\nDiversitet på tværs af brancher.\nFokus på virksomheder med strategiske udfordringer.\nIngen direkte konkurrence mellem medlemmer.\n\n**Matcher / matcher ikke**\nMatcher: virksomheder med vækst, transformation eller kompleksitet.\nMatcher ikke: mikrovirksomheder og direkte konkurrenter." }
+    ])
+  },
+  {
+    id: "ost5",
+    name: "Ledelse & Udvikling – Øst 5",
+    country: "Denmark",
+    na: "Helle Vig",
+    status: "reEdited",
+    approvedAt: "3 weeks ago",
+    exportedAt: null,
+    lastUpdateText: "You edited the DNA after approval · yesterday",
+    daysAgo: 1,
+    dnaFields: fields([
+      { id: "group", label: "Group profile", approved: true,
+        text: "**Hvem er gruppen for**\nLedere med personaleansvar i mellemstore virksomheder (typisk 30–120 ansatte) i Østdanmark.\n\n**Hvad får man**\nSparring på ledelsesmæssige og organisatoriske udfordringer med ligestillede.\n\n**Hvad kendetegner gruppen**\n- Praksisnær og handlingsorienteret sparring\n- Fokus på ledelse af mellemstore organisationer\n\n**Udviklingsfokus**\n- Styrke strategisk ledelseskompetence\n- Bedre match på kompleksitetsniveau" },
+      { id: "member", label: "Member profile", approved: true,
+        text: "**Titler / erfaring**\nLedere med reference til direktion eller bestyrelse.\n\n**Ledelsesspænd**\nLeder afdelinger eller forretningsområder med 10–40 medarbejdere.\n\n**Matcher / matcher ikke**\nMatcher: ledere med reelt personale- og resultatansvar.\nMatcher ikke: specialister uden ledelsesansvar." },
+      { id: "company", label: "Companies profile", approved: true,
+        text: "**Størrelse / type**\nTypisk 30–120 ansatte.\n\n**Branche / marked**\nBred branchespredning i Østdanmark.\n\n**Matcher / matcher ikke**\nMatcher: virksomheder i vækst eller omstilling.\nMatcher ikke: meget små eller meget store koncernenheder." }
+    ])
+  }
+];
+
+var groupById = {};
+GROUPS.forEach(function (g) { groupById[g.id] = g; });
+
+/* "approved" and "reEdited" are visually identical (both show as "Approved") —
+   a re-edit after approval is conveyed by the Last updated timestamp moving
+   and the Exported column switching back to Pending, not by a different label. */
+var STATUS_META = {
+  chairReview: { label: "Needs your review", pillClass: "action", isAction: true },
+  waitingNA:   { label: "Waiting on Network Advisor", pillClass: "wait", isAction: false },
+  approved:    { label: "Approved", pillClass: "approved", isAction: false },
+  reEdited:    { label: "Approved", pillClass: "approved", isAction: false }
+};
+var STATUS_ORDER = { chairReview: 0, reEdited: 1, approved: 2, waitingNA: 3 };
+
+function formatTimestamp(daysAgo) {
+  var ms = Date.now() - (daysAgo * 24 * 60 * 60 * 1000);
+  var d = new Date(ms);
+  var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var hh = String(d.getHours()).padStart(2, "0");
+  var mm = String(d.getMinutes()).padStart(2, "0");
+  return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear() + ", " + hh + ":" + mm;
+}
+
+/* ---------------- view state ---------------- */
+var CHAIR_NAME = "Carsten Wædeled";
+var currentView = "list";       // 'list' | 'waiting' | 'review'
+var currentGroupId = null;
+var activeFilter = "all";
+var searchText = "";
+var sortColumn = "priority";    // 'name' | 'na' | 'status' | 'exported' | 'priority'
+var sortDir = "asc";
+
+var pendingField = null;
+var pendingFieldMode = null;
+// Which field's AI conversation is currently shown in the chat panel —
+// each field keeps its own chatLog (see fields()); this just tracks
+// which one is on screen right now.
+var activeChatFieldId = null;
+var fullyApprovedJustNow = false;
+// Tracks which field (if any) currently has its manual-edit textarea
+// open, so "Edit" and "Edit with AI" never end up open at the same time.
+var activeEditFieldId = null;
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function formatFieldText(raw) {
+  return escapeHtml(raw).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+var toastEl = document.getElementById("toast");
+var toastTimer = null;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1800);
+}
+
+/* ============================================================
+   Header (brand) / Navigation (breadcrumb)
+   ============================================================ */
+function renderHeader() {
+  var navEl = document.getElementById("subnav");
+  var crumbEl = document.getElementById("crumb");
+  if (currentView === "list") {
+    navEl.style.display = "none";
+  } else {
+    navEl.style.display = "";
+    crumbEl.innerHTML = '<a id="crumbHome">← Back to My Groups</a>';
+  }
+}
+
+/* Chair / status pill now renders as part of the page content, not the header. */
+function whoPillHtml() {
+  return '<div class="who-pill">' + escapeHtml(CHAIR_NAME) + '</div>';
+}
+function statusPillHtml(g) {
+  var meta = STATUS_META[g.status];
+  return '<div class="status-pill" id="groupStatusPill">' + escapeHtml(meta.label) + '</div>';
+}
+function rerenderStatusPill(g) {
+  var el = document.getElementById("groupStatusPill");
+  if (el) { el.outerHTML = statusPillHtml(g); }
+}
+
+/* ============================================================
+   LIST VIEW
+   ============================================================ */
+function countByStatus(status) {
+  return GROUPS.filter(function (g) { return g.status === status; }).length;
+}
+
+function exportInfo(g) {
+  if (g.status === "chairReview" || g.status === "waitingNA") {
+    return { rank: 0, html: '<span class="export-tag na">—</span>' };
+  }
+  if (g.exportedAt) {
+    return { rank: 2, html: '<span class="export-tag exported">✓ Exported</span>' };
+  }
+  return { rank: 1, html: '<span class="export-tag pending">⏳ Pending</span>' };
+}
+
+function matchesSearch(g) {
+  if (!searchText) { return true; }
+  var q = searchText.toLowerCase();
+  return g.name.toLowerCase().indexOf(q) !== -1 || g.na.toLowerCase().indexOf(q) !== -1;
+}
+
+/* The "Approved" filter/chip covers both "approved" and "reEdited" groups —
+   they render identically (see STATUS_META), so they belong in one bucket. */
+function statusMatchesFilter(status, filter) {
+  if (filter === "all") { return true; }
+  if (filter === "approved") { return status === "approved" || status === "reEdited"; }
+  return status === filter;
+}
+
+function visibleGroups() {
+  var list = GROUPS.filter(function (g) {
+    if (!statusMatchesFilter(g.status, activeFilter)) { return false; }
+    return matchesSearch(g);
+  });
+
+  var col = sortColumn, dir = sortDir === "asc" ? 1 : -1;
+  list.sort(function (a, b) {
+    var av, bv;
+    if (col === "priority") {
+      av = STATUS_ORDER[a.status]; bv = STATUS_ORDER[b.status];
+    } else if (col === "name") {
+      av = a.name.toLowerCase(); bv = b.name.toLowerCase();
+    } else if (col === "na") {
+      av = a.na.toLowerCase(); bv = b.na.toLowerCase();
+    } else if (col === "status") {
+      av = STATUS_META[a.status].label.toLowerCase(); bv = STATUS_META[b.status].label.toLowerCase();
+    } else if (col === "exported") {
+      av = exportInfo(a).rank; bv = exportInfo(b).rank;
+    } else if (col === "updated") {
+      av = a.daysAgo; bv = b.daysAgo;
+    }
+    if (av < bv) { return -1 * dir; }
+    if (av > bv) { return 1 * dir; }
+    return 0;
+  });
+  return list;
+}
+
+var COLUMNS = [
+  { key: "name", label: "Group", width: "28%" },
+  { key: "na", label: "Network Advisor", width: "15%" },
+  { key: "status", label: "Status", width: "16%" },
+  { key: "updated", label: "Last updated", width: "20%" },
+  { key: "exported", label: "Exported to Salesforce", width: "21%" }
+];
+
+function renderListView() {
+  var chips = [
+    { key: "all", label: "All groups", count: GROUPS.length },
+    { key: "chairReview", label: "Needs your review", count: countByStatus("chairReview") },
+    { key: "waitingNA", label: "Waiting on Network Advisor", count: countByStatus("waitingNA") },
+    { key: "approved", label: "Approved", count: countByStatus("approved") + countByStatus("reEdited") }
+  ];
+  var chipHtml = chips.map(function (c) {
+    var cls = (activeFilter === c.key) ? " active" : "";
+    return '<div class="summary-chip' + cls + '" data-filter="' + c.key + '">' + escapeHtml(c.label) + '<span class="count">' + c.count + '</span></div>';
+  }).join("");
+
+  var list = visibleGroups();
+
+  var theadHtml = "<tr>" + COLUMNS.map(function (c) {
+    var arrow = "";
+    if (sortColumn === c.key) { arrow = '<span class="arrow">' + (sortDir === "asc" ? "▲" : "▼") + '</span>'; }
+    return '<th data-sort="' + c.key + '">' + escapeHtml(c.label) + arrow + '</th>';
+  }).join("") + "</tr>";
+
+  var rowsHtml;
+  if (!list.length) {
+    rowsHtml = '<tr><td colspan="' + COLUMNS.length + '"><div class="empty-state">No groups match this view.</div></td></tr>';
+  } else {
+    rowsHtml = list.map(function (g) {
+      var meta = STATUS_META[g.status];
+      var exp = exportInfo(g);
+      var rowCls = meta.isAction ? " is-action" : "";
+      return (
+        '<tr class="group-row' + rowCls + '" data-id="' + g.id + '">' +
+          '<td class="name-cell"><span class="row-action-marker"></span>' + escapeHtml(g.name) + '</td>' +
+          '<td>' + escapeHtml(g.na) + '</td>' +
+          '<td><span class="pill ' + meta.pillClass + '">' + escapeHtml(meta.label) + '</span></td>' +
+          '<td class="muted-cell">' + escapeHtml(formatTimestamp(g.daysAgo)) + '</td>' +
+          '<td>' + exp.html + '</td>' +
+        '</tr>'
+      );
+    }).join("");
+  }
+
+  var colgroupHtml = "<colgroup>" + COLUMNS.map(function (c) { return '<col style="width:' + c.width + ';">'; }).join("") + "</colgroup>";
+
+  return (
+    '<div class="wrap">' +
+      '<div class="page-head-row"><div class="page-head"><h1>My groups</h1></div>' + whoPillHtml() + '</div>' +
+      '<div class="toolbar">' +
+        '<input type="text" class="search-input" id="searchInput" placeholder="Search by group or Network Advisor…" value="' + escapeHtml(searchText) + '">' +
+        '<div class="chip-row">' + chipHtml + '</div>' +
+      '</div>' +
+      '<table class="groups-table">' + colgroupHtml + '<thead>' + theadHtml + '</thead><tbody>' + rowsHtml + '</tbody></table>' +
+    '</div>'
+  );
+}
+
+/* ============================================================
+   WAITING VIEW (launched, NA has not yet commented)
+   ============================================================ */
+function renderWaitingView(g) {
+  return (
+    '<div class="wrap">' +
+      '<div class="group-header"><div><h1>' + escapeHtml(g.name) + '</h1>' +
+        '<div class="meta">Chair: ' + escapeHtml(g.chair || CHAIR_NAME) + ' &nbsp;·&nbsp; ' + escapeHtml(g.country) + ' &nbsp;·&nbsp; Network Advisor: ' + escapeHtml(g.na) + '</div></div>' +
+        statusPillHtml(g) +
+      '</div>' +
+      '<div class="info-card">' +
+        '<p>This group has been launched. ' + escapeHtml(g.na) + ' has been invited to comment on the auto-generated DNA. You\'ll be notified as soon as the comments are ready for your review.</p>' +
+        '<button class="btn" id="backToListBtn">Back to My groups</button>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* ============================================================
+   REVIEW VIEW (per-field DNA review, adapted from
+   Chair Review Prototype.html to work for any group)
+   ============================================================ */
+function allFieldsApproved(g) {
+  return g.dnaFields.every(function (f) { return f.approved; });
+}
+
+function renderNaArea(g, f) {
+  if (!f.naComment) { return ""; }
+  if (!f.naResolved) {
+    return (
+      '<div class="na-comment">' +
+        '<div class="who">Network Advisor:</div>' +
+        '<div>' + escapeHtml(f.naComment) + '</div>' +
+        '<div class="na-actions">' +
+          '<button class="btn btn-small" data-na-include="' + f.id + '">Accept/Include</button>' +
+          '<button class="btn btn-small" data-na-disregard="' + f.id + '">Disregard</button>' +
+          '<button class="btn btn-small" data-na-ai="' + f.id + '">Edit with AI</button>' +
+          '<div class="na-actions-spacer"></div>' +
+          '<button class="btn-copy" data-na-copy="' + f.id + '" aria-label="Copy comment">Copy</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  var arrow = f.naExpanded ? "▾" : "▸";
+  var expandedBlock = f.naExpanded
+    ? '<div class="na-comment-readonly"><div class="who">Network Advisor:</div>' + escapeHtml(f.naComment) + '</div>'
+    : '';
+  return '<button class="na-toggle" data-na-toggle="' + f.id + '">' + arrow + ' See network advisor comments</button>' + expandedBlock;
+}
+
+// Undo / Edit / Edit with AI always sit in the same place, left side, in
+// the same order, whether the field is approved or not — only the
+// trailing element (right side, after the spacer) changes: an "Approve
+// text" button before approval, an "Approved" label after. Previously
+// the "Approved" label moved to the FRONT of the row on approval, which
+// pushed Edit/Edit with AI sideways — a jarring jump reported by Jacob.
+function renderFooter(g, f) {
+  if (f.naComment && !f.naResolved) { return ""; }
+  var undoBtn = (f.previousText != null)
+    ? '<button class="btn btn-small" data-undo="' + f.id + '">Undo last change</button>'
+    : "";
+  var trailing = f.approved
+    ? '<span class="approved-label">Approved</span>'
+    : '<button class="btn btn-small btn-primary" data-field-approve="' + f.id + '">Approve text</button>';
+  return (
+    '<div class="field-footer">' +
+      undoBtn +
+      '<button class="btn btn-small" data-edit="' + f.id + '">Edit</button>' +
+      '<button class="btn btn-small" data-field-ai="' + f.id + '">Edit with AI</button>' +
+      '<div class="na-actions-spacer"></div>' +
+      trailing +
+    '</div>'
+  );
+}
+
+function renderCard(g, f) {
+  return (
+    '<div class="section-card" id="wrap-' + f.id + '">' +
+      '<div class="card-head">' +
+        '<h2>' + escapeHtml(f.label) + '</h2>' +
+        '<span id="approved-' + f.id + '" class="approved-badge" style="display:' + (f.approved ? "inline" : "none") + ';">Approved</span>' +
+      '</div>' +
+      '<div class="field-body">' +
+        '<div class="field-text" id="text-' + f.id + '">' + formatFieldText(f.text) + '</div>' +
+        '<div id="na-' + f.id + '">' + renderNaArea(g, f) + '</div>' +
+        '<div id="footer-' + f.id + '">' + renderFooter(g, f) + '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/* Same "Approved" banner whether or not the Chair has re-edited since —
+   the Last updated timestamp and the export line below are what change. */
+function statusBarHtml(g) {
+  if (g.status !== "approved" && g.status !== "reEdited") { return ""; }
+  var exportSub = g.exportedAt
+    ? "Exported to Salesforce on " + escapeHtml(g.exportedAt) + "."
+    : "Pending export to Salesforce (usually within five business days).";
+  var reApproveBtn = g.needsReApproval
+    ? '<div style="margin-top:8px;"><button class="btn btn-small btn-primary" data-notify-admin="1">Notify Admin of updated Group DNA</button></div>'
+    : "";
+  return '<div class="top-approve-bar status-bar approved-status">Approved by ' + escapeHtml(CHAIR_NAME) +
+    '<div class="sub">Last updated ' + escapeHtml(formatTimestamp(g.daysAgo)) + ' · ' + exportSub + '</div>' + reApproveBtn + '</div>';
+}
+
+function renderReviewView(g) {
+  var topArea = (g.status === "approved" || g.status === "reEdited") ? statusBarHtml(g) : (fullyApprovedJustNow ? statusBarHtml(groupById[g.id]) : "");
+  return (
+    '<div class="wrap">' +
+      '<div id="topApproveArea">' + topArea + '</div>' +
+      '<div class="group-header"><div><h1>' + escapeHtml(g.name) + '</h1>' +
+        '<div class="meta">Chair: ' + escapeHtml(g.chair || CHAIR_NAME) + ' &nbsp;·&nbsp; Network Advisor: ' + escapeHtml(g.na) + ' &nbsp;·&nbsp; Country: ' + escapeHtml(g.country) + '</div></div>' +
+        statusPillHtml(g) +
+      '</div>' +
+      '<div id="dna-cards">' + g.dnaFields.map(function (f) { return renderCard(g, f); }).join("") + '</div>' +
+    '</div>'
+  );
+}
+
+/* ============================================================
+   Master render + navigation
+   ============================================================ */
+function render() {
+  renderHeader();
+  var app = document.getElementById("app");
+  if (currentView === "list") {
+    app.innerHTML = renderListView();
+  } else if (currentView === "waiting") {
+    app.innerHTML = renderWaitingView(groupById[currentGroupId]);
+  } else if (currentView === "review") {
+    app.innerHTML = renderReviewView(groupById[currentGroupId]);
+  }
+}
+
+function goToList() {
+  currentView = "list";
+  currentGroupId = null;
+  fullyApprovedJustNow = false;
+  chatPanel.classList.remove("open");
+  pendingField = null; pendingFieldMode = null; activeChatFieldId = null;
+  render();
+}
+
+function openGroup(id) {
+  var g = groupById[id];
+  currentGroupId = id;
+  fullyApprovedJustNow = false;
+  chatPanel.classList.remove("open");
+  pendingField = null; pendingFieldMode = null; activeChatFieldId = null;
+  currentView = (g.status === "waitingNA") ? "waiting" : "review";
+  render();
+}
+
+/* ---------- rerender helpers for the review view ---------- */
+function rerenderNa(g, id) {
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  document.getElementById("na-" + id).innerHTML = renderNaArea(g, f);
+}
+function rerenderFooter(g, id) {
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  var el = document.getElementById("footer-" + id);
+  if (el) { el.innerHTML = renderFooter(g, f); }
+}
+function rerenderTopArea(g) {
+  document.getElementById("topApproveArea").innerHTML = statusBarHtml(g);
+}
+
+/* ---------- NA comment handling ---------- */
+function legacyCopy(text) {
+  var ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  document.body.removeChild(ta);
+}
+function naCopy(f) {
+  var text = f.naComment;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { showToast("Comment copied"); })
+      .catch(function () { legacyCopy(text); showToast("Comment copied"); });
+  } else { legacyCopy(text); showToast("Comment copied"); }
+}
+
+async function naInclude(g, id) {
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  // Keep the current field text visible while the AI call is running —
+  // show the "thinking" state on the NA action buttons instead of
+  // blanking the field, so the Chair can keep reading it until the
+  // update actually arrives.
+  var naAreaEl = document.getElementById("na-" + id);
+  var includeBtn = naAreaEl.querySelector('[data-na-include="' + id + '"]');
+  var disregardBtn = naAreaEl.querySelector('[data-na-disregard="' + id + '"]');
+  var aiBtn = naAreaEl.querySelector('[data-na-ai="' + id + '"]');
+  var includeLabel = includeBtn ? includeBtn.textContent : "Include";
+  if (includeBtn) { includeBtn.textContent = "Thinking…"; includeBtn.disabled = true; }
+  if (disregardBtn) { disregardBtn.disabled = true; }
+  if (aiBtn) { aiBtn.disabled = true; }
+
+  var oldText = f.text;
+  try {
+    var resp = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fieldLabel: f.label,
+        currentText: f.text,
+        naComment: f.naComment,
+        userMessage: "Incorporate this Network Advisor comment directly into the field text."
+      })
+    });
+    if (!resp.ok) { throw new Error("Server returned " + resp.status); }
+    var result = await resp.json();
+    if (result.error) { throw new Error(result.error); }
+    // This call always sends a well-formed instruction (not free-typed
+    // Chair text), so the AI should never come back with a clarifying
+    // question here — but guard anyway rather than writing "undefined"
+    // into the field text if it ever does.
+    if (result.clarifyingQuestion) { throw new Error("The AI needed more context to include this comment — try \"Edit with AI\" instead."); }
+    f.text = result.proposedText;
+    f.previousText = oldText;
+  } catch (err) {
+    if (includeBtn) { includeBtn.textContent = includeLabel; includeBtn.disabled = false; }
+    if (disregardBtn) { disregardBtn.disabled = false; }
+    if (aiBtn) { aiBtn.disabled = false; }
+    showToast("Couldn't reach the AI backend — is the local server running?");
+    return;
+  }
+  document.getElementById("text-" + id).outerHTML =
+    '<div class="field-text flash" id="text-' + id + '">' + formatFieldText(f.text) + '</div>';
+  f.naResolved = true; f.naResolution = "included"; f.naExpanded = false;
+  rerenderNa(g, id); rerenderFooter(g, id);
+  showToast("Comments included");
+}
+function naDisregard(g, id) {
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  f.naResolved = true; f.naResolution = "disregarded"; f.naExpanded = false;
+  rerenderNa(g, id); rerenderFooter(g, id);
+}
+function naToggle(g, id) {
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  f.naExpanded = !f.naExpanded;
+  rerenderNa(g, id);
+}
+// Single-level undo: reverts a field's text to whatever it was right
+// before its last change (Include, an accepted Edit with AI proposal,
+// or a manual Save). Only the text is reverted — approval/status
+// changes made along the way are left as-is, same as if the Chair had
+// just typed the old text back in themselves.
+function undoField(g, id) {
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  if (f.previousText == null) { return; }
+  f.text = f.previousText;
+  f.previousText = null;
+  var box = document.getElementById("text-" + id);
+  if (box) { box.outerHTML = '<div class="field-text flash" id="text-' + id + '">' + formatFieldText(f.text) + '</div>'; }
+  rerenderFooter(g, id);
+  showToast("Change undone");
+}
+// Opens the AI chat panel showing THIS field's own conversation history
+// (see chatLog in fields()) — switching fields never mixes up what was
+// discussed for a different one.
+// Safety net: any field object should have its own chatLog (set by the
+// fields() helper), but guard here too so a field that somehow slipped
+// through without one (e.g. a future code path that builds a field object
+// by hand) degrades to "starts with an empty conversation" instead of
+// throwing and silently killing the chat panel.
+function ensureChatLog(f) {
+  if (!f.chatLog) { f.chatLog = []; }
+  return f.chatLog;
+}
+function openFieldChat(g, id) {
+  activeChatFieldId = id;
+  renderChatMessages();
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  var labelEl = document.getElementById("chatFieldLabel");
+  if (labelEl) { labelEl.textContent = f ? (" — " + f.label) : ""; }
+  chatPanel.classList.add("open");
+}
+function naEditWithAI(g, id) {
+  closeActiveManualEdit(g);
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  var firstOpen = ensureChatLog(f).length === 0;
+  openFieldChat(g, id);
+  pendingField = id; pendingFieldMode = "na";
+  if (firstOpen) {
+    addMsg("Network Advisor comment:\n\n\"" + f.naComment + "\"", "ai");
+    addMsg("How can I help you?", "ai");
+  }
+}
+function footerEditWithAI(g, id) {
+  closeActiveManualEdit(g);
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  var firstOpen = ensureChatLog(f).length === 0;
+  openFieldChat(g, id);
+  pendingField = id; pendingFieldMode = "generic";
+  if (firstOpen) {
+    addMsg("Let me know what you would like to change in the " + f.label + ".", "ai");
+  }
+}
+
+/* ---------- approve / re-edit transitions ---------- */
+// A re-edit after approval now stays "Approved" (it never switches to a
+// separate "Re-edited" status) — only the Last updated timestamp and the
+// export line move. No modal interrupts the Chair, even on the first edit —
+// a persistent "Notify Admin of updated Group DNA" button just appears in
+// the status bar (see statusBarHtml) and stays there, however many fields
+// get edited, until the Chair clicks it (see notifyAdminOfUpdate).
+function markGroupReEdited(g) {
+  if (g.status === "approved" || g.status === "reEdited") {
+    g.status = "approved";
+    g.exportedAt = null;
+    g.needsReApproval = true;
+    g.lastUpdateText = "You edited the DNA after approval · just now";
+    g.daysAgo = 0;
+    if (currentView === "review") {
+      rerenderTopArea(g); rerenderStatusPill(g); renderHeader();
+    }
+  }
+}
+
+// Chair-initiated, one click, no modal: tells the Admin this already-approved
+// group has a newer version waiting, so it gets picked up sooner than the
+// next routine export pass.
+function notifyAdminOfUpdate(g) {
+  g.needsReApproval = false;
+  g.lastUpdateText = "You notified the Admin · just now";
+  g.daysAgo = 0;
+  rerenderTopArea(g);
+  showToast("Admin notified — this update is queued for the next Salesforce export.");
+}
+
+function approveField(g, id) {
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  f.approved = true;
+  var badge = document.getElementById("approved-" + id);
+  if (badge) { badge.style.display = "inline"; }
+  rerenderFooter(g, id);
+  showToast("Field approved");
+  if (allFieldsApproved(g)) {
+    finalApproveOverlay.classList.add("open");
+    loadSuggestions(g);
+  }
+}
+
+// Optional: once every field is approved, ask the AI if it sees any
+// clear, concrete improvement worth flagging. Not a required step —
+// if the AI has nothing obvious to suggest, this shows nothing.
+async function loadSuggestions(g) {
+  var area = document.getElementById("suggestionsArea");
+  if (!area) { return; }
+  area.innerHTML = '<p class="note" style="margin:0 0 12px;">Checking for possible improvements…</p>';
+  try {
+    var res = await fetch("/api/suggest-improvements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fields: g.dnaFields.map(function (f) { return { id: f.id, label: f.label, text: f.text }; })
+      })
+    });
+    var data = await res.json();
+    if (!res.ok) { throw new Error(data.error || "Request failed"); }
+    if (!data.suggestions || !data.suggestions.length) {
+      area.innerHTML = "";
+      return;
+    }
+    area.dataset.suggestions = JSON.stringify(data.suggestions);
+    area.innerHTML =
+      '<p class="note" style="margin:0 0 8px;">A few possible improvements, if you want them:</p>' +
+      data.suggestions.map(function (s, i) {
+        return '<button class="btn btn-small" style="display:block; width:100%; text-align:left; margin-bottom:6px;" data-suggestion-idx="' + i + '">' +
+          escapeHtml(s.fieldLabel) + ': ' + escapeHtml(s.suggestion) + '</button>';
+      }).join("");
+  } catch (err) {
+    area.innerHTML = "";
+  }
+}
+
+function formatNow() {
+  return "today";
+}
+
+/* ---------- clicks ---------- */
+document.addEventListener("click", function (e) {
+  var t = e.target;
+
+  // header / crumb
+  if (t.id === "crumbHome") { goToList(); return; }
+
+  // list view
+  var filterEl = t.closest && t.closest("[data-filter]");
+  if (filterEl) { activeFilter = filterEl.getAttribute("data-filter"); render(); return; }
+
+  var sortTh = t.closest && t.closest("th[data-sort]");
+  if (sortTh) {
+    var col = sortTh.getAttribute("data-sort");
+    if (sortColumn === col) { sortDir = (sortDir === "asc") ? "desc" : "asc"; }
+    else { sortColumn = col; sortDir = "asc"; }
+    render();
+    return;
+  }
+
+  var rowEl = t.closest && t.closest("tr.group-row");
+  if (rowEl) { openGroup(rowEl.getAttribute("data-id")); return; }
+
+  // waiting view
+  if (t.id === "backToListBtn") { goToList(); return; }
+
+  // review view — needs an active group
+  var g = currentGroupId ? groupById[currentGroupId] : null;
+  if (!g) { return; }
+
+  var editId = t.getAttribute && t.getAttribute("data-edit");
+  if (editId) { startEdit(g, editId); return; }
+  var saveId = t.getAttribute && t.getAttribute("data-save");
+  if (saveId) { saveEdit(g, saveId); return; }
+  var cancelId = t.getAttribute && t.getAttribute("data-cancel");
+  if (cancelId) { cancelEdit(g, cancelId); return; }
+  var naIncludeId = t.getAttribute && t.getAttribute("data-na-include");
+  if (naIncludeId) { naInclude(g, naIncludeId); return; }
+  var naDisregardId = t.getAttribute && t.getAttribute("data-na-disregard");
+  if (naDisregardId) { naDisregard(g, naDisregardId); return; }
+  var naAiId = t.getAttribute && t.getAttribute("data-na-ai");
+  if (naAiId) { naEditWithAI(g, naAiId); return; }
+  var naCopyId = t.getAttribute && t.getAttribute("data-na-copy");
+  if (naCopyId) { naCopy(g.dnaFields.find(function (x) { return x.id === naCopyId; })); return; }
+  var naToggleId = t.getAttribute && t.getAttribute("data-na-toggle");
+  if (naToggleId) { naToggle(g, naToggleId); return; }
+  var undoId = t.getAttribute && t.getAttribute("data-undo");
+  if (undoId) { undoField(g, undoId); return; }
+  var fieldAiId = t.getAttribute && t.getAttribute("data-field-ai");
+  if (fieldAiId) { footerEditWithAI(g, fieldAiId); return; }
+  var fieldApproveId = t.getAttribute && t.getAttribute("data-field-approve");
+  if (fieldApproveId) { approveField(g, fieldApproveId); return; }
+  var topApproveClick = t.getAttribute && t.getAttribute("data-top-approve");
+  if (topApproveClick) { approveOverlay.classList.add("open"); return; }
+  var notifyAdminClick = t.getAttribute && t.getAttribute("data-notify-admin");
+  if (notifyAdminClick) { notifyAdminOfUpdate(g); return; }
+  var suggestionIdx = t.getAttribute && t.getAttribute("data-suggestion-idx");
+  if (suggestionIdx != null) {
+    var areaEl = document.getElementById("suggestionsArea");
+    var suggestions = JSON.parse((areaEl && areaEl.dataset.suggestions) || "[]");
+    var sug = suggestions[suggestionIdx];
+    if (sug) {
+      var targetField = g.dnaFields.find(function (x) { return x.label === sug.fieldLabel; }) || g.dnaFields[0];
+      finalApproveOverlay.classList.remove("open");
+      footerEditWithAI(g, targetField.id);
+      addMsg("Suggested improvement: " + sug.suggestion, "ai");
+    }
+    return;
+  }
+});
+
+document.addEventListener("input", function (e) {
+  if (e.target && e.target.id === "searchInput") {
+    searchText = e.target.value;
+    render();
+    // keep focus + caret in the search box across re-render
+    var input = document.getElementById("searchInput");
+    if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+  }
+});
+
+// Closes whichever field's manual-edit textarea is currently open (if
+// any), discarding the in-progress edit. Called before opening "Edit
+// with AI" so the two editing modes never overlap for the Chair.
+function closeActiveManualEdit(g) {
+  if (activeEditFieldId) {
+    cancelEdit(g, activeEditFieldId);
+  }
+}
+
+function startEdit(g, id) {
+  // Only one editing mode at a time — if the AI chat panel is open
+  // (possibly for a different field), close it and drop whatever it was
+  // waiting on before switching to a manual edit here.
+  if (chatPanel.classList.contains("open")) {
+    chatPanel.classList.remove("open");
+    pendingField = null; pendingFieldMode = null;
+  }
+  activeEditFieldId = id;
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  var box = document.getElementById("text-" + id);
+  box.outerHTML =
+    '<div id="text-' + id + '">' +
+      '<textarea id="edit-' + id + '">' + escapeHtml(f.text) + '</textarea>' +
+      '<div class="edit-actions">' +
+        '<button class="btn btn-small btn-primary" data-save="' + id + '">Save</button>' +
+        '<button class="btn btn-small" data-cancel="' + id + '">Cancel</button>' +
+      '</div>' +
+    '</div>';
+}
+function cancelEdit(g, id) {
+  if (activeEditFieldId === id) { activeEditFieldId = null; }
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  var box = document.getElementById("text-" + id);
+  box.outerHTML = '<div class="field-text" id="text-' + id + '">' + formatFieldText(f.text) + '</div>';
+}
+async function saveEdit(g, id) {
+  if (activeEditFieldId === id) { activeEditFieldId = null; }
+  var f = g.dnaFields.find(function (x) { return x.id === id; });
+  var textarea = document.getElementById("edit-" + id);
+  var newText = textarea.value;
+  var oldText = f.text;
+  f.text = newText;
+  f.previousText = oldText;
+  var box = document.getElementById("text-" + id);
+  box.outerHTML = '<div class="field-text flash" id="text-' + id + '">' + formatFieldText(f.text) + '</div>';
+  rerenderFooter(g, id);
+
+  // Editing an already-approved field after the group was approved = a re-edit.
+  if (f.approved && (g.status === "approved" || g.status === "reEdited")) {
+    markGroupReEdited(g);
+  }
+
+  // AI feedback after a manual edit now opens inside this field's own AI
+  // conversation, rather than as a standalone box in the main panel.
+  openFieldChat(g, id);
+  pendingField = id; pendingFieldMode = "generic";
+  addMsg("You just saved a manual edit to “" + f.label + "”. Let me take a look…", "system");
+  var thinkingMsg = addThinkingMsg();
+  try {
+    var resp = await fetch("/api/edit-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fieldLabel: f.label, oldText: oldText, newText: newText })
+    });
+    if (!resp.ok) { throw new Error("Server returned " + resp.status); }
+    var result = await resp.json();
+    if (result.error) { throw new Error(result.error); }
+    thinkingMsg.remove();
+    addMsg(result.feedback, "ai");
+  } catch (err) {
+    thinkingMsg.remove();
+    addMsg("Couldn't reach the AI backend (" + err.message + "). Is the local server running?", "ai");
+  }
+}
+
+var chatPanel = document.getElementById("chatPanel");
+document.getElementById("chatCloseBtn").addEventListener("click", function () {
+  chatPanel.classList.remove("open");
+  pendingField = null; pendingFieldMode = null; activeChatFieldId = null;
+  var labelEl = document.getElementById("chatFieldLabel");
+  if (labelEl) { labelEl.textContent = ""; }
+});
+var chatMessages = document.getElementById("chatMessages");
+
+// Rebuilds the chat panel's DOM from the active field's own chatLog.
+// Called whenever the panel switches to show a different field.
+function renderChatMessages() {
+  chatMessages.innerHTML = "";
+  if (!currentGroupId || !activeChatFieldId) { return; }
+  var g = groupById[currentGroupId];
+  var f = g.dnaFields.find(function (x) { return x.id === activeChatFieldId; });
+  if (!f) { return; }
+  ensureChatLog(f).forEach(function (entry) {
+    if (entry.kind === "msg") { appendMsgDom(entry.text, entry.cls); }
+    else if (entry.kind === "proposal") { appendProposalDom(entry); }
+  });
+}
+// Adds a message and appends it to whichever field's chatLog is active,
+// so it's still there next time that field's conversation is opened.
+function addMsg(text, cls) {
+  if (activeChatFieldId && currentGroupId) {
+    var g = groupById[currentGroupId];
+    var f = g.dnaFields.find(function (x) { return x.id === activeChatFieldId; });
+    if (f) { ensureChatLog(f).push({ kind: "msg", text: text, cls: cls }); }
+  }
+  return appendMsgDom(text, cls);
+}
+// A transient "Thinking…" bubble — deliberately NOT saved to the
+// field's chatLog, since it's removed again a moment later.
+function addThinkingMsg() {
+  return appendMsgDom("Thinking…", "ai");
+}
+function appendMsgDom(text, cls) {
+  var div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.textContent = text;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  return div;
+}
+function addProposal(fieldId, newText, note, naFieldId) {
+  var entry = { kind: "proposal", fieldId: fieldId, newText: newText, note: note, naFieldId: naFieldId || "", status: "pending" };
+  if (activeChatFieldId && currentGroupId) {
+    var g = groupById[currentGroupId];
+    var f = g.dnaFields.find(function (x) { return x.id === activeChatFieldId; });
+    if (f) { ensureChatLog(f).push(entry); }
+  }
+  appendProposalDom(entry);
+}
+function appendProposalDom(entry) {
+  var g = groupById[currentGroupId];
+  var f = g.dnaFields.find(function (x) { return x.id === entry.fieldId; });
+  if (!f) { return; }
+  var div = document.createElement("div");
+  div.className = "proposal";
+  var disabledAttr = entry.status !== "pending" ? " disabled" : "";
+  div.innerHTML =
+    '<div class="ptitle">Proposed update — ' + escapeHtml(f.label) + '</div>' +
+    '<div class="ptext">' + formatFieldText(entry.newText) + '</div>' +
+    (entry.note ? '<div class="ptext" style="color:#1B3A6B;font-style:italic;">' + escapeHtml(entry.note) + '</div>' : '') +
+    '<div class="pactions">' +
+      '<button class="btn btn-small btn-primary" data-accept-field="' + entry.fieldId + '"' + disabledAttr + '>Accept</button>' +
+      '<button class="btn btn-small" data-reject="1"' + disabledAttr + '>Reject</button>' +
+    '</div>';
+  if (entry.status !== "pending") { div.style.opacity = "0.5"; }
+  div.dataset.newText = entry.newText;
+  div.dataset.naFieldId = entry.naFieldId || "";
+  div._entry = entry;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+chatMessages.addEventListener("click", function (e) {
+  var g = groupById[currentGroupId];
+  if (!g) { return; }
+  var acceptId = e.target.getAttribute && e.target.getAttribute("data-accept-field");
+  if (acceptId) {
+    var proposalDiv = e.target.closest(".proposal");
+    var newText = proposalDiv.dataset.newText;
+    var f = g.dnaFields.find(function (x) { return x.id === acceptId; });
+    var wasApproved = f.approved;
+    f.previousText = f.text;
+    f.text = newText;
+    var textEl = document.getElementById("text-" + acceptId);
+    if (textEl) { textEl.outerHTML = '<div class="field-text flash" id="text-' + acceptId + '">' + formatFieldText(f.text) + '</div>'; }
+    rerenderFooter(g, acceptId);
+    if (proposalDiv._entry) { proposalDiv._entry.status = "applied"; }
+    proposalDiv.style.opacity = "0.5";
+    proposalDiv.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+    addMsg("Applied to \"" + f.label + "\".", "system");
+    if (proposalDiv.dataset.naFieldId) {
+      var naF = g.dnaFields.find(function (x) { return x.id === proposalDiv.dataset.naFieldId; });
+      naF.naResolved = true; naF.naResolution = "ai-edited"; naF.naExpanded = false;
+      rerenderNa(g, proposalDiv.dataset.naFieldId);
+      rerenderFooter(g, proposalDiv.dataset.naFieldId);
+    }
+    if (wasApproved && (g.status === "approved" || g.status === "reEdited")) { markGroupReEdited(g); }
+  }
+  if (e.target.getAttribute && e.target.getAttribute("data-reject")) {
+    var pd = e.target.closest(".proposal");
+    if (pd._entry) { pd._entry.status = "rejected"; }
+    pd.style.opacity = "0.5";
+    pd.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+    addMsg("Proposal discarded.", "system");
+  }
+});
+async function handleUserMessage(text) {
+  addMsg(text, "user");
+  var g = groupById[currentGroupId];
+  // pendingField/pendingFieldMode identify which field this OPEN chat panel
+  // belongs to — they live for as long as the panel stays open on that
+  // field (set once by naEditWithAI/footerEditWithAI/saveEdit, cleared only
+  // when the panel closes or switches to a different field), not just for
+  // one message. Do NOT clear them here: this function runs on every
+  // message in the conversation, and clearing them after the first message
+  // was the bug — it made every message after the first one fail with
+  // "lost track of which field we were editing".
+  var fid = pendingField, mode = pendingFieldMode;
+  if (!g || !fid) {
+    addMsg("Sorry, I lost track of which field we were editing — reopen \"Edit with AI\" on the field and try again.", "ai");
+    return;
+  }
+  var f = g.dnaFields.find(function (x) { return x.id === fid; });
+  var thinkingMsg = addThinkingMsg();
+  try {
+    var payload = { fieldLabel: f.label, currentText: f.text, userMessage: text };
+    if (mode === "na") { payload.naComment = f.naComment; }
+    var resp = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) { throw new Error("Server returned " + resp.status); }
+    var result = await resp.json();
+    thinkingMsg.remove();
+    if (result.error) { addMsg("Something went wrong: " + result.error, "ai"); return; }
+    // The AI can decline to propose an edit when the message didn't give it
+    // enough to work with (e.g. random text) — it asks a clarifying
+    // question instead of fabricating a "proposal" out of nonsense.
+    if (result.clarifyingQuestion) {
+      addMsg(result.clarifyingQuestion, "ai");
+      return;
+    }
+    addMsg("Here's a proposal:", "ai");
+    addProposal(fid, result.proposedText, result.note, mode === "na" ? fid : null);
+  } catch (err) {
+    thinkingMsg.remove();
+    addMsg("Couldn't reach the AI backend (" + err.message + "). Is the local server running (npm start)?", "ai");
+  }
+}
+function resetChatInputHeight(input) {
+  input.style.height = "auto";
+}
+document.getElementById("chatSendBtn").addEventListener("click", function () {
+  var input = document.getElementById("chatInput");
+  var val = input.value.trim();
+  if (!val) { return; }
+  input.value = "";
+  resetChatInputHeight(input);
+  handleUserMessage(val);
+});
+// Convention: Enter sends the message, Shift+Enter inserts a new line
+// (same as Slack/most chat tools). The textarea grows with the text up
+// to a max height (see .chat-input-row textarea in the CSS above), then
+// scrolls internally.
+document.getElementById("chatInput").addEventListener("keydown", function (e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById("chatSendBtn").click();
+  }
+});
+document.getElementById("chatInput").addEventListener("input", function (e) {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+});
+
+var finalApproveOverlay = document.getElementById("finalApproveOverlay");
+document.getElementById("finalApproveBtn").addEventListener("click", function () {
+  finalApproveOverlay.classList.remove("open");
+  approveOverlay.classList.add("open");
+});
+document.getElementById("finalApproveDismissBtn").addEventListener("click", function () {
+  finalApproveOverlay.classList.remove("open");
+});
+
+var approveOverlay = document.getElementById("approveOverlay");
+document.getElementById("modalCloseBtn").addEventListener("click", function () {
+  approveOverlay.classList.remove("open");
+  var g = groupById[currentGroupId];
+  if (g) {
+    g.status = "approved";
+    g.approvedAt = "today";
+    g.exportedAt = null;
+    g.needsReApproval = false;
+    g.lastUpdateText = "Approved by you · just now";
+    g.daysAgo = 0;
+    fullyApprovedJustNow = true;
+    render();
+  }
+});
+
+// Pull in any groups launched through step 1 → step 2 of the linked demo
+// (ai-pipeline-test.html → na-review.html) and merge them alongside the 5
+// static mock groups, so this list reflects whatever really moved through
+// the pipeline this session.
+async function boot() {
+  try {
+    var resp = await fetch("/api/groups");
+    if (resp.ok) {
+      var launched = await resp.json();
+      launched.forEach(function (lg) {
+        // Groups launched through the live pipeline come straight from the
+        // server's plain JSON (see /api/launch in server.js) — they never
+        // go through the fields() helper above, so they're missing
+        // client-only runtime state like chatLog. Re-run them through
+        // fields() so every group behaves the same, whether it's one of
+        // the 5 built-in demo groups or a real one you just launched.
+        if (Array.isArray(lg.dnaFields)) { lg.dnaFields = fields(lg.dnaFields); }
+        if (groupById[lg.id]) {
+          Object.assign(groupById[lg.id], lg);
+        } else {
+          GROUPS.push(lg);
+          groupById[lg.id] = lg;
+        }
+      });
+    }
+  } catch (err) {
+    // Local server not reachable (yet) — just show the static demo groups.
+  }
+  render();
+}
+boot();
+</script>
+
+</body>
+</html>

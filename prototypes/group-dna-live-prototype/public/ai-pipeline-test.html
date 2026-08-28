@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group DNA — live AI pipeline test</title>
+<style>
+  :root {
+    --navy: #1F3864; --navy-dark: #14274a; --bg: #F4F5F7; --card: #FFFFFF;
+    --border: #DDE1E8; --text: #1C1F26; --muted: #6B7280; --ai-bg: #EAF1FB; --ai-border: #C4D7F0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  .prototype-flag { background: #FFF7E0; border-bottom: 1px solid #EAD98B; color: #6B5900; font-size: 12px; text-align: center; padding: 6px 12px; }
+  header.topbar { background: var(--navy); color: #fff; }
+  header.topbar .inner { max-width: 1100px; margin: 0 auto; padding: 16px 20px; }
+  header.topbar .brand { font-weight: 700; font-size: 18px; }
+  header.topbar .sub { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 80px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .card h2 { margin: 0 0 10px; font-size: 15px; color: var(--navy); }
+  .sample-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  button { font-family: inherit; cursor: pointer; }
+  .btn { border-radius: 6px; padding: 8px 14px; font-size: 13px; border: 1px solid var(--border); background: #fff; color: var(--text); }
+  .btn:hover { background: #F0F2F5; }
+  .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-primary[disabled] { opacity: 0.6; cursor: default; }
+  label { display: block; font-size: 12.5px; font-weight: 600; color: var(--navy); margin: 10px 0 4px; }
+  textarea { width: 100%; min-height: 100px; font-family: inherit; font-size: 13px; line-height: 1.5; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
+  input[type="text"] { width: 100%; font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
+  .field-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .field-row > div { flex: 1; min-width: 220px; }
+  .stage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .stage-grid { grid-template-columns: 1fr; } }
+  .stage-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .stage-head { padding: 10px 14px; background: #FAFBFC; border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 700; color: var(--navy); display: flex; justify-content: space-between; }
+  .stage-head .role { font-weight: 400; color: var(--muted); }
+  .stage-body { padding: 14px; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; max-height: 420px; overflow-y: auto; }
+  .final-card .stage-body { white-space: pre-wrap; font-size: 13px; }
+  .loading { color: var(--muted); font-style: italic; font-size: 13px; }
+  .error-box { background: #FDECEA; border: 1px solid #F3B4AC; color: #7A2E24; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .stepper { display: flex; gap: 6px; font-size: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .stepper a, .stepper span.current { color: #fff; opacity: 0.85; text-decoration: none; }
+  .stepper a:hover { opacity: 1; }
+  .stepper span.current { font-weight: 700; opacity: 1; text-decoration: underline; }
+  .stepper .sep { opacity: 0.5; }
+  .final-output { background: #EAF1FB; border: 1px solid #C4D7F0; }
+  .final-output-body { white-space: pre-wrap; font-size: 13.5px; line-height: 1.6; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+  .approve-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .approve-row input[type="text"] { border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; font-family: inherit; min-width: 220px; }
+  .success-box { background: #EAF7EE; border: 1px solid #BFE3C8; color: #1E5631; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; margin-top: 12px; }
+  .success-box a.btn { margin-top: 8px; display: inline-block; }
+  details.tech-details { margin-top: 6px; }
+  details.tech-details > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--navy); padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="prototype-flag">Prototype — step 1 of 3. Calls a real Claude API via your local server.js. Not connected to Salesforce; nothing here is saved once the server restarts.</div>
+
+<header class="topbar">
+  <div class="inner">
+    <div class="brand">Group DNA — Admin conversion</div>
+    <div class="sub">Runs Notary → Consultant immediately (from AI promptkæde_Group DNA.docx). The Auditor change list is Admin-only and runs only if you open it below — it costs a 3rd API call, so it's not generated unless you ask for it.</div>
+    <div class="stepper">
+      <span class="current">1. Admin conversion</span>
+      <span class="sep">→</span>
+      <a href="na-review.html">2. Network Advisor comment</a>
+      <span class="sep">→</span>
+      <a href="chair-groups-live.html">3. Chair review</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>1. Group details</h2>
+    <label for="groupNameInput">Group name</label>
+    <input type="text" id="groupNameInput" placeholder="e.g. Adm. direktører – Jylland 1">
+    <div class="field-row">
+      <div>
+        <label for="chairNameInput">Chair name</label>
+        <input type="text" id="chairNameInput" placeholder="e.g. Carsten Wædeled">
+      </div>
+      <div>
+        <label for="naNameInput">Network Advisor name</label>
+        <input type="text" id="naNameInput" placeholder="e.g. Simon Arun Vrabel">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. Pick a raw group, or paste your own</h2>
+    <div class="sample-row" id="sampleRow"></div>
+    <label for="groupProfile">Group Profile (raw)</label>
+    <textarea id="groupProfile" placeholder="Paste the raw Group Profile export text here…"></textarea>
+    <label for="memberProfile">Member Profile (raw)</label>
+    <textarea id="memberProfile" placeholder="Paste the raw Member Profile export text here…"></textarea>
+    <label for="companiesProfile">Companies Profile (raw)</label>
+    <textarea id="companiesProfile" placeholder="Paste the raw Companies Profile export text here…"></textarea>
+    <label for="rosterInput">Group roster — titles + companies (optional)</label>
+    <textarea id="rosterInput" placeholder="Paste one member per line, e.g.:&#10;CFO — Acme A/S&#10;Head of Operations — Northco ApS&#10;&#10;This helps sharpen the Member and Companies profile below."></textarea>
+    <div class="note">Optional. Used only to sharpen the Member and Companies profile — it is not saved anywhere.</div>
+    <div style="margin-top: 14px;">
+      <button class="btn btn-primary" id="runBtn">Run the pipeline (Notary + Consultant)</button>
+    </div>
+    <div id="errorArea"></div>
+  </div>
+
+  <div id="resultsArea"></div>
+
+</div>
+
+<script>
+var SAMPLES = [
+  {
+    name: "Sikkerhedschefer 1",
+    group: "Netværksgruppe for Sikkerhedschefer og Security Managers hjemmehørende i nogle af landets større virksomheder (+ 1.000 ansatte). Gruppen arbejder med Sikkerhed på et strategisk, taktisk og operationelt niveau. Fokus er på fysisk sikkerhed og sikring, beredskab og nødprocedurer.\n \n \n \n På hvert møde behandles aktuelle emner fra medlemmernes hverdag eller temaer med ekstrerne oplægsholdere. Møderne afholdes på skift hos medlemmerne. Hvis der er fysisk sikkerhed på mødestedet prioriteres en rundvisning.\n \n Ofte også rundvisning med fokus på sikkerhed.\n \n \n \n Gruppemedlemmer kan være fra hele landet, medlemmer må derfor påregne at møderne foregår i både øst og vest Danmark\n \n Alder: 35-50 \n \n Min. 5+ års erfaring med sikkerhed, fra enten FET, PET eller andre relevante institutioner. \n \n Gruppen består af en stærk grundstamme. Vigtigt at gruppen altid har min. 20 medlemmer. \n \n \n \n Gruppen mødes 5 gange årligt Årlig middag inklusiv i prisen",
+    member: "02-9-2019 aftalt med Susanne - der erhverves medlemmer fra både øst og vest Danmark.\n \n Det aftales på møderne hvem de kommende værter er og derved hvor møderne afholdes. \n \n Det må derfor påregnes at møder foregår både i Øst og vest Danmark.",
+    companies: "Relevante medlemmer fra: Forsvaret, Hjemmeværnet, Politiet, Retail (Steen og Strøm), Internationale danske virksomheder: Mærsk, Carlsberg, FLS, Haldor Topsøe (top 100) - og gerne kvinder."
+  },
+  {
+    name: "Kommunikationschefer – København 2",
+    group: "27-03-2017:\n \n \n \n 16 medlemmer, hvoraf et par går tilbage til gruppens start, flere har høj ancinnitet, mens der er kommet nye medlemmer løbende til - flest i 2012,13 og 15.\n \n \n \n 8 nye medlemmer i 2015 betød en vitaminindsprøjtning til gruppen, der er en meget blandet - men spændende - flok: Fra store børsnoterede virksomheder til små offentlige\n \n \n \n Alle medlemmer er kommunikationschefer/direktører, nogen har ingen medarbejdere, mens andre har flere medarbejdere.\n \n \n \n Stor medlemstilfredshed - gruppen vil gerne hinanden - og vil gerne hinanden\n \n \n \n Mødeprocenten ligger over 50%, hvilket er acceptabelt for en kommunikationsgruppe",
+    member: "Aldersmæssigt ligger medlemmerne på 40+ - dog med et par stykker mellem 30-40 år.\n \n Næsten 50/50 mænd/kvinder\n \n Erfaring med ledelse ligger fra 0 til over 10 års erfaring - de fleste har over 5 års ledelseserfaring",
+    companies: "Størrelsen på virksomhederne varierer fra NGO'er til store børsnoterede virksomheder. De fleste er private, men der er også et par offenligge og halvoffentlige.\n \n Flest aktieselskaber som Codan, Tryg, SVITZER, KMD, PANDORA og Coor Service Management\n \n Offentlige som: Det Kongelige Teater, Arbejdstilsynet, Forsvarsministeriets personalestyrelse\n \n \n \n Medlemmerne i gruppen ser den store forskellighed som noget positivt - men man skal som nyt medlem gøres opmærksom på denne store forskellighed."
+  },
+  {
+    name: "Kvindelige Ledere Vest 1",
+    group: "Ledelse af medarbejdere\n \n Virksomhedsstørrelse - 250-1000\n \n 6-10 års ledelseserfaring\n \n \n \n \n \n Kvindelige ledere på afdelingslederniveau fra de mellemstore og de store virksomheder. Alle medlemmer har ledelsesansvar, som regel for mindst 5 medarbejdere. Kandidater til gruppen har udelukkende ledelse af medarbejdere - ikke ledelse af ledere. \n \n For at sikre fortrolighed, tryghed og tætte relationer opbygges gruppen til maksimalt 22 medlemmer. \n \n Temaer: \n \n Emner:\n \n Hvordan skaber og opbygger vi en god kultur\n \n Hvordan kommer vi godt tilbage efter Corona og sommerferie.\n \n Udvikling af ledergruppen\n \n Distanceledelse\n \n Ledelse opad\n \n Adfærdsdesign\n \n Innovation og forandring kontra daglig drift (To do listen)\n \n Motivation i ledelse - din egen, dine kollegers, din chefs \n \n Lederens værktøjskasse\n \n Strategisk udvikling\n \n Personlig udvikling\n \n Work-life Ballance\n \n Handlekraft - omsæt ideer til handling\n \n Forhandling \n \n Samarbejde & kommunikation\n \n Uddelegering",
+    member: "Kan også tilbydes følgende:\n \n Harvard LEA XII\n \n LU vest 2, 6, 7 14 og 15\n \n Der er højere til loftet i vest 1 - tunge profiler- der er lige ved at vokse ud af gruppe.\n \n profilerne er fremme i skoene, de vil netværke, og have noget ud af det.\n \n Geografisk midt syd",
+    companies: "Tungest af kvindegrupperne i vest\n \n \n \n Katrine Gybel, KPMG Denmark er på venteliste og skal kontaktes."
+  }
+];
+
+function escapeHtml(s) {
+  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+var sampleRow = document.getElementById("sampleRow");
+sampleRow.innerHTML = SAMPLES.map(function (s, i) {
+  return '<button class="btn" data-sample="' + i + '">' + escapeHtml(s.name) + '</button>';
+}).join("") + '<button class="btn" id="clearBtn">Clear</button>';
+
+sampleRow.addEventListener("click", function (e) {
+  var idx = e.target.getAttribute("data-sample");
+  if (idx !== null) {
+    var s = SAMPLES[idx];
+    document.getElementById("groupProfile").value = s.group;
+    document.getElementById("memberProfile").value = s.member;
+    document.getElementById("companiesProfile").value = s.companies;
+    // Pre-fill the group name from the sample; these 3 samples don't have a
+    // known real Chair/NA pair, so leave those for the admin to type in.
+    document.getElementById("groupNameInput").value = s.name;
+    document.getElementById("chairNameInput").value = "";
+    document.getElementById("naNameInput").value = "";
+  }
+  if (e.target.id === "clearBtn") {
+    document.getElementById("groupProfile").value = "";
+    document.getElementById("memberProfile").value = "";
+    document.getElementById("companiesProfile").value = "";
+    document.getElementById("rosterInput").value = "";
+    document.getElementById("groupNameInput").value = "";
+    document.getElementById("chairNameInput").value = "";
+    document.getElementById("naNameInput").value = "";
+  }
+});
+
+var STAGE_META = {
+  stage1: { label: "Stage 1", role: "The Notary — structure only, no rewording" },
+  stage2: { label: "Stage 2", role: "The Strict Consultant — Score-5 rewrite" },
+  stage3: { label: "Stage 3", role: "The Auditor — change list" },
+  stage4: { label: "Stage 4", role: "Final output — assembled for the review flow" }
+};
+
+// Holds the current run's Stage 1 / Stage 2 text so the change-list
+// panel can send them to /api/change-list whenever it's opened — even
+// much later — without re-running Notary/Consultant. This prototype has
+// no database, so the browser tab is where that state lives meanwhile;
+// a real backend would look these up by group id instead.
+var lastRun = null;
+
+function stageCardHtml(key, text) {
+  var meta = STAGE_META[key];
+  var extraClass = key === "stage4" ? " final-card" : "";
+  return '<div class="stage-card' + extraClass + '">' +
+    '<div class="stage-head"><span>' + meta.label + '</span><span class="role">' + escapeHtml(meta.role) + '</span></div>' +
+    '<div class="stage-body">' + escapeHtml(text || "") + '</div>' +
+  '</div>';
+}
+
+function renderResults(data) {
+  var finalDna = (data.finalDna || data.stage2 || "").trim();
+  lastRun = { stage1: data.stage1, stage2: data.stage2, finalDna: finalDna, changeList: null };
+
+  var html = '';
+  html += '<div class="card final-output">' +
+    '<h2>Finished Group DNA — ready for review</h2>' +
+    '<div class="final-output-body">' + escapeHtml(finalDna) + '</div>' +
+    '<div class="note">This is what the Network Advisor and Chair will see next — no change history, no scores.</div>' +
+    '<div class="approve-row">' +
+      '<button class="btn btn-primary" id="approveBtn">Approve</button>' +
+    '</div>' +
+    '<div id="approveArea"></div>' +
+  '</div>';
+
+  html += '<details class="tech-details"><summary>Show the technical stages (Notary → Consultant)</summary>' +
+    '<div class="stage-grid" style="margin-top:12px;">' +
+      stageCardHtml("stage1", data.stage1) +
+      stageCardHtml("stage2", data.stage2) +
+    '</div>' +
+    '<details class="tech-details" id="changeListDetails" style="margin-top:14px;">' +
+      '<summary>Generate the Auditor change list (Admin-only — this is a 3rd, separate API call, made only when you open this)</summary>' +
+      '<div id="changeListArea" style="margin-top:12px;"><div class="note">Not generated yet. Opening this panel calls the Auditor stage.</div></div>' +
+    '</details>' +
+  '</details>';
+
+  document.getElementById("resultsArea").innerHTML = html;
+  document.getElementById("changeListDetails").addEventListener("toggle", onChangeListToggle);
+}
+
+async function onChangeListToggle(e) {
+  if (!e.target.open) { return; }
+  if (!lastRun || lastRun.changeList) { return; } // already loaded, or nothing to load
+  var area = document.getElementById("changeListArea");
+  area.innerHTML = '<div class="loading">Running the Auditor stage… (a real API call, ~10-20s)</div>';
+  try {
+    var res = await fetch("/api/change-list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage1: lastRun.stage1, stage2: lastRun.stage2 })
+    });
+    var data = await res.json();
+    if (!res.ok) { throw new Error(data.error || "Request failed"); }
+    lastRun.changeList = data;
+    area.innerHTML = '<div class="stage-grid">' +
+      stageCardHtml("stage3", data.stage3) +
+      stageCardHtml("stage4", data.stage4) +
+    '</div>';
+  } catch (err) {
+    area.innerHTML = '<div class="error-box">' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+document.getElementById("runBtn").addEventListener("click", async function () {
+  var btn = this;
+  var errorArea = document.getElementById("errorArea");
+  errorArea.innerHTML = "";
+  var groupProfile = document.getElementById("groupProfile").value;
+  var memberProfile = document.getElementById("memberProfile").value;
+  var companiesProfile = document.getElementById("companiesProfile").value;
+  var roster = document.getElementById("rosterInput").value;
+
+  if (!groupProfile && !memberProfile && !companiesProfile) {
+    errorArea.innerHTML = '<div class="error-box">Pick a sample or paste some raw DNA text first.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Running Notary + Consultant… (this calls the real API, ~10-20s)";
+  document.getElementById("resultsArea").innerHTML = '<div class="loading">Waiting on Claude…</div>';
+
+  try {
+    var res = await fetch("/api/pipeline", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupProfile: groupProfile, memberProfile: memberProfile, companiesProfile: companiesProfile, roster: roster })
+    });
+    var data = await res.json();
+    if (!res.ok) { throw new Error(data.error || "Request failed"); }
+    renderResults(data);
+  } catch (err) {
+    document.getElementById("resultsArea").innerHTML = "";
+    errorArea.innerHTML = '<div class="error-box">' + escapeHtml(err.message) + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Run the pipeline (Notary + Consultant)";
+  }
+});
+
+document.getElementById("resultsArea").addEventListener("click", async function (e) {
+  if (!e.target || e.target.id !== "approveBtn") { return; }
+  if (!lastRun) { return; }
+  var btn = e.target;
+  var approveArea = document.getElementById("approveArea");
+  var groupName = document.getElementById("groupNameInput").value.trim();
+  var chairName = document.getElementById("chairNameInput").value.trim();
+  var naName = document.getElementById("naNameInput").value.trim();
+
+  if (!groupName) {
+    approveArea.innerHTML = '<div class="error-box">Add a group name in "1. Group details" before approving.</div>';
+    document.getElementById("groupNameInput").focus();
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Approving…";
+  approveArea.innerHTML = "";
+
+  try {
+    var res = await fetch("/api/launch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        groupName: groupName,
+        chairName: chairName,
+        naName: naName,
+        finalDna: lastRun.finalDna
+      })
+    });
+    var result = await res.json();
+    if (!res.ok) { throw new Error(result.error || "Approve failed"); }
+    approveArea.innerHTML =
+      '<div class="success-box">Approved — "' + escapeHtml(result.group.name) + '" (Chair: ' + escapeHtml(result.group.chair) +
+      ') is ready for launch. In the prototype this immediately invites ' + escapeHtml(result.group.na) + ' to comment.' +
+      '<br><a class="btn btn-primary" href="na-review.html">Continue to Network Advisor step →</a></div>';
+    btn.textContent = "Approved";
+  } catch (err) {
+    approveArea.innerHTML = '<div class="error-box">' + escapeHtml(err.message) + '</div>';
+    btn.disabled = false;
+    btn.textContent = "Approve";
+  }
+});
+</script>
+
+</body>
+</html>

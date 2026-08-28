@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group Compass — Chair review (prototype)</title>
+<style>
+  :root {
+    --navy: #1F3864;
+    --navy-dark: #14274a;
+    --bg: #F4F5F7;
+    --card: #FFFFFF;
+    --border: #DDE1E8;
+    --text: #1C1F26;
+    --muted: #6B7280;
+    --na: #B5651D;
+    --na-bg: #FEF3E7;
+    --ai-bg: #EAF1FB;
+    --ai-border: #C4D7F0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .prototype-flag {
+    background: #FFF7E0;
+    border-bottom: 1px solid #EAD98B;
+    color: #6B5900;
+    font-size: 12px;
+    text-align: center;
+    padding: 6px 12px;
+  }
+  header.topbar {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header.topbar .brand {
+    font-weight: 700;
+    font-size: 16px;
+  }
+  header.topbar .brand .tag {
+    font-weight: 400;
+    font-size: 12px;
+    opacity: 0.75;
+    margin-left: 6px;
+  }
+  header.topbar .crumb {
+    font-size: 13px;
+    opacity: 0.85;
+  }
+  header.topbar .spacer { flex: 1; }
+  .status-pill {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+  }
+  .group-header {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  .group-header h1 {
+    margin: 0 0 4px;
+    font-size: 20px;
+    color: var(--navy);
+  }
+  .group-header .meta {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .btn {
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+  }
+  .btn:hover { background: #F0F2F5; }
+  .btn-primary {
+    background: var(--navy);
+    color: #fff;
+    border-color: var(--navy);
+  }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-small {
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    flex-shrink: 0;
+  }
+  .section-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: #FAFBFC;
+  }
+  .card-head h2 {
+    font-size: 14px;
+    color: var(--navy);
+    margin: 0;
+  }
+  .field-body {
+    padding: 16px 20px;
+  }
+  .field-text {
+    font-size: 13.5px;
+    line-height: 1.6;
+    white-space: pre-line;
+  }
+  .field-text strong {
+    color: var(--navy);
+  }
+  .field-body textarea {
+    width: 100%;
+    min-height: 280px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border: 1px solid var(--navy);
+    border-radius: 6px;
+    resize: vertical;
+  }
+  .edit-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+  }
+  .na-comment {
+    background: var(--na-bg);
+    border: 1px solid #F0DCB8;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: #5C4813;
+  }
+  .na-comment .who,
+  .na-comment-readonly .who {
+    font-weight: 600;
+    color: var(--na);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .na-comment-readonly {
+    background: var(--na-bg);
+    border: 1px solid #F0DCB8;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: #5C4813;
+  }
+  .na-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .na-actions-spacer { flex: 1; }
+  .btn-copy {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 11.5px;
+    text-decoration: underline;
+    padding: 4px 2px;
+  }
+  .btn-copy:hover { color: var(--text); }
+  .na-toggle {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 4px 0;
+    margin-top: 10px;
+    display: inline-block;
+  }
+  .na-toggle:hover { color: var(--text); }
+  .ai-feedback {
+    background: var(--ai-bg);
+    border: 1px solid var(--ai-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: #1B3A6B;
+    position: relative;
+  }
+  .ai-feedback .who {
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .ai-feedback .dismiss {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #1B3A6B;
+    font-size: 13px;
+    opacity: 0.6;
+  }
+  .chair-note {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 6px;
+  }
+  .field-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #EEF0F3;
+  }
+  .approved-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #2F7D4F;
+    background: #E7F6EC;
+    border: 1px solid #BFE6CC;
+    border-radius: 999px;
+    padding: 2px 10px;
+  }
+  .approved-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #2F7D4F;
+  }
+  .top-approve-bar {
+    margin-bottom: 18px;
+  }
+  .top-approve-bar.approved-status {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2F7D4F;
+    background: #E7F6EC;
+    border: 1px solid #BFE6CC;
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .chat-panel {
+    position: fixed;
+    top: 0;
+    right: -360px;
+    width: 340px;
+    height: 100%;
+    background: #fff;
+    border-left: 1px solid var(--border);
+    box-shadow: -4px 0 16px rgba(0,0,0,0.08);
+    transition: right 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    z-index: 50;
+  }
+  .chat-panel.open { right: 0; }
+  .chat-head {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .chat-head button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    opacity: 0.8;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .msg {
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    border-radius: 8px;
+    max-width: 90%;
+    white-space: pre-line;
+  }
+  .msg.user {
+    background: var(--navy);
+    color: #fff;
+    align-self: flex-end;
+  }
+  .msg.ai {
+    background: #F1F3F6;
+    color: var(--text);
+    align-self: flex-start;
+  }
+  .msg.system {
+    background: none;
+    color: var(--muted);
+    font-style: italic;
+    align-self: center;
+    font-size: 11.5px;
+  }
+  .proposal {
+    background: var(--ai-bg);
+    border: 1px solid var(--ai-border);
+    border-radius: 8px;
+    padding: 10px;
+    align-self: flex-start;
+    max-width: 92%;
+    font-size: 12.5px;
+  }
+  .proposal .ptitle {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #1B3A6B;
+  }
+  .proposal .ptext {
+    white-space: pre-line;
+    margin-bottom: 8px;
+  }
+  .proposal .pactions {
+    display: flex;
+    gap: 8px;
+  }
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .chat-input-row input {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    font-family: inherit;
+  }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20,25,35,0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .modal-box {
+    background: #fff;
+    border-radius: 10px;
+    max-width: 380px;
+    padding: 24px;
+    text-align: center;
+  }
+  .modal-box p {
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 18px;
+  }
+  .flash {
+    animation: flashbg 1.4s ease;
+  }
+  @keyframes flashbg {
+    0% { background: #FFF3C4; }
+    100% { background: transparent; }
+  }
+  .toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: var(--navy);
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 200;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<div class="prototype-flag">Prototype — Chair review screen only. Mock data, scripted AI responses, not connected to a real backend.</div>
+<div class="toast" id="toast"></div>
+
+<header class="topbar">
+  <div class="brand">Group Compass <span class="tag">DNA module</span></div>
+  <div class="crumb">My groups / Adm. direktører – Jylland 1</div>
+  <div class="spacer"></div>
+  <div class="status-pill">Chair review</div>
+</header>
+
+<div class="wrap">
+
+  <div id="topApproveArea"></div>
+
+  <div class="group-header">
+    <h1>Adm. direktører – Jylland 1</h1>
+    <div class="meta">Chair: Carsten Wædeled &nbsp;·&nbsp; Network Advisor: Mette Holm &nbsp;·&nbsp; Country: Denmark</div>
+  </div>
+
+  <div id="dna-cards"></div>
+
+</div>
+
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-head">
+    <span>AI assistant</span>
+    <button id="chatCloseBtn" aria-label="Close">&times;</button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-row">
+    <input id="chatInput" type="text" placeholder="Type your reply…">
+    <button class="btn btn-small" id="chatSendBtn">Send</button>
+  </div>
+</div>
+
+<div class="overlay" id="finalApproveOverlay">
+  <div class="modal-box">
+    <p>All profile fields are approved.</p>
+    <button class="btn btn-primary" id="finalApproveBtn">Approve full Group DNA</button>
+    <div style="margin-top: 10px;">
+      <button class="btn-copy" id="finalApproveDismissBtn">Not now</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="approveOverlay">
+  <div class="modal-box">
+    <p>Thank you — the DNA has been updated. It will be updated in Salesforce within five business days.</p>
+    <button class="btn btn-primary" id="modalCloseBtn">Close</button>
+  </div>
+</div>
+
+<script>
+var fields = [
+  { id: "group", label: "Group profile",
+    text: "**Hvem er gruppen for**\nCEO'er og Group CEOs med fuldt P&L-ansvar i mellemstore og større virksomheder (typisk 150–500+ ansatte) med høj organisatorisk kompleksitet. Typisk omsætningsniveau fra ca. 200 mio. kr. og opefter, afhængigt af struktur og kompleksitet.\nGeografi: Jylland\n\n**Hvad får man**\nFortrolig sparring med ligestillede top-CEO'er med høj kompleksitet og tilsvarende ansvar.\nPerspektiv på strategi, governance, bestyrelsessamspil og transformation.\nCase-baseret sparring på kritiske beslutninger i komplekse organisationer.\nAdgang til et forum hvor topledere arbejder med deres mest strategiske og forretningskritiske dilemmaer.\n\n**Hvad kendetegner gruppen**\n- En af de tungeste CEO-grupper i Jylland\n- Høj organisatorisk og forretningsmæssig kompleksitet\n- Fokus på governance, bestyrelse og transformation frem for drift\n- Sparring udelukkende mellem reelle topledere\n\n**Udviklingsfokus**\n- Fastholde gruppen som en tydelig top-CEO-gruppe\n- Styrke strategisk ledelse og governance-kompetencer\n- Sikre ensartet kompleksitet i medlemsbasen\n- Øge kvaliteten i bestyrelsessamspil og transformationsledelse",
+    naComment: "Vi har historisk vægtet ESG kraftigt i denne gruppe — nogle medlemmer er stadig med primært pga. det. Kan vi nævne det kort under \"Hvad kendetegner gruppen\", så det ikke overrasker dem?" },
+
+  { id: "member", label: "Member profile",
+    text: "**Titler / erfaring**\nCEO / Group CEO med dokumenteret erfaring på topledelsesniveau.\nAnsvar for virksomhedens samlede performance og strategi.\nErfaring med bestyrelse og governance.\n\n**Ledelsesspænd**\nLeder gennem etableret ledergruppe og flere ledelseslag.\nOrganisation med kompleksitet der kræver strategisk ledelse frem for operativ drift.\n\n**Matcher / matcher ikke**\nMatcher:\n- CEO / Group CEO med fuldt P&L-ansvar\n- Profil med høj organisatorisk kompleksitet\n- Erfaring med bestyrelsessamspil\n\nMatcher ikke:\n- Profiler uden samlet ansvar\n- Virksomheder med for lav kompleksitet\n- Funktionelle ledere uden CEO-mandat",
+    naComment: "Vi plejer at gøre en undtagelse for ejerledere, der er majoritetsejere — den er væk nu, under \"Matcher / matcher ikke\". Er det med vilje, eller skal vi have den med igen?" },
+
+  { id: "company", label: "Companies profile",
+    text: "**Størrelse / type**\nTypisk 150–500+ ansatte.\nTypisk omsætning fra 200 mio. kr. til flere mia. kr. afhængigt af struktur.\nVirksomheder med kompleks organisation og ledelsesstruktur.\n\n**Branche / marked**\nDiversitet på tværs af brancher.\nFokus på virksomheder med kompleks drift og strategisk tyngde.\nIngen direkte konkurrence mellem medlemmer.\n\n**Matcher / matcher ikke**\nMatcher: virksomheder med kompleks organisation og strategiske udfordringer.\nMatcher ikke: virksomheder uden ledelsesstruktur eller tilstrækkelig kompleksitet.",
+    naComment: null }
+];
+
+var fieldById = {};
+fields.forEach(function (f) { fieldById[f.id] = f; });
+
+var naState = {};
+fields.forEach(function (f) {
+  if (f.naComment) { naState[f.id] = { resolved: false, resolution: null, expanded: false }; }
+});
+
+var pendingField = null;
+var pendingFieldMode = null;
+var fieldApproved = { group: false, member: false, company: false };
+var fullyApproved = false;
+var topApproveVisible = false;
+var CHAIR_NAME = "Carsten Wædeled";
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function formatFieldText(raw) {
+  return escapeHtml(raw).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+function renderNaArea(f) {
+  if (!f.naComment) { return ""; }
+  var state = naState[f.id];
+  if (!state.resolved) {
+    return (
+      '<div class="na-comment">' +
+        '<div class="who">Network Advisor:</div>' +
+        '<div>' + escapeHtml(f.naComment) + '</div>' +
+        '<div class="na-actions">' +
+          '<button class="btn btn-small" data-na-include="' + f.id + '">Include</button>' +
+          '<button class="btn btn-small" data-na-disregard="' + f.id + '">Disregard</button>' +
+          '<button class="btn btn-small" data-na-ai="' + f.id + '">Edit with AI</button>' +
+          '<div class="na-actions-spacer"></div>' +
+          '<button class="btn-copy" data-na-copy="' + f.id + '" aria-label="Copy comment">Copy</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  var arrow = state.expanded ? "▾" : "▸";
+  var expandedBlock = state.expanded
+    ? '<div class="na-comment-readonly"><div class="who">Network Advisor:</div>' + escapeHtml(f.naComment) + '</div>'
+    : '';
+  return (
+    '<button class="na-toggle" data-na-toggle="' + f.id + '">' + arrow + ' See network advisor comments</button>' +
+    expandedBlock
+  );
+}
+
+function renderFooter(f) {
+  if (f.naComment && !naState[f.id].resolved) { return ""; }
+  if (fieldApproved[f.id]) {
+    var undoHtml = fullyApproved ? "" : '<button class="btn-copy" data-field-undo="' + f.id + '">Undo</button>';
+    return (
+      '<div class="field-footer">' +
+        '<span class="approved-label">Approved</span>' +
+        '<div class="na-actions-spacer"></div>' +
+        undoHtml +
+      '</div>'
+    );
+  }
+  return (
+    '<div class="field-footer">' +
+      '<button class="btn btn-small" data-edit="' + f.id + '">Edit</button>' +
+      '<button class="btn btn-small" data-field-ai="' + f.id + '">Edit with AI</button>' +
+      '<button class="btn btn-small btn-primary" data-field-approve="' + f.id + '">Approve text</button>' +
+    '</div>'
+  );
+}
+
+function renderCard(f) {
+  return (
+    '<div class="section-card" id="wrap-' + f.id + '">' +
+      '<div class="card-head">' +
+        '<h2>' + escapeHtml(f.label) + '</h2>' +
+        '<span id="approved-' + f.id + '" class="approved-badge" style="display:' + (fieldApproved[f.id] ? "inline" : "none") + ';">Approved</span>' +
+      '</div>' +
+      '<div class="field-body">' +
+        '<div class="field-text" id="text-' + f.id + '">' + formatFieldText(f.text) + '</div>' +
+        '<div id="na-' + f.id + '">' + renderNaArea(f) + '</div>' +
+        '<div id="aifeedback-' + f.id + '"></div>' +
+        '<div id="footer-' + f.id + '">' + renderFooter(f) + '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+document.getElementById("dna-cards").innerHTML = fields.map(renderCard).join("");
+
+function rerenderNa(id) {
+  document.getElementById("na-" + id).innerHTML = renderNaArea(fieldById[id]);
+}
+
+function rerenderFooter(id) {
+  var el = document.getElementById("footer-" + id);
+  if (el) { el.innerHTML = renderFooter(fieldById[id]); }
+}
+
+var toastEl = document.getElementById("toast");
+var toastTimer = null;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1800);
+}
+
+function legacyCopy(text) {
+  var ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
+function naCopy(id) {
+  var text = fieldById[id].naComment;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () {
+      showToast("Comment copied");
+    }).catch(function () {
+      legacyCopy(text);
+      showToast("Comment copied");
+    });
+  } else {
+    legacyCopy(text);
+    showToast("Comment copied");
+  }
+}
+
+function incorporationFor(fieldId) {
+  if (fieldId === "group") {
+    var f = fieldById["group"];
+    var newText = f.text.replace(
+      "- Sparring udelukkende mellem reelle topledere\n\n**Udviklingsfokus**",
+      "- Sparring udelukkende mellem reelle topledere\n- Historisk forankret i ESG, men i dag vurderet primært efter kompleksitet og ledelsesansvar\n\n**Udviklingsfokus**"
+    );
+    return { text: newText, note: "Based on the NA's comment — added under \"Hvad kendetegner gruppen\"." };
+  }
+  if (fieldId === "member") {
+    var f2 = fieldById["member"];
+    var newText2 = f2.text.replace(
+      "- Erfaring med bestyrelsessamspil\n\nMatcher ikke:",
+      "- Erfaring med bestyrelsessamspil\n- Ejerledere med majoritetsejerskab (>50%) kan optages\n\nMatcher ikke:"
+    );
+    return { text: newText2, note: "Based on the NA's comment — added under \"Matcher / matcher ikke\"." };
+  }
+  return null;
+}
+
+function naInclude(id) {
+  var inc = incorporationFor(id);
+  if (inc) {
+    fieldById[id].text = inc.text;
+    var textEl = document.getElementById("text-" + id);
+    textEl.outerHTML = '<div class="field-text flash" id="text-' + id + '">' + formatFieldText(fieldById[id].text) + '</div>';
+  }
+  naState[id] = { resolved: true, resolution: "included", expanded: false };
+  rerenderNa(id);
+  rerenderFooter(id);
+  showToast("Comments included");
+}
+
+function naDisregard(id) {
+  naState[id] = { resolved: true, resolution: "disregarded", expanded: false };
+  rerenderNa(id);
+  rerenderFooter(id);
+}
+
+function naEditWithAI(id) {
+  chatPanel.classList.add("open");
+  var f = fieldById[id];
+  pendingField = id;
+  pendingFieldMode = "na";
+  addMsg("Network Advisor comment:\n\n\"" + f.naComment + "\"", "ai");
+  addMsg("What should we include?", "ai");
+}
+
+function footerEditWithAI(id) {
+  chatPanel.classList.add("open");
+  var f = fieldById[id];
+  pendingField = id;
+  pendingFieldMode = "generic";
+  addMsg("Let me know what you would like to change in the " + f.label + ".", "ai");
+}
+
+function approveField(id) {
+  fieldApproved[id] = true;
+  var badge = document.getElementById("approved-" + id);
+  if (badge) { badge.style.display = "inline"; }
+  rerenderFooter(id);
+  showToast("Field approved");
+  var allApproved = Object.keys(fieldApproved).every(function (k) { return fieldApproved[k]; });
+  if (allApproved) { finalApproveOverlay.classList.add("open"); }
+}
+
+function undoApproveField(id) {
+  fieldApproved[id] = false;
+  var badge = document.getElementById("approved-" + id);
+  if (badge) { badge.style.display = "none"; }
+  rerenderFooter(id);
+  showToast("Approval undone");
+}
+
+function formatNow() {
+  var d = new Date();
+  return d.toLocaleString("en-GB", {
+    day: "numeric", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+}
+
+function renderTopArea() {
+  var el = document.getElementById("topApproveArea");
+  if (fullyApproved) {
+    el.innerHTML = '<div class="top-approve-bar approved-status">Approved by ' + escapeHtml(CHAIR_NAME) + ' on ' + escapeHtml(formatNow()) + '</div>';
+  } else if (topApproveVisible) {
+    el.innerHTML = '<div class="top-approve-bar"><button class="btn btn-primary" data-top-approve="1">Approve full Group DNA</button></div>';
+  } else {
+    el.innerHTML = "";
+  }
+}
+
+function naToggle(id) {
+  naState[id].expanded = !naState[id].expanded;
+  rerenderNa(id);
+}
+
+document.addEventListener("click", function (e) {
+  var editId = e.target.getAttribute && e.target.getAttribute("data-edit");
+  if (editId) { startEdit(editId); }
+  var saveId = e.target.getAttribute && e.target.getAttribute("data-save");
+  if (saveId) { saveEdit(saveId); }
+  var cancelId = e.target.getAttribute && e.target.getAttribute("data-cancel");
+  if (cancelId) { cancelEdit(cancelId); }
+  var dismissId = e.target.getAttribute && e.target.getAttribute("data-dismiss-ai");
+  if (dismissId) { document.getElementById("aifeedback-" + dismissId).innerHTML = ""; }
+  var naIncludeId = e.target.getAttribute && e.target.getAttribute("data-na-include");
+  if (naIncludeId) { naInclude(naIncludeId); }
+  var naDisregardId = e.target.getAttribute && e.target.getAttribute("data-na-disregard");
+  if (naDisregardId) { naDisregard(naDisregardId); }
+  var naAiId = e.target.getAttribute && e.target.getAttribute("data-na-ai");
+  if (naAiId) { naEditWithAI(naAiId); }
+  var naCopyId = e.target.getAttribute && e.target.getAttribute("data-na-copy");
+  if (naCopyId) { naCopy(naCopyId); }
+  var naToggleId = e.target.getAttribute && e.target.getAttribute("data-na-toggle");
+  if (naToggleId) { naToggle(naToggleId); }
+  var fieldAiId = e.target.getAttribute && e.target.getAttribute("data-field-ai");
+  if (fieldAiId) { footerEditWithAI(fieldAiId); }
+  var fieldApproveId = e.target.getAttribute && e.target.getAttribute("data-field-approve");
+  if (fieldApproveId) { approveField(fieldApproveId); }
+  var fieldUndoId = e.target.getAttribute && e.target.getAttribute("data-field-undo");
+  if (fieldUndoId) { undoApproveField(fieldUndoId); }
+  var topApproveClick = e.target.getAttribute && e.target.getAttribute("data-top-approve");
+  if (topApproveClick) {
+    topApproveVisible = false;
+    renderTopArea();
+    approveOverlay.classList.add("open");
+  }
+});
+
+function startEdit(id) {
+  var f = fieldById[id];
+  var box = document.getElementById("text-" + id);
+  box.outerHTML =
+    '<div id="text-' + id + '">' +
+      '<textarea id="edit-' + id + '">' + escapeHtml(f.text) + '</textarea>' +
+      '<div class="edit-actions">' +
+        '<button class="btn btn-small btn-primary" data-save="' + id + '">Save</button>' +
+        '<button class="btn btn-small" data-cancel="' + id + '">Cancel</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function cancelEdit(id) {
+  var f = fieldById[id];
+  var box = document.getElementById("text-" + id);
+  box.outerHTML = '<div class="field-text" id="text-' + id + '">' + formatFieldText(f.text) + '</div>';
+}
+
+function feedbackFor(oldText, newText) {
+  if (newText.length > oldText.length + 15) {
+    return "Tilføjelsen er relevant. Tjek at den ikke gør kriteriet blødere — tilføjelser trækker let i den retning.";
+  }
+  if (newText.length < oldText.length - 15) {
+    return "Kortere version. Det holder teksten skarp, så længe det centrale matchkriterium stadig fremgår tydeligt.";
+  }
+  var pool = [
+    "Formuleringen er stadig operationel og skarp. Ingen bemærkninger.",
+    "Ser fint ud. Et forslag: undgå bløde ord som \"typisk\" hvis kriteriet skal kunne bruges til at sige klart nej.",
+    "Ændringen bevarer retningen fra den AI-genererede version."
+  ];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function saveEdit(id) {
+  var f = fieldById[id];
+  var textarea = document.getElementById("edit-" + id);
+  var newText = textarea.value;
+  var oldText = f.text;
+  f.text = newText;
+  var box = document.getElementById("text-" + id);
+  box.outerHTML = '<div class="field-text flash" id="text-' + id + '">' + formatFieldText(f.text) + '</div>';
+
+  var msg = feedbackFor(oldText, newText);
+  document.getElementById("aifeedback-" + id).innerHTML =
+    '<div class="ai-feedback"><span class="who">AI feedback:</span>' + escapeHtml(msg) +
+    '<button class="dismiss" data-dismiss-ai="' + id + '" aria-label="Dismiss">&times;</button></div>';
+}
+
+var chatPanel = document.getElementById("chatPanel");
+document.getElementById("chatCloseBtn").addEventListener("click", function () {
+  chatPanel.classList.remove("open");
+});
+
+var chatMessages = document.getElementById("chatMessages");
+
+function addMsg(text, cls) {
+  var div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.textContent = text;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addProposal(fieldId, newText, note, naFieldId) {
+  var f = fieldById[fieldId];
+  var div = document.createElement("div");
+  div.className = "proposal";
+  div.innerHTML =
+    '<div class="ptitle">Proposed update — ' + escapeHtml(f.label) + '</div>' +
+    '<div class="ptext">' + formatFieldText(newText) + '</div>' +
+    (note ? '<div class="ptext" style="color:#1B3A6B;font-style:italic;">' + escapeHtml(note) + '</div>' : '') +
+    '<div class="pactions">' +
+      '<button class="btn btn-small btn-primary" data-accept-field="' + fieldId + '">Accept</button>' +
+      '<button class="btn btn-small" data-reject="1">Reject</button>' +
+    '</div>';
+  div.dataset.newText = newText;
+  div.dataset.naFieldId = naFieldId || "";
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+chatMessages.addEventListener("click", function (e) {
+  var acceptId = e.target.getAttribute && e.target.getAttribute("data-accept-field");
+  if (acceptId) {
+    var proposalDiv = e.target.closest(".proposal");
+    var newText = proposalDiv.dataset.newText;
+    var f = fieldById[acceptId];
+    f.text = newText;
+    var textEl = document.getElementById("text-" + acceptId);
+    if (textEl) { textEl.outerHTML = '<div class="field-text flash" id="text-' + acceptId + '">' + formatFieldText(f.text) + '</div>'; }
+    proposalDiv.style.opacity = "0.5";
+    proposalDiv.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+    addMsg("Applied to \"" + f.label + "\".", "system");
+    if (proposalDiv.dataset.naFieldId) {
+      naState[proposalDiv.dataset.naFieldId] = { resolved: true, resolution: "ai-edited", expanded: false };
+      rerenderNa(proposalDiv.dataset.naFieldId);
+      rerenderFooter(proposalDiv.dataset.naFieldId);
+    }
+  }
+  if (e.target.getAttribute && e.target.getAttribute("data-reject")) {
+    var pd = e.target.closest(".proposal");
+    pd.style.opacity = "0.5";
+    pd.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+    addMsg("Proposal discarded.", "system");
+  }
+});
+
+function genericProposalFor(fieldId, userText) {
+  var f = fieldById[fieldId];
+  var lower = userText.toLowerCase();
+  if (fieldId === "group" && (lower.indexOf("udvikl") !== -1 || lower.indexOf("skarp") !== -1 || lower.indexOf("sharp") !== -1)) {
+    var newText = f.text.replace(
+      "**Udviklingsfokus**\n- Fastholde gruppen som en tydelig top-CEO-gruppe\n- Styrke strategisk ledelse og governance-kompetencer\n- Sikre ensartet kompleksitet i medlemsbasen\n- Øge kvaliteten i bestyrelsessamspil og transformationsledelse",
+      "**Udviklingsfokus**\n- Fastholde gruppen som top-CEO-gruppe\n- Styrke governance-kompetencer\n- Ensartet kompleksitet i medlemsbasen\n- Højere kvalitet i bestyrelsessamspil"
+    );
+    if (newText !== f.text) {
+      return { text: newText, note: "Shortened \"Udviklingsfokus\" for a sharper, more operational read." };
+    }
+  }
+  var stripped = f.text.replace(/Typisk /g, "").replace(/typisk /g, "");
+  if (stripped !== f.text) {
+    return { text: stripped, note: "Removed \"typisk\" — a soft qualifier that makes the criterion harder to apply as a clear yes/no test." };
+  }
+  return null;
+}
+
+function handleUserMessage(text) {
+  addMsg(text, "user");
+
+  var fid = pendingField;
+  var mode = pendingFieldMode;
+  pendingField = null;
+  pendingFieldMode = null;
+
+  var result = null;
+  if (fid && mode === "na") {
+    result = incorporationFor(fid);
+  } else if (fid && mode === "generic") {
+    result = genericProposalFor(fid, text);
+  }
+
+  setTimeout(function () {
+    if (result) {
+      addMsg("Here's a proposal:", "ai");
+      addProposal(fid, result.text, result.note, mode === "na" ? fid : null);
+    } else {
+      addMsg("I don't have a scripted suggestion for that in this prototype.", "ai");
+    }
+  }, 350);
+}
+
+document.getElementById("chatSendBtn").addEventListener("click", function () {
+  var input = document.getElementById("chatInput");
+  var val = input.value.trim();
+  if (!val) { return; }
+  input.value = "";
+  handleUserMessage(val);
+});
+document.getElementById("chatInput").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") { document.getElementById("chatSendBtn").click(); }
+});
+var finalApproveOverlay = document.getElementById("finalApproveOverlay");
+document.getElementById("finalApproveBtn").addEventListener("click", function () {
+  finalApproveOverlay.classList.remove("open");
+  approveOverlay.classList.add("open");
+});
+document.getElementById("finalApproveDismissBtn").addEventListener("click", function () {
+  finalApproveOverlay.classList.remove("open");
+  topApproveVisible = true;
+  renderTopArea();
+});
+
+var approveOverlay = document.getElementById("approveOverlay");
+document.getElementById("modalCloseBtn").addEventListener("click", function () {
+  approveOverlay.classList.remove("open");
+  fullyApproved = true;
+  topApproveVisible = false;
+  renderTopArea();
+  rerenderFooter("group");
+  rerenderFooter("member");
+  rerenderFooter("company");
+});
+</script>
+
+</body>
+</html>

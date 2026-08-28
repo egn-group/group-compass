@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group Compass — Import (prototype)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --navy: #1F3864;
+    --navy-dark: #14274a;
+    --bg: #F4F5F7;
+    --card: #FFFFFF;
+    --border: #DDE1E8;
+    --text: #1C1F26;
+    --muted: #6B7280;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .prototype-flag {
+    background: #FFF7E0;
+    border-bottom: 1px solid #EAD98B;
+    color: #6B5900;
+    font-size: 12px;
+    text-align: center;
+    padding: 6px 12px;
+  }
+  header.topbar {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header.topbar .brand { font-weight: 700; font-size: 16px; }
+  header.topbar .brand .tag {
+    font-weight: 400;
+    font-size: 12px;
+    opacity: 0.75;
+    margin-left: 6px;
+  }
+  header.topbar .crumb { font-size: 13px; opacity: 0.85; }
+  header.topbar .spacer { flex: 1; }
+  .role-pill {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 20px 80px; }
+  h1 { font-size: 20px; color: var(--navy); margin: 0 0 4px; }
+  .subtitle { font-size: 13px; color: var(--muted); margin: 0 0 8px; line-height: 1.5; }
+  .intro-note {
+    font-size: 12.5px;
+    color: var(--muted);
+    background: #EDF1F7;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 0 0 24px;
+    line-height: 1.6;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+  select {
+    font-family: inherit;
+    font-size: 12.5px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+  }
+  .btn {
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+  }
+  .btn:hover { background: #F0F2F5; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--navy);
+    color: #fff;
+    border-color: var(--navy);
+  }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-primary:disabled { background: #9AA6BD; border-color: #9AA6BD; }
+  .btn-small { font-size: 12px; padding: 5px 10px; border-radius: 5px; }
+  .btn-copy {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 11.5px;
+    text-decoration: underline;
+    padding: 4px 2px;
+  }
+  .btn-copy:hover { color: var(--text); }
+
+  .section-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px 24px;
+    margin-bottom: 28px;
+  }
+  .section-block h2 {
+    font-size: 15px;
+    color: var(--navy);
+    margin: 0 0 4px;
+  }
+  .section-sub { font-size: 12.5px; color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+  .store-readout {
+    display: inline-block;
+    font-size: 11.5px;
+    color: var(--muted);
+    background: #FAFBFC;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    margin-left: 8px;
+  }
+
+  .upload-card {
+    background: #FAFBFC;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .upload-hint {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 6px 0 0;
+  }
+  .sample-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .sample-row .hint { font-size: 11.5px; color: var(--muted); }
+
+  .banner {
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    margin: 10px 0;
+    line-height: 1.6;
+  }
+  .banner.error { background: #FCEBEB; border: 1px solid #F0C1C1; color: #7A1F1F; }
+  .banner.warning { background: #FAEEDA; border: 1px solid #F0DCB8; color: #5C4813; }
+  .banner ul { margin: 6px 0 0; padding-left: 18px; }
+  .banner strong { display: block; margin-bottom: 2px; }
+
+  .raw-preview-wrap { margin: 14px 0; }
+  .raw-preview-wrap h4 {
+    font-size: 12px;
+    color: var(--navy);
+    margin: 0 0 6px;
+  }
+  .raw-preview-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table.raw-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+  table.raw-table th, table.raw-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #EEF0F3;
+    border-right: 1px solid #EEF0F3;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  table.raw-table th {
+    background: #FAFBFC;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+  }
+
+  .summary-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .summary-pill {
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .summary-pill.new { background: #E6F1FB; color: #0C447C; border-color: #B5D4F4; }
+  .summary-pill.updated { background: #FAEEDA; color: #854F0B; border-color: #F0DCB8; }
+  .summary-pill.unchanged { background: #E7F6EC; color: #2F7D4F; border-color: #BFE6CC; }
+  .summary-pill.skipped { background: #FCEBEB; color: #A32D2D; border-color: #F0C1C1; }
+
+  table.preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 12.5px;
+  }
+  table.preview-table th {
+    text-align: left;
+    background: #FAFBFC;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.preview-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #EEF0F3;
+    vertical-align: top;
+  }
+  table.preview-table tr.row-main { cursor: pointer; }
+  table.preview-table tr.row-main:hover { background: #FAFBFC; }
+  .status-badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-badge.new { background: #E6F1FB; color: #0C447C; }
+  .status-badge.updated { background: #FAEEDA; color: #854F0B; }
+  .status-badge.unchanged { background: #E7F6EC; color: #2F7D4F; }
+  .mapping-badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .mapping-badge.ok { background: #E7F6EC; color: #2F7D4F; }
+  .mapping-badge.missing { background: #FCEBEB; color: #A32D2D; }
+  .group-name { font-weight: 600; }
+  .group-id { font-size: 11px; color: var(--muted); }
+  .row-detail td {
+    background: #FAFBFC;
+    padding: 14px 18px;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  .row-detail .field-block { margin-bottom: 12px; }
+  .row-detail .field-block h4 {
+    margin: 0 0 4px;
+    font-size: 12px;
+    color: var(--navy);
+  }
+  .row-detail .field-text {
+    white-space: pre-line;
+    max-height: 140px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .callout {
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    margin-bottom: 12px;
+  }
+  .callout.updated { background: #FAEEDA; border: 1px solid #F0DCB8; color: #5C4813; }
+  .callout.missing { background: #FCEBEB; border: 1px solid #F0C1C1; color: #7A1F1F; }
+  .confirm-row {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .confirm-row .hint { font-size: 12px; color: var(--muted); }
+  .import-summary {
+    margin-top: 24px;
+    background: #FAFBFC;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .import-summary h3 { margin: 0 0 10px; font-size: 14px; color: var(--navy); }
+  .import-summary ul { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.8; }
+  .import-summary .followup {
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .hidden { display: none; }
+  .toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: var(--navy);
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="prototype-flag">Prototype — Admin import screens only. Mock/sample data by default; real .xlsx files are parsed client-side and never leave the browser.</div>
+<div class="toast" id="toast"></div>
+
+<header class="topbar">
+  <div class="brand">Group Compass <span class="tag">DNA module</span></div>
+  <div class="crumb">Admin / Import</div>
+  <div class="spacer"></div>
+  <div class="role-pill">Admin</div>
+</header>
+
+<div class="wrap">
+
+  <h1>Import</h1>
+  <p class="subtitle">Two independent import functions. Either can be run first, and either can be re-run at any time — re-importing updates existing records by EGN Group ID and never loses version history (spec §12).</p>
+  <p class="intro-note">Importing <strong>groups</strong> (the Salesforce export) and importing <strong>users &amp; countries</strong> (Chair/NA/Chair Leader/Sales Leader + Country mapping) are separate functions with separate files. A group can be imported before, at the same time as, or after its user &amp; country mapping — the Groups screen below simply flags which imported groups are still missing a mapping.</p>
+
+  <!-- ============ SECTION 1: GROUPS ============ -->
+  <div class="section-block" id="grpSection">
+    <h2>1. Import groups <span class="store-readout" id="grpStoreInfo"></span></h2>
+    <p class="section-sub">Source: Salesforce group export (.xlsx). Re-importing updates existing groups by EGN Group ID without destroying version history.</p>
+
+    <div class="upload-card">
+      <input type="file" id="grpFileInput" accept=".xlsx,.xls">
+      <p class="upload-hint">Expected columns: EGN Group Name, Group Profile, Member Profile, Companies Profile, Chair Profile, Group Status, Responsible Chair, EGN Group Chair, EGN Group ID.</p>
+    </div>
+
+    <div class="sample-row">
+      <span class="hint">No file handy? Load sample data:</span>
+      <select id="grpSampleSelect">
+        <option value="clean">Clean sample (5 groups)</option>
+        <option value="rowErrors">Sample with row errors (missing/duplicate ID)</option>
+        <option value="missingColumn">Sample with a missing column (Chair Profile)</option>
+        <option value="v2">Re-import sample v2 (run after your first confirm)</option>
+      </select>
+      <button class="btn btn-small" id="grpLoadSampleBtn">Load sample</button>
+    </div>
+
+    <div id="grpRawSection" class="hidden">
+      <div class="raw-preview-wrap">
+        <h4 id="grpRawInfo"></h4>
+        <div class="raw-preview-scroll"><table class="raw-table" id="grpRawTable"></table></div>
+      </div>
+      <div id="grpBanners"></div>
+      <button class="btn btn-primary btn-small" id="grpContinueBtn">Continue to import preview</button>
+    </div>
+
+    <div id="grpPreviewSection" class="hidden" style="margin-top:18px;">
+      <div class="summary-bar" id="grpSummaryBar"></div>
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th style="width:100px;">Status</th>
+            <th>Group</th>
+            <th style="width:120px;">Mapping</th>
+            <th>Chair</th>
+            <th>Group status</th>
+          </tr>
+        </thead>
+        <tbody id="grpPreviewBody"></tbody>
+      </table>
+      <div class="confirm-row">
+        <button class="btn btn-primary" id="grpConfirmBtn">Confirm import</button>
+        <span class="hint" id="grpConfirmHint"></span>
+      </div>
+    </div>
+
+    <div id="grpImportSummary" class="import-summary hidden">
+      <h3>Groups import complete</h3>
+      <ul id="grpImportSummaryList"></ul>
+      <p class="followup">Imported groups are now in status <strong>Imported</strong>. Groups flagged "Needs mapping" above won't be launchable until a user &amp; country mapping exists for them — use section 2 below (in any order, now or later).</p>
+    </div>
+  </div>
+
+  <!-- ============ SECTION 2: USERS & COUNTRIES ============ -->
+  <div class="section-block" id="mapSection">
+    <h2>2. Import users &amp; countries <span class="store-readout" id="mapStoreInfo"></span></h2>
+    <p class="section-sub">Maps each group (by EGN Group ID) to its Country, Chair email, Network Advisor, Chair Leader, and Sales Leader. Independent of the groups import above — can be run before, after, or on its own.</p>
+
+    <div class="upload-card">
+      <input type="file" id="mapFileInput" accept=".xlsx,.xls">
+      <p class="upload-hint">Expected columns: EGN Group ID, Country, Chair Email, Network Advisor Name, Network Advisor Email, Chair Leader Name, Chair Leader Email, Sales Leader Name, Sales Leader Email.</p>
+    </div>
+
+    <div class="sample-row">
+      <span class="hint">No file handy? Load sample data:</span>
+      <select id="mapSampleSelect">
+        <option value="clean">Clean sample (5 rows)</option>
+        <option value="rowErrors">Sample with row errors (missing/duplicate ID, bad email)</option>
+        <option value="missingColumn">Sample with a missing column (Sales Leader Email)</option>
+        <option value="v2">Re-import sample v2 (run after your first confirm)</option>
+      </select>
+      <button class="btn btn-small" id="mapLoadSampleBtn">Load sample</button>
+    </div>
+
+    <div id="mapRawSection" class="hidden">
+      <div class="raw-preview-wrap">
+        <h4 id="mapRawInfo"></h4>
+        <div class="raw-preview-scroll"><table class="raw-table" id="mapRawTable"></table></div>
+      </div>
+      <div id="mapBanners"></div>
+      <button class="btn btn-primary btn-small" id="mapContinueBtn">Continue to import preview</button>
+    </div>
+
+    <div id="mapPreviewSection" class="hidden" style="margin-top:18px;">
+      <div class="summary-bar" id="mapSummaryBar"></div>
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th style="width:100px;">Status</th>
+            <th>EGN Group ID / Group</th>
+            <th>Country</th>
+            <th>Chair email</th>
+            <th>Network Advisor</th>
+            <th>Chair Leader</th>
+            <th>Sales Leader</th>
+          </tr>
+        </thead>
+        <tbody id="mapPreviewBody"></tbody>
+      </table>
+      <div class="confirm-row">
+        <button class="btn btn-primary" id="mapConfirmBtn">Confirm import</button>
+        <span class="hint" id="mapConfirmHint"></span>
+      </div>
+    </div>
+
+    <div id="mapImportSummary" class="import-summary hidden">
+      <h3>User &amp; country import complete</h3>
+      <ul id="mapImportSummaryList"></ul>
+      <p class="followup">Mappings are now applied. If groups matching these IDs were already imported (section 1), their "Needs mapping" flag has been cleared — check the groups table above.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =====================================================================
+   Shared helpers
+   ===================================================================== */
+var toastEl = document.getElementById("toast");
+var toastTimer = null;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+}
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function stripCode(s) {
+  return String(s || "").replace(/^\S+\s*-\s*/, "").trim();
+}
+
+function headerIndex(headerRow) {
+  var idx = {};
+  headerRow.forEach(function (h, i) { idx[String(h == null ? "" : h).trim()] = i; });
+  return idx;
+}
+
+function isBlankRow(row) {
+  return !row || row.every(function (c) { return c === "" || c == null; });
+}
+
+function toAOA(records, headers, getters) {
+  var out = [headers.slice()];
+  records.forEach(function (r) {
+    out.push(headers.map(function (h) { return getters[h](r); }));
+  });
+  return out;
+}
+
+function validateHeaders(headerRow, requiredCols) {
+  var present = (headerRow || []).map(function (h) { return String(h == null ? "" : h).trim(); });
+  return requiredCols.filter(function (c) { return present.indexOf(c) === -1; });
+}
+
+// Splits data rows into valid rows (no missing/duplicate EGN Group ID) and a list of issues.
+function scanRows(dataRows, idx, idColName) {
+  var idCol = idx[idColName];
+  var seen = {};
+  var validRows = [];
+  var issues = [];
+  dataRows.forEach(function (row, i) {
+    var rowNumber = i + 2; // header is row 1
+    if (isBlankRow(row)) { return; }
+    var idVal = String((idCol != null ? row[idCol] : "") || "").trim();
+    if (!idVal) {
+      issues.push("Row " + rowNumber + ": missing EGN Group ID — row skipped.");
+      return;
+    }
+    if (seen[idVal] !== undefined) {
+      issues.push("Row " + rowNumber + ": duplicate EGN Group ID \"" + escapeHtml(idVal) + "\" (first seen on row " + seen[idVal] + ") — row skipped, first occurrence kept.");
+      return;
+    }
+    seen[idVal] = rowNumber;
+    validRows.push(row);
+  });
+  return { validRows: validRows, issues: issues };
+}
+
+function scanEmailWarnings(validRows, idx, emailCols, idColName) {
+  var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  var warnings = [];
+  validRows.forEach(function (row) {
+    emailCols.forEach(function (col) {
+      var val = String(row[idx[col]] || "").trim();
+      if (val && !emailRe.test(val)) {
+        warnings.push("EGN Group ID " + escapeHtml(row[idx[idColName]]) + ": \"" + col + "\" value \"" + escapeHtml(val) + "\" doesn't look like a valid email.");
+      }
+    });
+  });
+  return warnings;
+}
+
+function renderRawTable(tableEl, infoEl, aoa) {
+  var header = aoa[0] || [];
+  var dataRows = aoa.slice(1);
+  var shown = dataRows.slice(0, 5);
+  infoEl.textContent = "File preview — showing first " + shown.length + " of " + dataRows.length + " data row" + (dataRows.length === 1 ? "" : "s") + " (" + header.length + " columns).";
+  var thead = "<thead><tr>" + header.map(function (h) { return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "</tr></thead>";
+  var tbody = "<tbody>" + shown.map(function (row) {
+    return "<tr>" + header.map(function (_, i) { return "<td>" + escapeHtml(row[i] != null ? row[i] : "") + "</td>"; }).join("") + "</tr>";
+  }).join("") + "</tbody>";
+  tableEl.innerHTML = thead + tbody;
+}
+
+function renderBanners(el, errorTitle, errors, warningTitle, warnings) {
+  var html = "";
+  if (errors && errors.length) {
+    html += '<div class="banner error"><strong>' + escapeHtml(errorTitle) + '</strong><ul>' +
+      errors.map(function (e) { return "<li>" + escapeHtml(e) + "</li>"; }).join("") + "</ul></div>";
+  }
+  if (warnings && warnings.length) {
+    html += '<div class="banner warning"><strong>' + escapeHtml(warningTitle) + '</strong><ul>' +
+      warnings.map(function (w) { return "<li>" + w + "</li>"; }).join("") + "</ul></div>";
+  }
+  el.innerHTML = html;
+}
+
+function readWorkbookRows(file, onSuccess, onError) {
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, { type: "array" });
+      if (!wb.SheetNames || !wb.SheetNames.length) { throw new Error("no sheets"); }
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      onSuccess(rows);
+    } catch (err) {
+      onError();
+    }
+  };
+  reader.onerror = function () { onError(); };
+  reader.readAsArrayBuffer(file);
+}
+
+/* =====================================================================
+   GROUPS data
+   ===================================================================== */
+var GROUPS_HEADERS = ["EGN Group Name", "Group Profile", "Member Profile", "Companies Profile", "Chair Profile", "Group Status", "Responsible Chair", "EGN Group Chair", "EGN Group ID"];
+var GROUPS_GETTERS = {
+  "EGN Group Name": function (r) { return r.name; },
+  "Group Profile": function (r) { return r.groupProfile; },
+  "Member Profile": function (r) { return r.memberProfile; },
+  "Companies Profile": function (r) { return r.companiesProfile; },
+  "Chair Profile": function (r) { return r.chairProfileText; },
+  "Group Status": function (r) { return r.groupStatus; },
+  "Responsible Chair": function (r) { return r.responsibleChair; },
+  "EGN Group Chair": function (r) { return r.egnGroupChair; },
+  "EGN Group ID": function (r) { return r.egnGroupId; }
+};
+
+var GROUPS_SAMPLE_CLEAN_RECORDS = [{"name": "Bogholderigruppe (01094-EGDK)", "groupProfile": "Medlemmerne har fokus på bogholderi, teknikker og værktøjer samt i høj grad personlig udvikling og hvordan man klarer tilværelsen i en presset bogholderifunktion.\n \n Bredt udsnit af bogholdere af regnskabsfolk der kan arbejde \"selvstændigt\".\n \n \n \n Udfordringer har været:\n \n Styring af travlhed - work life balance - stress\n \n At fange CFO-fraud\n \n Generationsskifte\n \n Karriereudvikling\n \n GDPR", "memberProfile": "Personer, der med eller uden ledelsesansvar, arbejder med bogholderi - dvs. transaktionsbaserede aktiviteter.\n \n Fremtiden: Gruppen skal beholde sit nuværende niveau med alle typer af medlemmer der arbejder indenfor bogholderifunktionen.", "companiesProfile": "Alle typer af virksomheder hvor personprofilen passer.", "chairProfileText": "Niels har mere end 25 års erfaring som økonomichef og økonomidirektør hos dagligvareproducenter i danske og udenlandske koncerner. Han er uddannet cand.merc. i Regnskabsvæsen og Finansiering.", "groupStatus": "Active", "responsibleChair": "NST - Niels Stub", "egnGroupChair": "Niels Stub", "egnGroupId": "a1y7R00000O5yPp", "chairName": "Niels Stub"}, {"name": "Kommunikationsrådgivere og -specialister Øst 4 (01584-EGDK)", "groupProfile": "Gruppen består af kommunikationsmedarbejdere, der for de flestes vedkommende har et forholdsvis bredt ansvarsområde, som kan favne både pressearbejde, kampagner, sociale medier, intern kommunikation og til tider lidt marketing.\n \n Gruppen har ytret ønske at nå endnu mere på møderne af både faglige indlæg og sparring og udvider derfor møderne til kl. 14 eller 15 fremover.\n \n ØNSKES: Der er først og fremmest stort ønske om rekruttering af flere MÆND.", "memberProfile": "Alder mellem 30 og 50 - kun 2 medlemmer er mænd.\n \n Medlemmernes jobprofiler spænder fra \"one man armies\" (M/K) til personer, som sidder i store virksomheder med store kommunikationsafdelinger.", "companiesProfile": "Gruppens medlemmer kommer fra mere \"berømte\" virksomheder og organisationer som fx Dansk Industri, Coop, Danske Bank, Rambøll, Siemens, NETS, Metroselskabet, SKI og DBU.", "chairProfileText": "Jesper Andersen har været mødeleder for kommunikationsgrupperne for kommunikationsspecialister (ikke-ledere) siden juli 2018. Han har arbejdet professionelt med kommunikation i snart 15 år.", "groupStatus": "Active", "responsibleChair": "JEA - Jesper Andersen", "egnGroupChair": "Jette Kristiansen", "egnGroupId": "a1y7R00000O5ySH", "chairName": "Jesper Andersen"}, {"name": "Senior Software Developers Jylland/Fyn (01557-EGDK)", "groupProfile": "Geografi: Gruppen er forbeholdt virksomheder vest for Storebælt.\n \n Overordnet ramme: Gruppen har fokus på teknisk og de værktøjer som understøtter deres daglige arbejde. Endvidere har mange udfordringer med out/in sourcing.\n \n Mødefrekvens: Der afholdes 4 møder årligt af kl. 09:00-13:30 (incl. frokost).", "memberProfile": "Uddannelse: De har en teknisk udviklingsuddannelse, f.esk dataloger, ingeniører m.m. De har typisk flere års erfaring, og kommer med en udvikler baggrund.\n \n Eksempler på titler: De kalder sig arkitekter og IKKE udviklere (selvom de reelt mest er udviklere).", "companiesProfile": "Virksomhedsstørrelse: Mindre og mellemstore virksomheder.\n \n Virksomhedstype: Primært private virksomheder.", "chairProfileText": "Stærk teknisk base gruppen diskuterer meget praktik, og helt konkrete løsninger på kodelinje niveau. Kræver teknisk forståelse/indsigt at følge diskussionerne.", "groupStatus": "Active", "responsibleChair": "IRL - Ib Rolighed Larsen", "egnGroupChair": "Ib Rolighed Larsen", "egnGroupId": "a1y7R00000O5yS6", "chairName": "Ib Rolighed Larsen"}, {"name": "Arbejdsmiljøchefer - 2 Vest (01466-EGDK)", "groupProfile": "Netværket henvender sig til arbejdsmiljømanagere og koordinatorer med mere end 5 års erfaring.\n \n Gruppen henvender sig til mellemstore og store virksomheder i Vestdanmark som arbejder bredt med arbejdsmiljø i spændingsfeltet strategisk/operationelt fokus.", "memberProfile": "Arbejdsmiljøkonsulenter og arbejdsmiljøkoordinatorer, der dagligt arbejder med at forbedre arbejdsmiljøet i deres virksomhed.\n \n Gruppens medlemmer har faglig ledelse og refererer typisk ind til en Arbejdsmiljøchef eller -direktør.", "companiesProfile": "Primært store og mellemstore virksomheder, danske såvel som internationale.", "chairProfileText": "Gitte Amby er 58 år og bosat i Aarhus. Gitte har været direktør, partner og ejerleder i en større produktionsvirksomhed i 17 år.", "groupStatus": "Active", "responsibleChair": "GIA - Gitte Justesen Amby", "egnGroupChair": "Gitte Justesen Amby", "egnGroupId": "a1y7R00000O5yRe", "chairName": "Gitte Justesen Amby"}, {"name": "Direktionssekretærer/EA/PA, Midt/Nordjylland (01388-EGDK)", "groupProfile": "Gruppens mål er inspiration, sparring og erfaringsdeling. Er nysgerrige på aktuelle faglige ledelsestemaer.\n \n Medlemmernes rolle: Sekretær eller PA/EA for direktionen - dvs. har primært en servicerende opgave.", "memberProfile": "Køn: Der er udelukkende kvinder i gruppen - det er dog ikke et mål.\n \n Uddannelse: Der er ingen uddannelseskrav.", "companiesProfile": "Primært virksomheder med mia.-omsætning, men det er ikke et krav.\n \n Geografi: Medlemmerne kommer fra virksomheder og organisationer i Region Midt & Nordjylland.", "chairProfileText": "Netværksleder er Michael Jensen. Michael er cand. mag i filosofi fra Aarhus universitet og har 38 års erfaring fra arbejdet med ledelse fra bl.a. Mærsk.", "groupStatus": "Active", "responsibleChair": "ELV - Ellen Vejle", "egnGroupChair": "Ellen Vejle", "egnGroupId": "a1y7R00000O5yRB", "chairName": "Ellen Vejle"}];
+
+// Second, brand-new group used only in the "re-import v2" sample, to demonstrate that a later import
+// can still detect brand-new groups.
+var GROUPS_NEW_IN_V2 = {"name": "IT Chefer Vest 2 (01700-EGDK)", "groupProfile": "Nyetableret gruppe for IT-chefer i Vestdanmark. Fokus på digitalisering, sikkerhed og leverandørstyring.", "memberProfile": "IT-chefer med personaleansvar i mellemstore og store virksomheder.", "companiesProfile": "Primært produktions- og handelsvirksomheder i Region Syd- og Midtjylland.", "chairProfileText": "Ny netværksleder, tidligere IT-direktør i en større dansk koncern.", "groupStatus": "Active", "responsibleChair": "TBA - Karen Vestergaard", "egnGroupChair": "Karen Vestergaard", "egnGroupId": "a1y7R00000O5yT1", "chairName": "Karen Vestergaard"};
+
+// GROUPS_SAMPLE_V2_RECORDS: same 5 groups, but the Senior Software Developers group has been reassigned
+// to a new Chair (Camilla Holst), plus one brand-new group — simulating a realistic second import.
+var GROUPS_SAMPLE_V2_RECORDS = GROUPS_SAMPLE_CLEAN_RECORDS.map(function (r) { return Object.assign({}, r); });
+GROUPS_SAMPLE_V2_RECORDS[2] = Object.assign({}, GROUPS_SAMPLE_V2_RECORDS[2], {
+  responsibleChair: "CAH - Camilla Holst",
+  egnGroupChair: "Camilla Holst",
+  chairName: "Camilla Holst"
+});
+GROUPS_SAMPLE_V2_RECORDS.push(GROUPS_NEW_IN_V2);
+
+// Baseline: what the system already holds for two of the groups *before* the first import in this
+// prototype session — group 1 is identical to the clean sample (→ "unchanged"), group 2's chair differs
+// (→ "updated"). Groups 3–5 have no baseline entry (→ "new").
+var GROUPS_STORE = {
+  "a1y7R00000O5yPp": { chairName: "Niels Stub", groupProfile: GROUPS_SAMPLE_CLEAN_RECORDS[0].groupProfile },
+  "a1y7R00000O5ySH": { chairName: "Klaus Nielsen", groupProfile: GROUPS_SAMPLE_CLEAN_RECORDS[1].groupProfile }
+};
+var GROUPS_NAMES = {}; // id -> display name, populated on confirm
+var GROUPS_VERSIONS = {}; // id -> version count, populated on confirm
+
+/* =====================================================================
+   MAPPING (users & countries) data
+   ===================================================================== */
+var MAPPING_HEADERS = ["EGN Group ID", "Country", "Chair Email", "Network Advisor Name", "Network Advisor Email", "Chair Leader Name", "Chair Leader Email", "Sales Leader Name", "Sales Leader Email"];
+var MAPPING_GETTERS = {
+  "EGN Group ID": function (r) { return r.egnGroupId; },
+  "Country": function (r) { return r.country; },
+  "Chair Email": function (r) { return r.chairEmail; },
+  "Network Advisor Name": function (r) { return r.naName; },
+  "Network Advisor Email": function (r) { return r.naEmail; },
+  "Chair Leader Name": function (r) { return r.chairLeaderName; },
+  "Chair Leader Email": function (r) { return r.chairLeaderEmail; },
+  "Sales Leader Name": function (r) { return r.salesLeaderName; },
+  "Sales Leader Email": function (r) { return r.salesLeaderEmail; }
+};
+var MAPPING_FIELDS = ["country", "chairEmail", "naName", "naEmail", "chairLeaderName", "chairLeaderEmail", "salesLeaderName", "salesLeaderEmail"];
+
+// Already in the system before any import in this session (groups 1–4; group 5 has never had a mapping).
+var MAPPING_STORE = {
+  "a1y7R00000O5yPp": { country: "Denmark", chairEmail: "niels.stub@egn.com", naName: "Mette Holm", naEmail: "mette.holm@egn.com", chairLeaderName: "Soren Kjaer", chairLeaderEmail: "soren.kjaer@egn.com", salesLeaderName: "Anna Pedersen", salesLeaderEmail: "anna.pedersen@egn.com" },
+  "a1y7R00000O5ySH": { country: "Denmark", chairEmail: "jesper.andersen@egn.com", naName: "Line Bruun", naEmail: "line.bruun@egn.com", chairLeaderName: "Soren Kjaer", chairLeaderEmail: "soren.kjaer@egn.com", salesLeaderName: "Anna Pedersen", salesLeaderEmail: "anna.pedersen@egn.com" },
+  "a1y7R00000O5yS6": { country: "Denmark", chairEmail: "ib.rolighed.larsen@egn.com", naName: "Thomas Riis", naEmail: "thomas.riis@egn.com", chairLeaderName: "Peter Lund", chairLeaderEmail: "peter.lund@egn.com", salesLeaderName: "Camilla Holst", salesLeaderEmail: "camilla.holst@egn.com" },
+  "a1y7R00000O5yRe": { country: "Denmark", chairEmail: "gitte.amby@egn.com", naName: "Mette Holm", naEmail: "mette.holm@egn.com", chairLeaderName: "Peter Lund", chairLeaderEmail: "peter.lund@egn.com", salesLeaderName: "Camilla Holst", salesLeaderEmail: "camilla.holst@egn.com" }
+};
+var MAPPING_VERSIONS = {};
+
+// Clean sample to import: groups 1,3,4 unchanged vs the store above; group 2's Network Advisor has been
+// reassigned (→ "updated"); group 5 is added for the first time (→ "new").
+var MAPPING_SAMPLE_CLEAN_RECORDS = [
+  { egnGroupId: "a1y7R00000O5yPp", country: "Denmark", chairEmail: "niels.stub@egn.com", naName: "Mette Holm", naEmail: "mette.holm@egn.com", chairLeaderName: "Soren Kjaer", chairLeaderEmail: "soren.kjaer@egn.com", salesLeaderName: "Anna Pedersen", salesLeaderEmail: "anna.pedersen@egn.com" },
+  { egnGroupId: "a1y7R00000O5ySH", country: "Denmark", chairEmail: "jesper.andersen@egn.com", naName: "Sofie Krogh", naEmail: "sofie.krogh@egn.com", chairLeaderName: "Soren Kjaer", chairLeaderEmail: "soren.kjaer@egn.com", salesLeaderName: "Anna Pedersen", salesLeaderEmail: "anna.pedersen@egn.com" },
+  { egnGroupId: "a1y7R00000O5yS6", country: "Denmark", chairEmail: "ib.rolighed.larsen@egn.com", naName: "Thomas Riis", naEmail: "thomas.riis@egn.com", chairLeaderName: "Peter Lund", chairLeaderEmail: "peter.lund@egn.com", salesLeaderName: "Camilla Holst", salesLeaderEmail: "camilla.holst@egn.com" },
+  { egnGroupId: "a1y7R00000O5yRe", country: "Denmark", chairEmail: "gitte.amby@egn.com", naName: "Mette Holm", naEmail: "mette.holm@egn.com", chairLeaderName: "Peter Lund", chairLeaderEmail: "peter.lund@egn.com", salesLeaderName: "Camilla Holst", salesLeaderEmail: "camilla.holst@egn.com" },
+  { egnGroupId: "a1y7R00000O5yRB", country: "Denmark", chairEmail: "ellen.vejle@egn.com", naName: "Line Bruun", naEmail: "line.bruun@egn.com", chairLeaderName: "Soren Kjaer", chairLeaderEmail: "soren.kjaer@egn.com", salesLeaderName: "Anna Pedersen", salesLeaderEmail: "anna.pedersen@egn.com" }
+];
+
+// Re-import v2: everything unchanged except group 3's Sales Leader is reassigned — a small, realistic
+// follow-up import.
+var MAPPING_SAMPLE_V2_RECORDS = MAPPING_SAMPLE_CLEAN_RECORDS.map(function (r) { return Object.assign({}, r); });
+MAPPING_SAMPLE_V2_RECORDS[2] = Object.assign({}, MAPPING_SAMPLE_V2_RECORDS[2], { salesLeaderName: "Frederik Holm", salesLeaderEmail: "frederik.holm@egn.com" });
+
+/* =====================================================================
+   Derived AOA sample sets (raw rows, exactly as if read from a real file)
+   ===================================================================== */
+function makeRowErrorAOA(aoa, headers, blankRowIdx, dupRowIdx, dupFromRowIdx) {
+  var copy = aoa.map(function (row) { return row.slice(); });
+  var idCol = headers.indexOf("EGN Group ID");
+  copy[blankRowIdx][idCol] = "";
+  copy[dupRowIdx][idCol] = copy[dupFromRowIdx][idCol];
+  return copy;
+}
+
+var GROUPS_AOA_CLEAN = toAOA(GROUPS_SAMPLE_CLEAN_RECORDS, GROUPS_HEADERS, GROUPS_GETTERS);
+var GROUPS_AOA_V2 = toAOA(GROUPS_SAMPLE_V2_RECORDS, GROUPS_HEADERS, GROUPS_GETTERS);
+var GROUPS_AOA_MISSING_COLUMN = toAOA(GROUPS_SAMPLE_CLEAN_RECORDS, GROUPS_HEADERS.filter(function (h) { return h !== "Chair Profile"; }), GROUPS_GETTERS);
+// Row errors: row 4 (Arbejdsmiljøchefer) loses its ID; row 5 (Direktionssekretærer) duplicates row 3's ID.
+var GROUPS_AOA_ROW_ERRORS = makeRowErrorAOA(GROUPS_AOA_CLEAN, GROUPS_HEADERS, 4, 5, 3);
+
+var MAPPING_AOA_CLEAN = toAOA(MAPPING_SAMPLE_CLEAN_RECORDS, MAPPING_HEADERS, MAPPING_GETTERS);
+var MAPPING_AOA_V2 = toAOA(MAPPING_SAMPLE_V2_RECORDS, MAPPING_HEADERS, MAPPING_GETTERS);
+var MAPPING_AOA_MISSING_COLUMN = toAOA(MAPPING_SAMPLE_CLEAN_RECORDS, MAPPING_HEADERS.filter(function (h) { return h !== "Sales Leader Email"; }), MAPPING_GETTERS);
+// Row errors: row 4 loses its ID, row 5 duplicates row 3's ID, and row 2 gets a malformed Chair Email.
+var MAPPING_AOA_ROW_ERRORS = (function () {
+  var withIdIssues = makeRowErrorAOA(MAPPING_AOA_CLEAN, MAPPING_HEADERS, 4, 5, 3);
+  var emailCol = MAPPING_HEADERS.indexOf("Chair Email");
+  withIdIssues[2][emailCol] = "not-an-email";
+  return withIdIssues;
+})();
+
+/* =====================================================================
+   GROUPS section wiring
+   ===================================================================== */
+var grpValidRowsAOA = null; // rows that passed row-level validation, awaiting "continue"
+var grpLastRows = [];       // built preview rows after "continue"
+var grpExpanded = {};
+
+function grpMapRow(row, idx) {
+  var responsibleChair = row[idx["Responsible Chair"]] || "";
+  return {
+    name: row[idx["EGN Group Name"]] || "",
+    groupProfile: row[idx["Group Profile"]] || "",
+    memberProfile: row[idx["Member Profile"]] || "",
+    companiesProfile: row[idx["Companies Profile"]] || "",
+    chairProfileText: idx["Chair Profile"] != null ? (row[idx["Chair Profile"]] || "") : "",
+    groupStatus: row[idx["Group Status"]] || "",
+    responsibleChair: responsibleChair,
+    egnGroupChair: row[idx["EGN Group Chair"]] || "",
+    egnGroupId: row[idx["EGN Group ID"]] || "",
+    chairName: stripCode(responsibleChair)
+  };
+}
+
+function grpClassify(g) {
+  var base = GROUPS_STORE[g.egnGroupId];
+  if (!base) { return { status: "new" }; }
+  var chairChanged = base.chairName !== g.chairName;
+  var profileChanged = base.groupProfile !== g.groupProfile;
+  if (chairChanged || profileChanged) { return { status: "updated", chairChanged: chairChanged, oldChair: base.chairName }; }
+  return { status: "unchanged" };
+}
+
+function grpUpdateStoreInfo() {
+  var n = Object.keys(GROUPS_STORE).length;
+  document.getElementById("grpStoreInfo").textContent = n + " group(s) currently imported";
+}
+
+function grpHandleAOA(aoa, sourceLabel) {
+  document.getElementById("grpRawSection").classList.remove("hidden");
+  document.getElementById("grpPreviewSection").classList.add("hidden");
+  document.getElementById("grpImportSummary").classList.add("hidden");
+  document.getElementById("grpContinueBtn").classList.remove("hidden");
+  grpExpanded = {};
+
+  if (!aoa || aoa.length === 0) {
+    renderRawTable(document.getElementById("grpRawTable"), document.getElementById("grpRawInfo"), [[]]);
+    document.getElementById("grpRawInfo").textContent = "This file appears to be empty.";
+    renderBanners(document.getElementById("grpBanners"), "Cannot import", ["The file has no rows at all."], null, null);
+    document.getElementById("grpContinueBtn").classList.add("hidden");
+    return;
+  }
+
+  renderRawTable(document.getElementById("grpRawTable"), document.getElementById("grpRawInfo"), aoa);
+
+  if (aoa.length === 1) {
+    renderBanners(document.getElementById("grpBanners"), "Cannot import", ["No data rows found below the header row."], null, null);
+    document.getElementById("grpContinueBtn").classList.add("hidden");
+    return;
+  }
+
+  var missing = validateHeaders(aoa[0], GROUPS_HEADERS);
+  if (missing.length) {
+    renderBanners(document.getElementById("grpBanners"), "Missing required column(s) — cannot import", missing, null, null);
+    document.getElementById("grpContinueBtn").classList.add("hidden");
+    grpValidRowsAOA = null;
+    return;
+  }
+
+  var idx = headerIndex(aoa[0]);
+  var scan = scanRows(aoa.slice(1), idx, "EGN Group ID");
+  grpValidRowsAOA = { idx: idx, rows: scan.validRows };
+  var warnings = scan.issues.length ? scan.issues.map(escapeHtml) : null;
+  renderBanners(document.getElementById("grpBanners"), null, null, "Row issues found (" + scan.issues.length + ") — these rows will be skipped", warnings);
+  showToast(sourceLabel + " loaded");
+}
+
+document.getElementById("grpFileInput").addEventListener("change", function (e) {
+  var file = e.target.files[0];
+  if (!file) { return; }
+  readWorkbookRows(file, function (rows) {
+    grpHandleAOA(rows, file.name);
+  }, function () {
+    document.getElementById("grpRawSection").classList.remove("hidden");
+    document.getElementById("grpRawTable").innerHTML = "";
+    document.getElementById("grpRawInfo").textContent = "";
+    renderBanners(document.getElementById("grpBanners"), "Could not read this file", ["Make sure it's a valid, unprotected .xlsx or .xls export."], null, null);
+    document.getElementById("grpContinueBtn").classList.add("hidden");
+  });
+});
+
+document.getElementById("grpLoadSampleBtn").addEventListener("click", function () {
+  var choice = document.getElementById("grpSampleSelect").value;
+  var aoa = choice === "rowErrors" ? GROUPS_AOA_ROW_ERRORS
+    : choice === "missingColumn" ? GROUPS_AOA_MISSING_COLUMN
+    : choice === "v2" ? GROUPS_AOA_V2
+    : GROUPS_AOA_CLEAN;
+  grpHandleAOA(aoa, "Sample data (" + choice + ")");
+});
+
+document.getElementById("grpContinueBtn").addEventListener("click", function () {
+  if (!grpValidRowsAOA) { return; }
+  var idx = grpValidRowsAOA.idx;
+  grpLastRows = grpValidRowsAOA.rows.map(function (row) {
+    var g = grpMapRow(row, idx);
+    var classification = grpClassify(g);
+    return { group: g, status: classification.status, chairChanged: classification.chairChanged, oldChair: classification.oldChair };
+  });
+  grpRenderPreview();
+  document.getElementById("grpPreviewSection").classList.remove("hidden");
+});
+
+function grpStatusLabel(status) {
+  if (status === "new") { return "New"; }
+  if (status === "updated") { return "Updated"; }
+  return "Unchanged";
+}
+
+function grpRenderPreview() {
+  var counts = { new: 0, updated: 0, unchanged: 0 };
+  grpLastRows.forEach(function (r) { counts[r.status]++; });
+  var needsMapping = grpLastRows.filter(function (r) { return !MAPPING_STORE[r.group.egnGroupId]; }).length;
+
+  document.getElementById("grpSummaryBar").innerHTML =
+    '<span class="summary-pill new">' + counts.new + ' new</span>' +
+    '<span class="summary-pill updated">' + counts.updated + ' updated</span>' +
+    '<span class="summary-pill unchanged">' + counts.unchanged + ' unchanged</span>' +
+    (needsMapping ? '<span class="summary-pill skipped">' + needsMapping + ' need mapping</span>' : '');
+
+  var rowsHtml = grpLastRows.map(function (r, i) {
+    var g = r.group;
+    var hasMapping = !!MAPPING_STORE[g.egnGroupId];
+    var mainRow =
+      '<tr class="row-main" data-row-toggle="' + i + '">' +
+        '<td><span class="status-badge ' + r.status + '">' + grpStatusLabel(r.status) + '</span></td>' +
+        '<td><div class="group-name">' + escapeHtml(g.name) + '</div><div class="group-id">' + escapeHtml(g.egnGroupId) + '</div></td>' +
+        '<td><span class="mapping-badge ' + (hasMapping ? "ok" : "missing") + '">' + (hasMapping ? "Mapped" : "Needs mapping") + '</span></td>' +
+        '<td>' + escapeHtml(g.chairName) + '</td>' +
+        '<td>' + escapeHtml(g.groupStatus) + '</td>' +
+      '</tr>';
+
+    var detailRow = "";
+    if (grpExpanded[i]) {
+      var callout = "";
+      if (!hasMapping) {
+        callout = '<div class="callout missing">No user &amp; country mapping exists yet for EGN Group ID <strong>' + escapeHtml(g.egnGroupId) + '</strong>. ' +
+          'This group will still be imported, but won\'t be launchable until section 2 provides its Country and role mapping. ' +
+          '<button class="btn-copy" data-copy-id="' + escapeHtml(g.egnGroupId) + '">Copy EGN Group ID</button></div>';
+      } else if (r.status === "updated" && r.chairChanged) {
+        callout = '<div class="callout updated">Chair reassigned: ' + escapeHtml(r.oldChair) + ' → ' + escapeHtml(g.chairName) + '. The new Chair will be notified once this group is launched.</div>';
+      } else if (r.status === "updated") {
+        callout = '<div class="callout updated">Profile text differs from the last import.</div>';
+      }
+      detailRow =
+        '<tr class="row-detail"><td colspan="5">' +
+          callout +
+          '<div class="field-block"><h4>Group profile</h4><div class="field-text">' + escapeHtml(g.groupProfile) + '</div></div>' +
+          '<div class="field-block"><h4>Member profile</h4><div class="field-text">' + escapeHtml(g.memberProfile) + '</div></div>' +
+          '<div class="field-block"><h4>Companies profile</h4><div class="field-text">' + escapeHtml(g.companiesProfile) + '</div></div>' +
+        '</td></tr>';
+    }
+    return mainRow + detailRow;
+  }).join("");
+
+  document.getElementById("grpPreviewBody").innerHTML = rowsHtml;
+  document.getElementById("grpConfirmBtn").textContent = "Confirm import (" + grpLastRows.length + " groups)";
+  document.getElementById("grpConfirmHint").textContent = needsMapping > 0
+    ? needsMapping + " group(s) will import without a mapping and won't be launchable until section 2 covers them."
+    : "";
+}
+
+document.getElementById("grpPreviewBody").addEventListener("click", function (e) {
+  var toggleIdx = e.target.closest("tr.row-main") ? e.target.closest("tr.row-main").getAttribute("data-row-toggle") : null;
+  if (toggleIdx !== null) {
+    grpExpanded[toggleIdx] = !grpExpanded[toggleIdx];
+    grpRenderPreview();
+    return;
+  }
+  var copyId = e.target.getAttribute && e.target.getAttribute("data-copy-id");
+  if (copyId && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(copyId).then(function () { showToast("EGN Group ID copied"); });
+  }
+});
+
+document.getElementById("grpConfirmBtn").addEventListener("click", function () {
+  var logLines = grpLastRows.map(function (r) {
+    var g = r.group;
+    GROUPS_VERSIONS[g.egnGroupId] = (GROUPS_VERSIONS[g.egnGroupId] || 0) + 1;
+    var versionNote = GROUPS_VERSIONS[g.egnGroupId] > 1 ? " (version " + GROUPS_VERSIONS[g.egnGroupId] + ", history preserved)" : "";
+    if (r.status === "updated" && r.chairChanged) {
+      return escapeHtml(g.name) + " — imported" + versionNote + " (Chair reassigned: " + escapeHtml(r.oldChair) + " → " + escapeHtml(g.chairName) + ")";
+    }
+    if (r.status === "updated") {
+      return escapeHtml(g.name) + " — imported" + versionNote + " (profile text updated)";
+    }
+    if (r.status === "new") {
+      return escapeHtml(g.name) + " — imported" + versionNote + " (new group)";
+    }
+    return escapeHtml(g.name) + " — imported" + versionNote + " (unchanged)";
+  });
+
+  grpLastRows.forEach(function (r) {
+    var g = r.group;
+    GROUPS_STORE[g.egnGroupId] = { chairName: g.chairName, groupProfile: g.groupProfile };
+    GROUPS_NAMES[g.egnGroupId] = g.name;
+  });
+
+  document.getElementById("grpImportSummaryList").innerHTML = logLines.map(function (l) { return "<li>" + l + "</li>"; }).join("");
+  document.getElementById("grpImportSummary").classList.remove("hidden");
+  showToast("Groups import confirmed");
+  grpUpdateStoreInfo();
+  grpRenderPreview();
+  mapRenderPreviewIfBuilt();
+});
+
+/* =====================================================================
+   MAPPING (users & countries) section wiring
+   ===================================================================== */
+var mapValidRowsAOA = null;
+var mapLastRows = [];
+var mapExpanded = {};
+
+function mapMapRow(row, idx) {
+  return {
+    egnGroupId: row[idx["EGN Group ID"]] || "",
+    country: row[idx["Country"]] || "",
+    chairEmail: row[idx["Chair Email"]] || "",
+    naName: row[idx["Network Advisor Name"]] || "",
+    naEmail: row[idx["Network Advisor Email"]] || "",
+    chairLeaderName: row[idx["Chair Leader Name"]] || "",
+    chairLeaderEmail: row[idx["Chair Leader Email"]] || "",
+    salesLeaderName: row[idx["Sales Leader Name"]] || "",
+    salesLeaderEmail: idx["Sales Leader Email"] != null ? (row[idx["Sales Leader Email"]] || "") : ""
+  };
+}
+
+function mapClassify(m) {
+  var base = MAPPING_STORE[m.egnGroupId];
+  if (!base) { return { status: "new" }; }
+  var changed = MAPPING_FIELDS.filter(function (f) { return base[f] !== m[f]; });
+  if (changed.length) { return { status: "updated", changed: changed }; }
+  return { status: "unchanged" };
+}
+
+function mapUpdateStoreInfo() {
+  var n = Object.keys(MAPPING_STORE).length;
+  document.getElementById("mapStoreInfo").textContent = n + " mapping(s) currently imported";
+}
+
+function mapHandleAOA(aoa, sourceLabel) {
+  document.getElementById("mapRawSection").classList.remove("hidden");
+  document.getElementById("mapPreviewSection").classList.add("hidden");
+  document.getElementById("mapImportSummary").classList.add("hidden");
+  document.getElementById("mapContinueBtn").classList.remove("hidden");
+  mapExpanded = {};
+
+  if (!aoa || aoa.length === 0) {
+    renderRawTable(document.getElementById("mapRawTable"), document.getElementById("mapRawInfo"), [[]]);
+    document.getElementById("mapRawInfo").textContent = "This file appears to be empty.";
+    renderBanners(document.getElementById("mapBanners"), "Cannot import", ["The file has no rows at all."], null, null);
+    document.getElementById("mapContinueBtn").classList.add("hidden");
+    return;
+  }
+
+  renderRawTable(document.getElementById("mapRawTable"), document.getElementById("mapRawInfo"), aoa);
+
+  if (aoa.length === 1) {
+    renderBanners(document.getElementById("mapBanners"), "Cannot import", ["No data rows found below the header row."], null, null);
+    document.getElementById("mapContinueBtn").classList.add("hidden");
+    return;
+  }
+
+  var missing = validateHeaders(aoa[0], MAPPING_HEADERS);
+  if (missing.length) {
+    renderBanners(document.getElementById("mapBanners"), "Missing required column(s) — cannot import", missing, null, null);
+    document.getElementById("mapContinueBtn").classList.add("hidden");
+    mapValidRowsAOA = null;
+    return;
+  }
+
+  var idx = headerIndex(aoa[0]);
+  var scan = scanRows(aoa.slice(1), idx, "EGN Group ID");
+  var emailWarnings = scanEmailWarnings(scan.validRows, idx, ["Chair Email", "Network Advisor Email", "Chair Leader Email", "Sales Leader Email"], "EGN Group ID");
+  mapValidRowsAOA = { idx: idx, rows: scan.validRows };
+  var allWarnings = scan.issues.map(escapeHtml).concat(emailWarnings);
+  renderBanners(document.getElementById("mapBanners"), null, null, "Row issues found (" + allWarnings.length + ")", allWarnings.length ? allWarnings : null);
+  showToast(sourceLabel + " loaded");
+}
+
+document.getElementById("mapFileInput").addEventListener("change", function (e) {
+  var file = e.target.files[0];
+  if (!file) { return; }
+  readWorkbookRows(file, function (rows) {
+    mapHandleAOA(rows, file.name);
+  }, function () {
+    document.getElementById("mapRawSection").classList.remove("hidden");
+    document.getElementById("mapRawTable").innerHTML = "";
+    document.getElementById("mapRawInfo").textContent = "";
+    renderBanners(document.getElementById("mapBanners"), "Could not read this file", ["Make sure it's a valid, unprotected .xlsx or .xls export."], null, null);
+    document.getElementById("mapContinueBtn").classList.add("hidden");
+  });
+});
+
+document.getElementById("mapLoadSampleBtn").addEventListener("click", function () {
+  var choice = document.getElementById("mapSampleSelect").value;
+  var aoa = choice === "rowErrors" ? MAPPING_AOA_ROW_ERRORS
+    : choice === "missingColumn" ? MAPPING_AOA_MISSING_COLUMN
+    : choice === "v2" ? MAPPING_AOA_V2
+    : MAPPING_AOA_CLEAN;
+  mapHandleAOA(aoa, "Sample data (" + choice + ")");
+});
+
+document.getElementById("mapContinueBtn").addEventListener("click", function () {
+  if (!mapValidRowsAOA) { return; }
+  var idx = mapValidRowsAOA.idx;
+  mapLastRows = mapValidRowsAOA.rows.map(function (row) {
+    var m = mapMapRow(row, idx);
+    var classification = mapClassify(m);
+    return { mapping: m, status: classification.status, changed: classification.changed };
+  });
+  mapRenderPreview();
+  document.getElementById("mapPreviewSection").classList.remove("hidden");
+});
+
+function mapStatusLabel(status) {
+  if (status === "new") { return "New"; }
+  if (status === "updated") { return "Updated"; }
+  return "Unchanged";
+}
+
+function mapRenderPreviewIfBuilt() {
+  if (mapLastRows.length) { mapRenderPreview(); }
+}
+
+function mapRenderPreview() {
+  var counts = { new: 0, updated: 0, unchanged: 0 };
+  mapLastRows.forEach(function (r) { counts[r.status]++; });
+
+  document.getElementById("mapSummaryBar").innerHTML =
+    '<span class="summary-pill new">' + counts.new + ' new</span>' +
+    '<span class="summary-pill updated">' + counts.updated + ' updated</span>' +
+    '<span class="summary-pill unchanged">' + counts.unchanged + ' unchanged</span>';
+
+  var rowsHtml = mapLastRows.map(function (r, i) {
+    var m = r.mapping;
+    var groupName = GROUPS_NAMES[m.egnGroupId];
+    var hasGroup = !!GROUPS_STORE[m.egnGroupId];
+    var mainRow =
+      '<tr class="row-main" data-row-toggle="' + i + '">' +
+        '<td><span class="status-badge ' + r.status + '">' + mapStatusLabel(r.status) + '</span></td>' +
+        '<td><div class="group-name">' + (groupName ? escapeHtml(groupName) : '<span style="color:var(--muted)">(group not yet imported)</span>') + '</div><div class="group-id">' + escapeHtml(m.egnGroupId) + '</div></td>' +
+        '<td>' + escapeHtml(m.country) + '</td>' +
+        '<td>' + escapeHtml(m.chairEmail) + '</td>' +
+        '<td>' + escapeHtml(m.naName) + '</td>' +
+        '<td>' + escapeHtml(m.chairLeaderName) + '</td>' +
+        '<td>' + escapeHtml(m.salesLeaderName) + '</td>' +
+      '</tr>';
+
+    var detailRow = "";
+    if (mapExpanded[i]) {
+      var callout = "";
+      if (!hasGroup) {
+        callout = '<div class="callout missing">No imported group with EGN Group ID <strong>' + escapeHtml(m.egnGroupId) + '</strong> yet. This mapping will still be imported and will apply automatically once that group is imported in section 1.</div>';
+      } else if (r.status === "updated") {
+        callout = '<div class="callout updated">Changed field(s): ' + r.changed.join(", ") + '.</div>';
+      }
+      detailRow =
+        '<tr class="row-detail"><td colspan="7">' +
+          callout +
+          '<div class="field-block"><h4>All mapped fields</h4><div class="field-text">' +
+            'Country: ' + escapeHtml(m.country) + '\nChair email: ' + escapeHtml(m.chairEmail) +
+            '\nNetwork Advisor: ' + escapeHtml(m.naName) + ' (' + escapeHtml(m.naEmail) + ')' +
+            '\nChair Leader: ' + escapeHtml(m.chairLeaderName) + ' (' + escapeHtml(m.chairLeaderEmail) + ')' +
+            '\nSales Leader: ' + escapeHtml(m.salesLeaderName) + ' (' + escapeHtml(m.salesLeaderEmail) + ')' +
+          '</div></div>' +
+        '</td></tr>';
+    }
+    return mainRow + detailRow;
+  }).join("");
+
+  document.getElementById("mapPreviewBody").innerHTML = rowsHtml;
+  document.getElementById("mapConfirmBtn").textContent = "Confirm import (" + mapLastRows.length + " rows)";
+  document.getElementById("mapConfirmHint").textContent = "";
+}
+
+document.getElementById("mapPreviewBody").addEventListener("click", function (e) {
+  var toggleIdx = e.target.closest("tr.row-main") ? e.target.closest("tr.row-main").getAttribute("data-row-toggle") : null;
+  if (toggleIdx !== null) {
+    mapExpanded[toggleIdx] = !mapExpanded[toggleIdx];
+    mapRenderPreview();
+  }
+});
+
+document.getElementById("mapConfirmBtn").addEventListener("click", function () {
+  var logLines = mapLastRows.map(function (r) {
+    var m = r.mapping;
+    MAPPING_VERSIONS[m.egnGroupId] = (MAPPING_VERSIONS[m.egnGroupId] || 0) + 1;
+    var versionNote = MAPPING_VERSIONS[m.egnGroupId] > 1 ? " (version " + MAPPING_VERSIONS[m.egnGroupId] + ", history preserved)" : "";
+    var label = GROUPS_NAMES[m.egnGroupId] || m.egnGroupId;
+    if (r.status === "updated") {
+      return escapeHtml(label) + " — imported" + versionNote + " (updated: " + r.changed.join(", ") + ")";
+    }
+    if (r.status === "new") {
+      return escapeHtml(label) + " — imported" + versionNote + " (new mapping)";
+    }
+    return escapeHtml(label) + " — imported" + versionNote + " (unchanged)";
+  });
+
+  mapLastRows.forEach(function (r) {
+    var m = r.mapping;
+    var copy = {};
+    MAPPING_FIELDS.forEach(function (f) { copy[f] = m[f]; });
+    MAPPING_STORE[m.egnGroupId] = copy;
+  });
+
+  document.getElementById("mapImportSummaryList").innerHTML = logLines.map(function (l) { return "<li>" + l + "</li>"; }).join("");
+  document.getElementById("mapImportSummary").classList.remove("hidden");
+  showToast("User & country import confirmed");
+  mapUpdateStoreInfo();
+  mapRenderPreview();
+  grpRenderPreview();
+});
+
+grpUpdateStoreInfo();
+mapUpdateStoreInfo();
+</script>
+
+</body>
+</html>

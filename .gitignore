@@ -1,0 +1,27 @@
+# Secrets
+.env
+!.env.example
+
+# Dependencies
+node_modules/
+
+# OS/Windows artifacts
+*:Zone.Identifier
+.DS_Store
+
+# Personal Claude Code settings (machine-specific)
+.claude/settings.local.json
+.claude/.cc-writes/
+
+# Sandbox environment artifacts (not real project files)
+/.bash_profile
+/.bashrc
+/.gitconfig
+/.gitmodules
+/.idea
+/.mcp.json
+/.profile
+/.ripgreprc
+/.vscode
+/.zprofile
+/.zshrc

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group Compass — My groups (prototype)</title>
+<style>
+  :root {
+    --navy: #1F3864;
+    --navy-dark: #14274a;
+    --bg: #F4F5F7;
+    --card: #FFFFFF;
+    --border: #DDE1E8;
+    --text: #1C1F26;
+    --muted: #6B7280;
+    --action-bg: #FDECC8;
+    --action-border: #F0CE84;
+    --action-text: #7A5B00;
+    --wait-bg: #EEF0F3;
+    --wait-text: #6B7280;
+    --approved-bg: #E7F6EC;
+    --approved-border: #BFE6CC;
+    --approved-text: #2F7D4F;
+    --reedit-bg: #EAF1FB;
+    --reedit-border: #C4D7F0;
+    --reedit-text: #1B3A6B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .prototype-flag {
+    background: #FFF7E0;
+    border-bottom: 1px solid #EAD98B;
+    color: #6B5900;
+    font-size: 12px;
+    text-align: center;
+    padding: 6px 12px;
+  }
+  header.topbar {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header.topbar .brand { font-weight: 700; font-size: 16px; }
+  header.topbar .brand .tag { font-weight: 400; font-size: 12px; opacity: 0.75; margin-left: 6px; }
+  header.topbar .crumb { font-size: 13px; opacity: 0.85; }
+  header.topbar .spacer { flex: 1; }
+  .who-pill {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 20px 80px; }
+  .page-head { margin-bottom: 18px; }
+  .page-head h1 { margin: 0 0 2px; font-size: 22px; color: var(--navy); }
+  .page-head .sub { font-size: 13px; color: var(--muted); }
+  .summary-strip {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0 18px;
+  }
+  .summary-chip {
+    border: 1px solid var(--border);
+    background: var(--card);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .summary-chip.active { border-color: var(--navy); color: var(--navy); font-weight: 600; background: #EAF1FB; }
+  .summary-chip .count {
+    background: var(--navy);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 11px;
+    padding: 1px 7px;
+  }
+  .summary-chip.active .count { background: var(--navy); }
+  .group-list { display: flex; flex-direction: column; gap: 10px; }
+  .group-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .group-card:hover { border-color: var(--navy); box-shadow: 0 2px 8px rgba(20,39,74,0.08); }
+  .group-card.is-action { border-left: 4px solid var(--action-border); }
+  .group-card .row1 {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .group-card h2 { margin: 0 0 3px; font-size: 15.5px; color: var(--navy); }
+  .group-card .meta { font-size: 12.5px; color: var(--muted); }
+  .status-pill {
+    flex-shrink: 0;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-pill.action { background: var(--action-bg); border: 1px solid var(--action-border); color: var(--action-text); }
+  .status-pill.wait { background: var(--wait-bg); border: 1px solid var(--border); color: var(--wait-text); }
+  .status-pill.approved { background: var(--approved-bg); border: 1px solid var(--approved-border); color: var(--approved-text); }
+  .status-pill.reedit { background: var(--reedit-bg); border: 1px solid var(--reedit-border); color: var(--reedit-text); }
+  .group-card .update-line {
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .group-card .update-line .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--action-border);
+    flex-shrink: 0;
+  }
+  .group-card.is-action .update-line .dot { background: #E0A800; }
+  .group-card:not(.is-action) .update-line .dot { background: var(--border); }
+  .expand-panel {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #EEF0F3;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .expand-panel .note {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .expand-panel .detail-text { display: block; }
+  button { font-family: inherit; cursor: pointer; }
+  .btn {
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+    margin-top: 10px;
+  }
+  .btn:hover { background: #F0F2F5; }
+  .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 40px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="prototype-flag">Prototype — Chair "My groups" overview only. Mock data, no backend. Opening the group flagged "Needs your review" links to the Chair review prototype.</div>
+
+<header class="topbar">
+  <div class="brand">Group Compass <span class="tag">DNA module</span></div>
+  <div class="crumb">My groups</div>
+  <div class="spacer"></div>
+  <div class="who-pill">Carsten Wædeled</div>
+</header>
+
+<div class="wrap">
+
+  <div class="page-head">
+    <h1>My groups</h1>
+    <div class="sub">Denmark · 5 groups</div>
+  </div>
+
+  <div class="summary-strip" id="summaryStrip"></div>
+
+  <div class="group-list" id="groupList"></div>
+
+</div>
+
+<script>
+var groups = [
+  {
+    id: "jylland1",
+    name: "Adm. direktører – Jylland 1",
+    country: "Denmark",
+    na: "Mette Holm",
+    status: "action",
+    statusLabel: "Needs your review",
+    update: "Mette Holm commented on 2 fields · today, 09:14",
+    detail: "The Network Advisor has added comments to the Group profile and Member profile. Open the group to read & accept, edit, or ask the AI assistant to incorporate the comments.",
+    href: "Chair Review Prototype.html",
+    cta: "Open review"
+  },
+  {
+    id: "vest12",
+    name: "Ledelse & Udvikling – Vest 12",
+    country: "Denmark",
+    na: "Peter Lindgren",
+    status: "wait",
+    statusLabel: "Waiting on Network Advisor",
+    update: "Launched · invitation sent to Network Advisor · 3 days ago",
+    detail: "This group has been launched. Peter Lindgren has been invited to comment on the auto-generated DNA. You'll be notified as soon as comments are ready for your review.",
+    href: null,
+    cta: "Not yet available — waiting on Network Advisor"
+  },
+  {
+    id: "fyn2",
+    name: "Adm. direktører – Fyn 2",
+    country: "Denmark",
+    na: "Signe Bruun",
+    status: "reedit",
+    statusLabel: "Re-edited · queued for Salesforce",
+    update: "You edited the DNA after approval · yesterday",
+    detail: "You made changes after this group's DNA was approved. The updated version is queued for the manual Salesforce update (within five business days). The link stays open if you want to edit again.",
+    href: null,
+    cta: "View group"
+  },
+  {
+    id: "sjaelland3",
+    name: "Adm. direktører – Sjælland 3",
+    country: "Denmark",
+    na: "Thomas Kruse",
+    status: "approved",
+    statusLabel: "Approved",
+    update: "Approved by you · 12 days ago",
+    detail: "This group's DNA is approved and was updated in Salesforce. You can still edit it at any time — later saves notify the Network Advisor, Chair Leader, and Admin.",
+    href: null,
+    cta: "View group"
+  },
+  {
+    id: "ost5",
+    name: "Ledelse & Udvikling – Øst 5",
+    country: "Denmark",
+    na: "Helle Vig",
+    status: "approved",
+    statusLabel: "Approved",
+    update: "Approved by you · 3 weeks ago",
+    detail: "This group's DNA is approved and was updated in Salesforce. You can still edit it at any time — later saves notify the Network Advisor, Chair Leader, and Admin.",
+    href: null,
+    cta: "View group"
+  }
+];
+
+var statusOrder = { action: 0, reedit: 1, approved: 2, wait: 3 };
+var STATUS_TEXT = {
+  action: "Needs your review",
+  wait: "Waiting on Network Advisor",
+  approved: "Approved / up to date",
+  reedit: "Re-edited"
+};
+
+var activeFilter = "all";
+var expanded = {};
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function sortedGroups() {
+  return groups.slice().sort(function (a, b) {
+    return statusOrder[a.status] - statusOrder[b.status];
+  });
+}
+
+function filteredGroups() {
+  var list = sortedGroups();
+  if (activeFilter === "all") { return list; }
+  return list.filter(function (g) { return g.status === activeFilter; });
+}
+
+function countByStatus(status) {
+  return groups.filter(function (g) { return g.status === status; }).length;
+}
+
+function renderSummaryStrip() {
+  var chips = [
+    { key: "all", label: "All groups", count: groups.length },
+    { key: "action", label: "Needs your review", count: countByStatus("action") },
+    { key: "wait", label: "Waiting on Network Advisor", count: countByStatus("wait") },
+    { key: "reedit", label: "Re-edited", count: countByStatus("reedit") },
+    { key: "approved", label: "Approved", count: countByStatus("approved") }
+  ];
+  document.getElementById("summaryStrip").innerHTML = chips.map(function (c) {
+    var activeCls = (activeFilter === c.key) ? " active" : "";
+    return '<div class="summary-chip' + activeCls + '" data-filter="' + c.key + '">' +
+      escapeHtml(c.label) + '<span class="count">' + c.count + '</span>' +
+      '</div>';
+  }).join("");
+}
+
+function renderCard(g) {
+  var isExpanded = !!expanded[g.id];
+  var actionCls = g.status === "action" ? " is-action" : "";
+  var ctaHtml;
+  if (g.href) {
+    ctaHtml = '<a class="btn btn-primary" href="' + g.href + '" style="text-decoration:none;display:inline-block;">' + escapeHtml(g.cta) + '</a>';
+  } else if (g.status === "wait") {
+    ctaHtml = '<button class="btn" disabled>' + escapeHtml(g.cta) + '</button>';
+  } else {
+    ctaHtml = '<button class="btn" data-noop="1">' + escapeHtml(g.cta) + '</button>';
+  }
+  var panelHtml = isExpanded
+    ? '<div class="expand-panel"><div class="detail-text">' + escapeHtml(g.detail) + '</div>' + (g.href ? '' : '<div class="note">This prototype only wires the review screen behind groups flagged "Needs your review".</div>') + '<div>' + ctaHtml + '</div></div>'
+    : '';
+  return (
+    '<div class="group-card' + actionCls + '" data-id="' + g.id + '">' +
+      '<div class="row1">' +
+        '<div>' +
+          '<h2>' + escapeHtml(g.name) + '</h2>' +
+          '<div class="meta">' + escapeHtml(g.country) + ' &nbsp;·&nbsp; Network Advisor: ' + escapeHtml(g.na) + '</div>' +
+        '</div>' +
+        '<span class="status-pill ' + g.status + '">' + escapeHtml(g.statusLabel) + '</span>' +
+      '</div>' +
+      '<div class="update-line"><span class="dot"></span>' + escapeHtml(g.update) + '</div>' +
+      panelHtml +
+    '</div>'
+  );
+}
+
+function render() {
+  renderSummaryStrip();
+  var list = filteredGroups();
+  var listEl = document.getElementById("groupList");
+  if (!list.length) {
+    listEl.innerHTML = '<div class="empty-state">No groups in this view.</div>';
+    return;
+  }
+  listEl.innerHTML = list.map(renderCard).join("");
+}
+
+document.addEventListener("click", function (e) {
+  var filterKey = e.target.closest && e.target.closest("[data-filter]");
+  if (filterKey) {
+    activeFilter = filterKey.getAttribute("data-filter");
+    render();
+    return;
+  }
+  if (e.target.closest && e.target.closest("a.btn")) {
+    return; // let the link navigate
+  }
+  if (e.target.closest && e.target.closest("[data-noop]")) {
+    return;
+  }
+  var card = e.target.closest && e.target.closest(".group-card");
+  if (card) {
+    var id = card.getAttribute("data-id");
+    expanded[id] = !expanded[id];
+    render();
+  }
+});
+
+render();
+</script>
+
+</body>
+</html>
