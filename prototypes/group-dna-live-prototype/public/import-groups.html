@@ -63,7 +63,7 @@
   <div class="card">
     <h2>Add one group manually</h2>
     <p class="hint">Matches the real Salesforce export columns (spec §12).</p>
-    <p class="hint">All fields are required — an incomplete group is rejected rather than imported with gaps.</p>
+    <p class="hint">Identifying metadata (*) is required. The three profile sections may be left blank — real Salesforce data isn't always complete; a blank section is flagged below instead of rejected.</p>
     <div class="field-row">
       <div><label>EGN Group Name *</label><input type="text" id="m_egnGroupName" required></div>
       <div><label>EGN Group Id *</label><input type="text" id="m_egnGroupId" required></div>
@@ -84,12 +84,12 @@
         <datalist id="naList"></datalist>
       </div>
     </div>
-    <label>Group Profile *</label>
-    <textarea id="m_groupProfile" required></textarea>
-    <label>Member Profile *</label>
-    <textarea id="m_memberProfile" required></textarea>
-    <label>Companies Profile *</label>
-    <textarea id="m_companiesProfile" required></textarea>
+    <label>Group Profile</label>
+    <textarea id="m_groupProfile"></textarea>
+    <label>Member Profile</label>
+    <textarea id="m_memberProfile"></textarea>
+    <label>Companies Profile</label>
+    <textarea id="m_companiesProfile"></textarea>
     <div style="margin-top:12px;">
       <button class="btn btn-primary" id="manualAddBtn">Add Group</button>
       <span id="manualMsg" style="font-size:12.5px; margin-left:10px; color:var(--muted);"></span>
@@ -148,7 +148,10 @@ function renderBanners(el,err,warnTitle,warns){
 }
 
 // ==== column mapping (real export headers -> our internal field names) ====
+// All 9 columns must exist in the CSV header; only the metadata columns'
+// VALUES are required per row -- the 3 profile columns may be blank.
 const REQUIRED_COLS = ["EGN Group Name","EGN Group Id","MMSGroup: Name","Partner Code","Group Profile","Member Profile","Companies Profile","Responsible Chair","Responsible Sales"];
+const REQUIRED_METADATA_COLS = ["EGN Group Name","EGN Group Id","MMSGroup: Name","Partner Code","Responsible Chair","Responsible Sales"];
 const COL_TO_FIELD = {
   "EGN Group Name": "egnGroupName", "EGN Group Id": "egnGroupId", "MMSGroup: Name": "mmsGroupName",
   "Partner Code": "partnerCode", "Group Profile": "groupProfile", "Member Profile": "memberProfile",
@@ -202,7 +205,7 @@ function handleCsv(buf) {
     const ln = i + 2;
     const obj = {};
     REQUIRED_COLS.forEach((c) => { obj[COL_TO_FIELD[c]] = String(row[idx[c]] || "").trim(); });
-    const missing = REQUIRED_COLS.filter((c) => !obj[COL_TO_FIELD[c]]);
+    const missing = REQUIRED_METADATA_COLS.filter((c) => !obj[COL_TO_FIELD[c]]);
     const label = obj.egnGroupName || obj.egnGroupId || "(unidentified row)";
     if (missing.length) { rejections.push("Row " + ln + " (" + esc(label) + "): missing " + missing.map((c) => "<code>" + esc(c) + "</code>").join(", ") + " — will be rejected."); return; }
     rows.push(obj);
@@ -243,6 +246,7 @@ const FIELD_LABELS = {
   partnerCode: "Partner Code", groupProfile: "Group Profile", memberProfile: "Member Profile",
   companiesProfile: "Companies Profile", responsibleChair: "Responsible Chair", responsibleSales: "Responsible Sales",
 };
+const REQUIRED_METADATA_KEYS = ["egnGroupName", "egnGroupId", "mmsGroupName", "partnerCode", "responsibleChair", "responsibleSales"];
 
 document.getElementById("manualAddBtn").addEventListener("click", async function () {
   const body = {
@@ -257,7 +261,7 @@ document.getElementById("manualAddBtn").addEventListener("click", async function
     responsibleSales: document.getElementById("m_responsibleSales").value,
   };
   const msg = document.getElementById("manualMsg");
-  const missing = Object.keys(FIELD_LABELS).filter((k) => !String(body[k] || "").trim());
+  const missing = REQUIRED_METADATA_KEYS.filter((k) => !String(body[k] || "").trim());
   if (missing.length) {
     msg.style.color = "#A5342B";
     msg.textContent = "Missing: " + missing.map((k) => FIELD_LABELS[k]).join(", ");

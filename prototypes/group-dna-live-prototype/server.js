@@ -663,9 +663,11 @@ app.get("/api/users", (req, res) => {
   res.json(USERS);
 });
 
+// Identifying/administrative metadata is always required. The three
+// free-text profile sections can legitimately be blank in real
+// Salesforce data -- qualityFlags() surfaces that instead of rejecting it.
 const REQUIRED_GROUP_FIELDS = [
   "egnGroupName", "egnGroupId", "mmsGroupName", "partnerCode",
-  "groupProfile", "memberProfile", "companiesProfile",
   "responsibleChair", "responsibleSales",
 ];
 const FIELD_LABELS = {
