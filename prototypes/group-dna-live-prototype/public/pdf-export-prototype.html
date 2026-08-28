@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROTOTYPE — AI conversation PDF export (3 variants)</title>
+<style>
+  /* Three radically different variants of "where does the PDF export live, and how does the
+     chat-bubble transcript look" — switchable via ?variant=A|B|C. Answers wayfinder ticket
+     "Design the AI-conversation PDF export" (issue #5). THROWAWAY — do not ship. */
+  :root {
+    --navy: #1F3864; --navy-dark: #14274a; --bg: #F4F5F7; --card: #FFFFFF;
+    --border: #DDE1E8; --text: #1C1F26; --muted: #6B7280; --ai-bg: #EAF1FB; --ai-border: #C4D7F0;
+    --chair-bg: #1F3864; --chair-text: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  .prototype-flag { background: #FFF7E0; border-bottom: 1px solid #EAD98B; color: #6B5900; font-size: 12px; text-align: center; padding: 6px 12px; }
+  header.topbar { background: var(--navy); color: #fff; }
+  header.topbar .inner { max-width: 1100px; margin: 0 auto; padding: 16px 20px; }
+  header.topbar .brand { font-weight: 700; font-size: 18px; }
+  header.topbar .sub { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 100px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .card h2 { margin: 0 0 10px; font-size: 15px; color: var(--navy); }
+  button { font-family: inherit; cursor: pointer; }
+  .btn { border-radius: 6px; padding: 8px 14px; font-size: 13px; border: 1px solid var(--border); background: #fff; color: var(--text); }
+  .btn:hover { background: #F0F2F5; }
+  .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); border-bottom: 1px solid var(--border); padding: 8px 10px; }
+  td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr.group-row:hover { background: #FAFBFC; }
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #EFF2F6; color: var(--muted); }
+
+  /* --- Chat bubble transcript (shared visual language across variants) --- */
+  .transcript { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #FAFBFC; border: 1px solid var(--border); border-radius: 8px; }
+  .bubble-row { display: flex; flex-direction: column; max-width: 72%; }
+  .bubble-row.chair { align-self: flex-end; align-items: flex-end; }
+  .bubble-row.ai { align-self: flex-start; align-items: flex-start; }
+  .bubble { padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.45; }
+  .bubble-row.chair .bubble { background: var(--chair-bg); color: var(--chair-text); border-bottom-right-radius: 3px; }
+  .bubble-row.ai .bubble { background: var(--ai-bg); border: 1px solid var(--ai-border); color: var(--text); border-bottom-left-radius: 3px; }
+  .bubble-meta { font-size: 10.5px; color: var(--muted); margin: 3px 6px 0; }
+  .field-title { font-size: 12.5px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+
+  /* --- Variant A: modal overlay --- */
+  .overlay { position: fixed; inset: 0; background: rgba(20,24,32,0.45); display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; }
+  .overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 10px; max-width: 680px; width: 100%; max-height: 85vh; overflow-y: auto; }
+  .modal-head { position: sticky; top: 0; background: #fff; padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-head h3 { margin: 0; font-size: 15px; color: var(--navy); }
+  .modal-body { padding: 16px 20px; }
+  .field-block { margin-bottom: 22px; }
+  .field-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+
+  /* --- Variant B: dedicated page, sidebar layout --- */
+  .b-layout { display: grid; grid-template-columns: 220px 1fr; gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
+  .b-sidebar { background: #FAFBFC; border-right: 1px solid var(--border); }
+  .b-sidebar .b-item { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .b-sidebar .b-item:hover { background: #F0F2F5; }
+  .b-sidebar .b-item.active { background: #fff; border-left: 3px solid var(--navy); font-weight: 700; color: var(--navy); }
+  .b-main { padding: 20px; }
+  .b-main-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .b-main-head h3 { margin: 0; font-size: 15px; color: var(--navy); }
+  .b-top-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+
+  /* --- Variant C: inline expandable table row --- */
+  tr.expand-row td { background: #FAFBFC; padding: 16px; }
+  .c-field-block { margin-bottom: 18px; padding: 12px; background: #fff; border: 1px solid var(--border); border-radius: 8px; }
+  .c-field-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .c-group-actions { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .expand-toggle { border: none; background: none; color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
+  .expand-toggle:hover { text-decoration: underline; }
+
+  /* --- Floating variant switcher --- */
+  .switcher { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #14274a; color: #fff; border-radius: 999px; padding: 8px 6px 8px 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 6px 24px rgba(0,0,0,0.28); font-size: 13px; z-index: 100; }
+  .switcher button { background: rgba(255,255,255,0.12); border: none; color: #fff; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; line-height: 1; }
+  .switcher button:hover { background: rgba(255,255,255,0.24); }
+  .switcher .label { min-width: 190px; text-align: center; }
+  .switcher .label b { display: block; font-size: 12.5px; }
+  .switcher .label span { font-size: 10.5px; opacity: 0.75; }
+</style>
+</head>
+<body>
+<div class="prototype-flag">PROTOTYPE — throwaway, answers wayfinder issue #5 (AI-conversation PDF export design). Not shipped code.</div>
+<header class="topbar">
+  <div class="inner">
+    <div class="brand">Group DNA — Admin Console</div>
+    <div class="sub">Groups → conversation logs → PDF export (prototype)</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Groups</h2>
+    <table>
+      <thead><tr><th>Group</th><th>Chair</th><th>Status</th><th></th></tr></thead>
+      <tbody id="groupsTbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="overlay" id="overlayA">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Conversations</h3>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn btn-primary btn-sm" onclick="alert('PROTOTYPE: would generate PDF of every field for this group')">Export All (PDF)</button>
+        <button class="btn btn-sm" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="switcher" id="switcher">
+  <button onclick="cycle(-1)" aria-label="Previous variant">←</button>
+  <div class="label"><b id="switcherKey">A</b><span id="switcherName"></span></div>
+  <button onclick="cycle(1)" aria-label="Next variant">→</button>
+</div>
+
+<script>
+// ---- mock data --------------------------------------------------------
+const GROUPS = [
+  { id: 'g1', name: 'Adm. direktører – Jylland 1', chair: 'Lars Vestergaard', status: 'Approved' },
+  { id: 'g2', name: 'Ledelse & Udvikling – Vest 12', chair: 'Mette Holm', status: 'Pending review' },
+  { id: 'g3', name: 'Adm. direktører – Sjælland 3', chair: 'Anders Friis', status: 'Approved' },
+];
+
+const FIELDS = ['Hvad kendetegner gruppen', 'Hvad får man', 'Udviklingsfokus'];
+
+function mockTranscript(groupId, field) {
+  const seed = groupId.charCodeAt(1) + field.length;
+  return [
+    { who: 'chair', text: 'Can you tighten the second paragraph? It repeats itself.', t: '09:14' },
+    { who: 'ai', text: 'Rewrote the second paragraph to remove the repeated point about meeting cadence — kept the specific detail about member composition.', t: '09:14' },
+    { who: 'chair', text: 'Better. Can you also drop the mention of the merger?', t: '09:16' },
+    { who: 'ai', text: 'SPØRGSMÅL: The merger happened 14 months ago — should I remove it entirely, or keep a brief mention since it\'s within the 2-year recency window?', t: '09:16' },
+    { who: 'chair', text: 'Keep a brief mention, just shorter.', t: '09:19' },
+    { who: 'ai', text: 'Shortened the merger reference to one clause.', t: (9 + (seed % 3)) + ':2' + (seed % 9) },
+  ];
+}
+
+// ---- render: transcript bubbles (shared across variants) --------------
+function renderTranscript(entries) {
+  return `<div class="transcript">` + entries.map(e => `
+    <div class="bubble-row ${e.who}">
+      <div class="bubble">${e.text}</div>
+      <div class="bubble-meta">${e.who === 'chair' ? 'Chair' : 'AI'} · ${e.t}</div>
+    </div>
+  `).join('') + `</div>`;
+}
+
+// ---- Variant A: modal ---------------------------------------------------
+function renderA() {
+  document.getElementById('groupsTbody').innerHTML = GROUPS.map(g => `
+    <tr class="group-row">
+      <td>${g.name}</td><td>${g.chair}</td><td><span class="pill">${g.status}</span></td>
+      <td><button class="btn btn-sm" onclick="openModal('${g.id}')">💬 Conversations</button></td>
+    </tr>
+  `).join('');
+}
+function openModal(groupId) {
+  const g = GROUPS.find(x => x.id === groupId);
+  document.getElementById('modalTitle').textContent = 'Conversations — ' + g.name;
+  document.getElementById('modalBody').innerHTML = FIELDS.map(f => `
+    <div class="field-block">
+      <div class="field-block-head">
+        <div class="field-title">${f}</div>
+        <button class="btn btn-sm" onclick="alert('PROTOTYPE: would export PDF for field \\'${f}\\'')">Export PDF</button>
+      </div>
+      ${renderTranscript(mockTranscript(groupId, f))}
+    </div>
+  `).join('');
+  document.getElementById('overlayA').classList.add('open');
+}
+function closeModal() { document.getElementById('overlayA').classList.remove('open'); }
+
+// ---- Variant B: dedicated page, sidebar ---------------------------------
+let bActiveGroup = GROUPS[0].id;
+let bActiveField = FIELDS[0];
+function renderB() {
+  document.getElementById('groupsTbody').innerHTML = GROUPS.map(g => `
+    <tr class="group-row">
+      <td>${g.name}</td><td>${g.chair}</td><td><span class="pill">${g.status}</span></td>
+      <td><button class="btn btn-sm" onclick="openLogPage('${g.id}')">View conversation log →</button></td>
+    </tr>
+  `).join('');
+  document.getElementById('bPageHost')?.remove();
+}
+function openLogPage(groupId) {
+  bActiveGroup = groupId; bActiveField = FIELDS[0];
+  const g = GROUPS.find(x => x.id === groupId);
+  const host = document.createElement('div');
+  host.className = 'wrap'; host.id = 'bPageHost'; host.style.paddingTop = '0';
+  host.innerHTML = `
+    <div class="card">
+      <div class="b-top-actions">
+        <div>
+          <button class="btn btn-sm" onclick="document.getElementById('bPageHost').remove()">← Back to groups</button>
+          <h3 style="display:inline; margin-left:10px; font-size:15px; color:var(--navy);">${g.name} — conversation log</h3>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="alert('PROTOTYPE: would export PDF of every field for this group')">Export All Conversations (PDF)</button>
+      </div>
+      <div class="b-layout">
+        <div class="b-sidebar" id="bSidebar"></div>
+        <div class="b-main" id="bMain"></div>
+      </div>
+    </div>`;
+  document.querySelector('.wrap').after(host);
+  renderBSidebarAndMain();
+}
+function renderBSidebarAndMain() {
+  document.getElementById('bSidebar').innerHTML = FIELDS.map(f => `
+    <div class="b-item ${f === bActiveField ? 'active' : ''}" onclick="bActiveField='${f}'; renderBSidebarAndMain();">${f}</div>
+  `).join('');
+  document.getElementById('bMain').innerHTML = `
+    <div class="b-main-head">
+      <h3>${bActiveField}</h3>
+      <button class="btn btn-sm" onclick="alert('PROTOTYPE: would export PDF for field \\'${bActiveField}\\'')">Export PDF</button>
+    </div>
+    ${renderTranscript(mockTranscript(bActiveGroup, bActiveField))}
+  `;
+}
+
+// ---- Variant C: inline expandable table row -----------------------------
+let cExpanded = null;
+function renderC() {
+  document.getElementById('groupsTbody').innerHTML = GROUPS.map(g => `
+    <tr class="group-row">
+      <td>${g.name}</td><td>${g.chair}</td><td><span class="pill">${g.status}</span></td>
+      <td><button class="expand-toggle" onclick="toggleExpand('${g.id}')">${cExpanded === g.id ? '▾ Hide' : '▸ Conversations'}</button></td>
+    </tr>
+    ${cExpanded === g.id ? `
+    <tr class="expand-row"><td colspan="4">
+      <div class="c-group-actions">
+        <button class="btn btn-primary btn-sm" onclick="alert('PROTOTYPE: would export PDF of every field for this group')">Export Group PDF</button>
+      </div>
+      ${FIELDS.map(f => `
+        <div class="c-field-block">
+          <div class="c-field-block-head">
+            <div class="field-title">${f}</div>
+            <button class="btn btn-sm" onclick="alert('PROTOTYPE: would export PDF for field \\'${f}\\'')">Export PDF</button>
+          </div>
+          ${renderTranscript(mockTranscript(g.id, f))}
+        </div>
+      `).join('')}
+    </td></tr>` : ''}
+  `).join('');
+}
+function toggleExpand(groupId) { cExpanded = cExpanded === groupId ? null : groupId; renderC(); }
+
+// ---- switcher wiring ------------------------------------------------------
+const VARIANTS = {
+  A: { name: 'Modal overlay from group list', render: renderA },
+  B: { name: 'Dedicated log page, sidebar nav', render: renderB },
+  C: { name: 'Inline expandable table row', render: renderC },
+};
+const KEYS = Object.keys(VARIANTS);
+
+function currentVariant() {
+  const v = new URLSearchParams(location.search).get('variant');
+  return VARIANTS[v] ? v : 'A';
+}
+function setVariant(key) {
+  const url = new URL(location.href);
+  url.searchParams.set('variant', key);
+  history.replaceState(null, '', url);
+  closeModal();
+  document.getElementById('bPageHost')?.remove();
+  cExpanded = null;
+  VARIANTS[key].render();
+  document.getElementById('switcherKey').textContent = key;
+  document.getElementById('switcherName').textContent = VARIANTS[key].name;
+}
+function cycle(dir) {
+  const i = KEYS.indexOf(currentVariant());
+  setVariant(KEYS[(i + dir + KEYS.length) % KEYS.length]);
+}
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+  if (e.key === 'ArrowLeft') cycle(-1);
+  if (e.key === 'ArrowRight') cycle(1);
+});
+
+setVariant(currentVariant());
+</script>
+</body>
+</html>
