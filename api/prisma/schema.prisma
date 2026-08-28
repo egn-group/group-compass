@@ -1,8 +1,8 @@
 // Core entities per spec §12 ("Import, export, and data model").
-// See /CONTEXT.md for the terms this schema had to sharpen beyond the
-// spec's own wording (lifecycle status values, version numbering,
-// DnaVersion.author, DnaField, Event.type) and for the one spec-listed
-// attribute deliberately left out (DnaVersion.changeList).
+// See /CONTEXT.md for the terms this schema sharpens beyond the spec's
+// own wording, and the wayfinder map (GitHub issue #1) decision log for
+// the reasoning behind each — including DnaVersion.changeList, the one
+// spec-listed attribute deliberately left out (see that model below).
 
 generator client {
   provider = "prisma-client-js"
@@ -93,6 +93,9 @@ model User {
 
 model Group {
   id                String               @id @default(cuid())
+  // Deliberately not unique: spec §12 ("the same EGN Group ID may
+  // therefore exist as more than one record when required, for example
+  // to compare alternative versions").
   egnGroupId        String
   mmsGroupCode      String?
   partnerCode       String
@@ -101,6 +104,10 @@ model Group {
   lifecycleStatus   GroupLifecycleStatus @default(Imported)
   pendingReapproval Boolean              @default(false)
   noSourceDna       Boolean              @default(false)
+  // The live imported text (spec §12's group export columns), compared
+  // against on re-import. Distinct from DnaVersion.content (a full
+  // versioned snapshot) and DnaField (which of these three a per-field
+  // Comment/AiConversationTurn refers to).
   groupProfile      String
   memberProfile     String
   companiesProfile  String
@@ -120,14 +127,25 @@ model Group {
   @@index([egnGroupId])
 }
 
+// Note: spec §12 also lists a "change list (for AI versions)" attribute
+// here, for the on-demand AI change-list ("Auditor") feature. That
+// feature was dropped from the real build (wayfinder map, issue #1,
+// "Out of scope") before this schema was drafted, so it's omitted here
+// rather than built around.
 model DnaVersion {
   id            String                @id @default(cuid())
   groupId       String
   group         Group                 @relation(fields: [groupId], references: [id])
   versionNumber Int
   content       Json
+  // Spec §12 says "author (AI/Chair/Admin)" — three values — but spec
+  // §10 lists an NA comment round among the things that "creates a new
+  // version with timestamp and author". NetworkAdvisor is added so that
+  // case has a real author instead of falling outside the enum.
   author        DnaVersionAuthor
   score         Int?
+  // Spec §9: "The score is stored at three stages: the original imported
+  // DNA, the auto-generated DNA, and each Chair-edited saved version."
   scoreStage    DnaVersionScoreStage?
   createdAt     DateTime              @default(now())
 
