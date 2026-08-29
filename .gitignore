@@ -2,6 +2,10 @@
 .env
 !.env.example
 
+# Ephemeral scratch space (wizards, throwaway scripts, one-off notes) —
+# never committed, may contain captured credentials.
+.scratch/
+
 # Dependencies
 node_modules/
 
