@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { UpsertUserSchema, type RoleValue, type UserDto } from '../shared/schemas/user'
 
 // Chair Leader and Sales Leader are deferred past this pilot (wayfinder map,
@@ -19,9 +19,16 @@ function AdminUsers() {
   // Carried silently so saving an edit can't accidentally strip them.
   const [hiddenRoles, setHiddenRoles] = useState<string[]>([])
 
+  // Guards against an earlier, slower loadUsers() call resolving after a
+  // later one and overwriting fresher state with stale data (this page
+  // calls it both on mount and after every save).
+  const usersRequestId = useRef(0)
+
   async function loadUsers() {
     setError('')
+    const id = ++usersRequestId.current
     const res = await fetch('/api/getUsers')
+    if (id !== usersRequestId.current) return
     if (!res.ok) {
       setError(`Could not load users (${res.status}).`)
       return
