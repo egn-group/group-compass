@@ -16,11 +16,19 @@ function App() {
   }
 
   return (
-    <main>
+    <main style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 32px' }}>
       <h1>Group Compass</h1>
-      <p>Scaffold placeholder page.</p>
-      <button onClick={() => void callPing()}>Call /api/ping</button>
-      {apiResult && <p data-testid="api-result">{apiResult}</p>}
+      <div className="card" style={{ padding: '28px 32px', margin: '16px 0 32px' }}>
+        <p style={{ marginBottom: 16 }}>Scaffold placeholder page.</p>
+        <button className="btn btn-primary" onClick={() => void callPing()}>
+          Call /api/ping
+        </button>
+        {apiResult && (
+          <p data-testid="api-result" style={{ marginTop: 16, color: 'var(--text-muted)' }}>
+            {apiResult}
+          </p>
+        )}
+      </div>
       <AdminUsers />
     </main>
   )

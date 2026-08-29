@@ -1,0 +1,216 @@
+/* ─── EGN brand fonts ────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Miguer Sans';
+  src: url('./fonts/MiguerSans-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('./fonts/FuturaCyrillicBook.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('./fonts/FuturaCyrillicDemi.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ─── Brand tokens ───────────────────────────────────────────────────────── */
+/* EGN Design Manual, May 2026: exactly three brand colors + an opacity scale.
+   Semantic status colors (red/amber/green) are a separate functional layer —
+   used only for status badges/indicators, never on brand-carrying surfaces.
+   Ported from My Path's src/index.css. */
+:root {
+  /* Dark Blue — primary */
+  --egn-navy:    #00233d;
+  --egn-navy-80: rgba(0, 35, 61, 0.8);
+  --egn-navy-60: rgba(0, 35, 61, 0.6);
+  --egn-navy-40: rgba(0, 35, 61, 0.4);
+  --egn-navy-20: rgba(0, 35, 61, 0.2);
+
+  /* Light Blue — secondary */
+  --egn-light-blue:    #e0f2fc;
+  --egn-light-blue-80: rgba(224, 242, 252, 0.8);
+  --egn-light-blue-60: rgba(224, 242, 252, 0.6);
+  --egn-light-blue-40: rgba(224, 242, 252, 0.4);
+  --egn-light-blue-20: rgba(224, 242, 252, 0.2);
+
+  /* Sand — tertiary */
+  --egn-sand:    #ecede8;
+  --egn-sand-80: rgba(236, 237, 232, 0.8);
+  --egn-sand-60: rgba(236, 237, 232, 0.6);
+  --egn-sand-40: rgba(236, 237, 232, 0.4);
+  --egn-sand-20: rgba(236, 237, 232, 0.2);
+
+  --egn-white: #ffffff;
+
+  /* Semantic status layer (not brand colors) */
+  --status-danger:  #dc2626;
+  --status-warning: #d97706;
+  --status-success: #059669;
+  --status-info:    #2563eb;
+  --status-neutral: #71717a;
+
+  /* Application roles, mapped onto the brand palette */
+  --brand-dark:   var(--egn-navy);
+  --brand-bg:     var(--egn-sand);
+  --surface:      var(--egn-white);
+  --border:       var(--egn-navy-20);
+  --text-main:    var(--egn-navy);
+  --text-muted:   var(--egn-navy-60);
+  --line-strong:  var(--egn-navy-40);
+  --accent-bg:    var(--egn-light-blue);
+  --accent-border: var(--egn-navy-20);
+  --accent-ink:   var(--egn-navy);
+
+  /* Restrained shadow scale — press affordance / dropdowns / modals only */
+  --shadow-sm: 0 1px 3px rgba(0, 35, 61, 0.12);
+  --shadow-md: 0 4px 12px rgba(0, 35, 61, 0.14);
+  --shadow-lg: 0 16px 40px rgba(0, 35, 61, 0.18);
+
+  /* Shape */
+  --radius-md:     16px;
+  --radius-pill:   999px;
+  --radius-circle: 50%;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--brand-bg);
+  color: var(--text-main);
+  font-family: 'Futura PT', sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Miguer Sans', sans-serif;
+}
+
+/* Form Inputs */
+input, textarea, select {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--brand-dark);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  width: 100%;
+  font-family: 'Futura PT', sans-serif;
+  font-size: 16px;
+  resize: vertical;
+  transition: border-color 0.2s var(--ease-standard);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border: 2px solid var(--egn-navy);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--egn-navy-40);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+  font-family: 'Futura PT', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 10px 20px;
+  transition: filter 0.2s var(--ease-standard), transform 0.15s var(--ease-standard), opacity 0.2s var(--ease-standard);
+  letter-spacing: 0.01em;
+}
+
+.btn-primary {
+  background: var(--egn-navy);
+  color: var(--egn-white);
+}
+.btn-primary:hover { filter: brightness(0.9); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--egn-navy);
+  border: 2px solid var(--egn-navy);
+}
+.btn-secondary:hover { opacity: 0.7; }
+.btn-secondary:active { transform: scale(0.98); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--status-danger);
+  border: 2px solid var(--status-danger);
+}
+.btn-danger:hover { opacity: 0.7; }
+.btn-danger:active { transform: scale(0.98); }
+
+.btn-success {
+  background: var(--status-success);
+  color: var(--egn-white);
+}
+.btn-success:hover { filter: brightness(0.9); }
+.btn-success:active { transform: scale(0.98); }
+
+/* Field Labels */
+.lbl {
+  font-size: 16px;
+  color: var(--text-main);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+  display: block;
+}
+.field { margin-bottom: 24px; }
+.req { color: var(--egn-navy); margin-left: 4px; }
+
+/* Shared card primitive */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* Shared status badge/pill primitive */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}
+
+/* Animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--egn-navy-40); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--egn-navy-60); }

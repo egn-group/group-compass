@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { UpsertUserSchema, type RoleValue, type UserDto } from '../shared/schemas/user'
 
 // Chair Leader and Sales Leader are deferred past this pilot (wayfinder map,
@@ -81,28 +81,32 @@ function AdminUsers() {
   const isEditing = form.email !== '' && users.some((u) => u.email === form.email)
 
   return (
-    <section>
-      <h2>Users</h2>
-      {error && <p role="alert">{error}</p>}
-      <table>
+    <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
+      <h2 style={{ marginBottom: 16 }}>Users</h2>
+      {error && (
+        <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+          {error}
+        </p>
+      )}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 32 }}>
         <thead>
-          <tr>
-            <th>Email</th>
-            <th>Name</th>
-            <th>Initials</th>
-            <th>Roles</th>
-            <th></th>
+          <tr style={{ background: 'var(--egn-sand)' }}>
+            <th style={cellStyle}>Email</th>
+            <th style={cellStyle}>Name</th>
+            <th style={cellStyle}>Initials</th>
+            <th style={cellStyle}>Roles</th>
+            <th style={cellStyle}></th>
           </tr>
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.email}>
-              <td>{u.email}</td>
-              <td>{u.name}</td>
-              <td>{u.initials}</td>
-              <td>{u.roles.join(', ')}</td>
-              <td>
-                <button type="button" onClick={() => editUser(u)}>
+            <tr key={u.email} style={{ borderTop: '1px solid var(--border)' }}>
+              <td style={cellStyle}>{u.email}</td>
+              <td style={cellStyle}>{u.name}</td>
+              <td style={cellStyle}>{u.initials}</td>
+              <td style={cellStyle}>{u.roles.join(', ')}</td>
+              <td style={cellStyle}>
+                <button type="button" className="btn btn-secondary" onClick={() => editUser(u)}>
                   Edit
                 </button>
               </td>
@@ -111,44 +115,68 @@ function AdminUsers() {
         </tbody>
       </table>
 
-      <h3>{isEditing ? 'Edit user' : 'Add user'}</h3>
+      <h3 style={{ marginBottom: 16 }}>{isEditing ? 'Edit user' : 'Add user'}</h3>
       <form
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
         }}
       >
-        <label>
-          Email
+        <div className="field">
+          <label className="lbl" htmlFor="user-email">
+            Email
+          </label>
           <input
+            id="user-email"
             value={form.email}
             disabled={isEditing}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
           />
-        </label>
-        <label>
-          Name
-          <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-        </label>
-        <label>
-          Initials
-          <input value={form.initials} onChange={(e) => setForm((f) => ({ ...f, initials: e.target.value }))} />
-        </label>
-        <fieldset>
-          <legend>Roles</legend>
-          {ASSIGNABLE_ROLES.map((role) => (
-            <label key={role}>
-              <input type="checkbox" checked={form.roles.includes(role)} onChange={() => toggleRole(role)} />
-              {role}
-            </label>
-          ))}
+        </div>
+        <div className="field">
+          <label className="lbl" htmlFor="user-name">
+            Name
+          </label>
+          <input
+            id="user-name"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label className="lbl" htmlFor="user-initials">
+            Initials
+          </label>
+          <input
+            id="user-initials"
+            value={form.initials}
+            onChange={(e) => setForm((f) => ({ ...f, initials: e.target.value }))}
+          />
+        </div>
+        <fieldset className="field" style={{ border: 'none' }}>
+          <legend className="lbl">Roles</legend>
+          <div style={{ display: 'flex', gap: 16 }}>
+            {ASSIGNABLE_ROLES.map((role) => (
+              <label key={role} style={{ display: 'flex', alignItems: 'center', gap: 6, width: 'auto' }}>
+                <input
+                  type="checkbox"
+                  checked={form.roles.includes(role)}
+                  onChange={() => toggleRole(role)}
+                  style={{ width: 'auto' }}
+                />
+                {role}
+              </label>
+            ))}
+          </div>
         </fieldset>
-        <button type="submit" disabled={saving}>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </form>
     </section>
   )
 }
+
+const cellStyle: CSSProperties = { textAlign: 'left', padding: '10px 12px' }
 
 export default AdminUsers
