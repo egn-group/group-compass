@@ -8,9 +8,11 @@
     "test": "vitest run",
     "db:verify": "npm run build && node dist/api/scripts/verify-crud.js",
     "db:verify:users": "npm run build && node dist/api/scripts/verify-users-auth.js",
-    "db:verify:groups": "npm run build && node dist/api/scripts/verify-groups-import.js"
+    "db:verify:groups": "npm run build && node dist/api/scripts/verify-groups-import.js",
+    "verify:ai": "npm run build && node dist/api/scripts/verify-ai-call.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
     "@azure/functions": "^3.5.1",
     "@prisma/client": "^6.19.3",
     "prisma": "^6.19.3",
