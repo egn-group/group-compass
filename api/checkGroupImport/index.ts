@@ -1,0 +1,81 @@
+import type { Context, HttpRequest } from '@azure/functions'
+import { CheckGroupImportRequestSchema, type ImportCheckResult } from '../../shared/schemas/group'
+import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from '../shared/auth'
+import { errorResponse, serverError } from '../shared/errors'
+import { textEqualsIgnoringWhitespace } from '../shared/textCompare'
+
+// Dry-run preview for the group-import review screen: for each raw row,
+// reports whether it's new, an unchanged duplicate (spec §12: "an unchanged
+// group is a no-op"), or a genuine change against an existing record with
+// the same EGN Group ID (which the admin must then choose to overwrite or
+// import as a new record) — plus a best-guess Chair/NA match by name, for
+// the admin to confirm or change (spec §12).
+const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {
+  const authFailure = requireAuth(req)
+  if (authFailure) {
+    context.res = authFailure
+    return
+  }
+
+  const parsed = CheckGroupImportRequestSchema.safeParse(req.body)
+  if (!parsed.success) {
+    context.res = errorResponse(400, 'Invalid request body.', parsed.error.flatten())
+    return
+  }
+
+  try {
+    const principal = getPrincipal(req)!
+    const caller = await getUserByEmail(principal.email)
+    const roleFailure = requireAdmin(caller)
+    if (roleFailure) {
+      context.res = roleFailure
+      return
+    }
+
+    const { rows } = parsed.data
+
+    const users = await prisma.user.findMany()
+    const emailByName = new Map(users.map((u) => [u.name.trim().toLowerCase(), u.email]))
+
+    const egnGroupIds = [...new Set(rows.map((r) => r.egnGroupId))]
+    const existingGroups = await prisma.group.findMany({
+      where: { egnGroupId: { in: egnGroupIds } },
+      orderBy: { updatedAt: 'desc' },
+    })
+    // Multiple records may share an EGN Group ID (spec §12) — the most
+    // recently updated one is the comparison candidate for re-import.
+    const latestByEgnGroupId = new Map<string, (typeof existingGroups)[number]>()
+    for (const g of existingGroups) {
+      if (!latestByEgnGroupId.has(g.egnGroupId)) latestByEgnGroupId.set(g.egnGroupId, g)
+    }
+
+    const results: ImportCheckResult[] = rows.map((row) => {
+      const existing = latestByEgnGroupId.get(row.egnGroupId) ?? null
+      const status = !existing
+        ? 'new'
+        : textEqualsIgnoringWhitespace(existing.groupProfile, row.groupProfile) &&
+            textEqualsIgnoringWhitespace(existing.memberProfile, row.memberProfile) &&
+            textEqualsIgnoringWhitespace(existing.companiesProfile, row.companiesProfile)
+          ? 'unchanged'
+          : 'changed'
+
+      return {
+        row,
+        status,
+        existingGroupId: existing?.id ?? null,
+        suggestedChairEmail: emailByName.get(row.responsibleChairName.trim().toLowerCase()) ?? null,
+        suggestedNetworkAdvisorEmail: emailByName.get(row.responsibleSalesName.trim().toLowerCase()) ?? null,
+      }
+    })
+
+    context.res = {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(results),
+    }
+  } catch (err) {
+    context.res = serverError(context.log.error, err)
+  }
+}
+
+module.exports = httpTrigger
