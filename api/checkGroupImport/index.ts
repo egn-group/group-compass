@@ -1,5 +1,6 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { CheckGroupImportRequestSchema, type ImportCheckResult } from '../../shared/schemas/group'
+import { DnaContentSchema } from '../../shared/schemas/dna'
 import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from '../shared/auth'
 import { errorResponse, serverError } from '../shared/errors'
 import { textEqualsIgnoringWhitespace } from '../shared/textCompare'
@@ -49,13 +50,36 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       if (!latestByEgnGroupId.has(g.egnGroupId)) latestByEgnGroupId.set(g.egnGroupId, g)
     }
 
+    // Compare against the Imported-stage DnaVersion (the true, preserved-
+    // forever original) when one exists, not against Group's own plain
+    // fields — issue #23's Launch action overwrites those with the
+    // AI-rewritten text, which would otherwise make every launched group
+    // look "changed" on its next routine re-import even when Salesforce's
+    // source data never moved. Falls back to Group's fields for a group
+    // that's never been through Generate yet, where they're still the
+    // untouched original.
+    const importedVersions = await prisma.dnaVersion.findMany({
+      where: { groupId: { in: existingGroups.map((g) => g.id) }, scoreStage: 'Imported' },
+    })
+    const importedContentByGroupId = new Map(
+      importedVersions.map((v) => [v.groupId, DnaContentSchema.safeParse(v.content)] as const),
+    )
+
     const results: ImportCheckResult[] = rows.map((row) => {
       const existing = latestByEgnGroupId.get(row.egnGroupId) ?? null
-      const status = !existing
+      const importedParsed = existing ? importedContentByGroupId.get(existing.id) : undefined
+      const baseline =
+        importedParsed?.success && existing
+          ? importedParsed.data
+          : existing
+            ? { groupProfile: existing.groupProfile, memberProfile: existing.memberProfile, companiesProfile: existing.companiesProfile }
+            : null
+
+      const status = !baseline
         ? 'new'
-        : textEqualsIgnoringWhitespace(existing.groupProfile, row.groupProfile) &&
-            textEqualsIgnoringWhitespace(existing.memberProfile, row.memberProfile) &&
-            textEqualsIgnoringWhitespace(existing.companiesProfile, row.companiesProfile)
+        : textEqualsIgnoringWhitespace(baseline.groupProfile, row.groupProfile) &&
+            textEqualsIgnoringWhitespace(baseline.memberProfile, row.memberProfile) &&
+            textEqualsIgnoringWhitespace(baseline.companiesProfile, row.companiesProfile)
           ? 'unchanged'
           : 'changed'
 
