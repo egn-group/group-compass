@@ -60,3 +60,11 @@ export function requireNetworkAdvisor(user: Pick<User, 'roles'> | null): ApiErro
   if (!user?.roles.includes('NetworkAdvisor')) return errorResponse(403, 'Network Advisor access required.')
   return null
 }
+
+/** Guard: caller must be an Admin or Chair Leader per their own stored User record. */
+export function requireAdminOrChairLeader(user: Pick<User, 'roles'> | null): ApiError | null {
+  if (!user?.roles.includes('Admin') && !user?.roles.includes('ChairLeader')) {
+    return errorResponse(403, 'Admin or Chair Leader access required.')
+  }
+  return null
+}

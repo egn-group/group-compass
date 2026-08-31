@@ -12,7 +12,8 @@
     "verify:ai": "npm run build && node dist/api/scripts/verify-ai-call.js",
     "verify:dna": "npm run build && node dist/api/scripts/verify-dna-generation.js",
     "verify:launch": "npm run build && node dist/api/scripts/verify-launch.js",
-    "verify:na-comments": "npm run build && node dist/api/scripts/verify-na-comments.js"
+    "verify:na-comments": "npm run build && node dist/api/scripts/verify-na-comments.js",
+    "verify:score-dna-version": "npm run build && node dist/api/scripts/verify-score-dna-version.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
