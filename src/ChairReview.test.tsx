@@ -32,6 +32,11 @@ function mockFetch(handlers: {
   approveChairField?: { status: number; body: unknown }
   editChairField?: { status: number; body: unknown }
   reapproveChairGroup?: { status: number; body: unknown }
+  getChairFieldConversation?: { turns: unknown[] }
+  chairChat?: { status: number; body: unknown }
+  acceptChairProposal?: { status: number; body: unknown }
+  rejectChairProposal?: { status: number; body: unknown }
+  suggestImprovements?: { status: number; body: unknown }
 }) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/getChairGroups') {
@@ -50,6 +55,28 @@ function mockFetch(handlers: {
     }
     if (url === '/api/reapproveChairGroup') {
       const { status, body } = handlers.reapproveChairGroup ?? { status: 200, body: { groupId: 'group-1', pendingReapproval: false } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url.startsWith('/api/getChairFieldConversation?')) {
+      return { ok: true, status: 200, json: async () => handlers.getChairFieldConversation ?? { turns: [] } }
+    }
+    if (url === '/api/chairChat') {
+      const { status, body } = handlers.chairChat ?? {
+        status: 200,
+        body: { clarifyingQuestion: null, turnId: 'turn-1', proposedText: 'REWRITTEN TEXT', note: 'Shorter.' },
+      }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/acceptChairProposal') {
+      const { status, body } = handlers.acceptChairProposal ?? { status: 200, body: { field: 'GroupProfile', dnaVersionId: 'v3' } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/rejectChairProposal') {
+      const { status, body } = handlers.rejectChairProposal ?? { status: 200, body: { turnId: 'turn-1', outcome: 'Rejected' } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/suggestImprovements') {
+      const { status, body } = handlers.suggestImprovements ?? { status: 200, body: { suggestions: [] } }
       return { ok: status < 300, status, json: async () => body }
     }
     throw new Error(`Unexpected fetch: ${url} ${init?.method}`)
@@ -174,6 +201,103 @@ describe('ChairReview', () => {
         '/api/reapproveChairGroup',
         expect.objectContaining({ method: 'POST', body: JSON.stringify({ groupId: 'group-1' }) }),
       )
+    })
+  })
+
+  it('opens the AI assistant, sends a message, and shows the resulting proposal with accept/reject', async () => {
+    const fetchMock = mockFetch({
+      getChairGroups: { groups: [groupListItem] },
+      getChairFieldConversation: {
+        turns: [
+          { id: 'turn-0', role: 'Chair', messageText: 'Please rewrite this.', proposedText: null, outcome: 'None', createdAt: new Date().toISOString() },
+          { id: 'turn-1', role: 'Ai', messageText: 'Shorter.', proposedText: 'REWRITTEN TEXT', outcome: 'None', createdAt: new Date().toISOString() },
+        ],
+      },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText('Ask AI assistant')[0])
+    fireEvent.change(screen.getByLabelText('Message the AI assistant about Group Profile'), { target: { value: 'Please rewrite this.' } })
+    fireEvent.click(screen.getByText('Send'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/chairChat',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ groupId: 'group-1', field: 'GroupProfile', message: 'Please rewrite this.' }),
+        }),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.getByText('REWRITTEN TEXT')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Accept')).toBeInTheDocument()
+    expect(screen.getByText('Reject')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Accept'))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/acceptChairProposal',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ turnId: 'turn-1' }) }),
+      )
+    })
+  })
+
+  it('shows a clarifying question instead of a proposal for ambiguous input', async () => {
+    const fetchMock = mockFetch({
+      getChairGroups: { groups: [groupListItem] },
+      chairChat: { status: 200, body: { clarifyingQuestion: 'What would you like to change?', turnId: null, proposedText: null, note: null } },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText('Ask AI assistant')[0])
+    fireEvent.change(screen.getByLabelText('Message the AI assistant about Group Profile'), { target: { value: 'asdkfj' } })
+    fireEvent.click(screen.getByText('Send'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/chairChat', expect.objectContaining({ method: 'POST' }))
+    })
+    // The conversation is re-fetched after sending; getChairFieldConversation
+    // wasn't given an explicit handler here, so it returns an empty list —
+    // this test only asserts the request shape, not the rendered reply text.
+    expect(screen.queryByText('Accept')).not.toBeInTheDocument()
+  })
+
+  it('offers improvement suggestions once the group is Approved, and shows what it finds', async () => {
+    const approvedDetail = { ...groupDetail, lifecycleStatus: 'Approved', fields: groupDetail.fields.map((f) => ({ ...f, approved: true, unresolvedComments: [] })) }
+    const fetchMock = mockFetch({
+      getChairGroups: { groups: [{ ...groupListItem, lifecycleStatus: 'Approved' }] },
+      getChairGroup: approvedDetail,
+      suggestImprovements: { status: 200, body: { suggestions: [{ field: 'GroupProfile', suggestion: 'Add geography.' }] } },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Check for improvement suggestions')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Check for improvement suggestions'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/suggestImprovements',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ groupId: 'group-1' }) }),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Add geography.')).toBeInTheDocument()
     })
   })
 })

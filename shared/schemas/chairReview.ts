@@ -88,3 +88,64 @@ export const ReapproveChairGroupResponseSchema = z.object({
   pendingReapproval: z.boolean(),
 })
 export type ReapproveChairGroupResponse = z.infer<typeof ReapproveChairGroupResponseSchema>
+
+// --- AI assistant chat (issue #26) ---
+
+export const ConversationRoleSchema = z.enum(['Chair', 'Ai'])
+export const ConversationOutcomeSchema = z.enum(['Accepted', 'Rejected', 'None'])
+
+export const ConversationTurnDtoSchema = z.object({
+  id: z.string(),
+  role: ConversationRoleSchema,
+  messageText: z.string().nullable(),
+  proposedText: z.string().nullable(),
+  outcome: ConversationOutcomeSchema,
+  createdAt: z.string(),
+})
+export type ConversationTurnDto = z.infer<typeof ConversationTurnDtoSchema>
+
+export const GetChairFieldConversationRequestSchema = z.object({
+  groupId: z.string().min(1),
+  field: DnaFieldSchema,
+})
+export const GetChairFieldConversationResponseSchema = z.object({
+  turns: z.array(ConversationTurnDtoSchema),
+})
+export type GetChairFieldConversationResponse = z.infer<typeof GetChairFieldConversationResponseSchema>
+
+export const ChairChatRequestSchema = z.object({
+  groupId: z.string().min(1),
+  field: DnaFieldSchema,
+  message: z.string().min(1),
+})
+// A discriminated-ish shape: exactly one of clarifyingQuestion or the
+// proposal fields is present, matching the AI's own SPØRGSMÅL/TEKST+NOTE
+// response format (shared/chairReview/parseChat.ts).
+export const ChairChatResponseSchema = z.object({
+  clarifyingQuestion: z.string().nullable(),
+  turnId: z.string().nullable(),
+  proposedText: z.string().nullable(),
+  note: z.string().nullable(),
+})
+export type ChairChatResponse = z.infer<typeof ChairChatResponseSchema>
+
+export const ChairProposalActionRequestSchema = z.object({
+  turnId: z.string().min(1),
+})
+export const AcceptChairProposalResponseSchema = z.object({
+  field: DnaFieldSchema,
+  dnaVersionId: z.string(),
+})
+export type AcceptChairProposalResponse = z.infer<typeof AcceptChairProposalResponseSchema>
+
+export const SuggestImprovementsRequestSchema = z.object({
+  groupId: z.string().min(1),
+})
+const SuggestionSchema = z.object({
+  field: DnaFieldSchema,
+  suggestion: z.string(),
+})
+export const SuggestImprovementsResponseSchema = z.object({
+  suggestions: z.array(SuggestionSchema),
+})
+export type SuggestImprovementsResponse = z.infer<typeof SuggestImprovementsResponseSchema>
