@@ -40,6 +40,15 @@ export const anthropicProvider: AiProvider = {
         {
           model: request.model,
           max_tokens: request.maxTokens,
+          // Current-generation models (Sonnet 5 included) default to
+          // adaptive thinking when this is omitted, which can spend the
+          // entire max_tokens budget on hidden reasoning and return zero
+          // visible text (confirmed while building issue #22 — a real,
+          // reproducible failure, not theoretical). Disabling it is safe
+          // unconditionally: every model this layer calls accepts the
+          // field, and these are short, deterministic transform/scoring
+          // tasks with no need for extended reasoning.
+          thinking: { type: 'disabled' },
           system: request.system,
           messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
         },

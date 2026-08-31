@@ -142,7 +142,11 @@ model DnaVersion {
   // §10 lists an NA comment round among the things that "creates a new
   // version with timestamp and author". NetworkAdvisor is added so that
   // case has a real author instead of falling outside the enum.
-  author        DnaVersionAuthor
+  // Nullable: the Imported-stage version (the group's original text, as
+  // CSV-imported) has no real author in this sense — nobody wrote or
+  // edited it, it's just what came in — so recording one (e.g. "Admin",
+  // who merely ran the import) would misrepresent it.
+  author        DnaVersionAuthor?
   score         Int?
   // Spec §9: "The score is stored at three stages: the original imported
   // DNA, the auto-generated DNA, and each Chair-edited saved version."

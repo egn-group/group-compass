@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { CALL_TIMEOUT_MS, MAX_RETRIES, callAi } from '../shared/ai/client'
+import { DEFAULT_CALL_TIMEOUT_MS, DEFAULT_MAX_RETRIES, callAi } from '../shared/ai/client'
 import { AiTransientError, type AiProvider } from '../shared/ai/types'
 
 // Two things this script proves, matching the db:verify* convention from
@@ -51,7 +51,7 @@ async function verifyRetryAndTimeoutBudget() {
   const flakyThenOk: AiProvider = {
     complete: async (request) => {
       calls++
-      assert(request.timeoutMs === CALL_TIMEOUT_MS, `provider received the fixed call timeout budget (${CALL_TIMEOUT_MS}ms)`)
+      assert(request.timeoutMs === DEFAULT_CALL_TIMEOUT_MS, `provider received the fixed call timeout budget (${DEFAULT_CALL_TIMEOUT_MS}ms)`)
       if (calls === 1) throw new AiTransientError('simulated 429')
       return { text: 'ok', model: 'claude-sonnet-5', stopReason: 'complete', usage: { inputTokens: 5, outputTokens: 1 } }
     },
@@ -86,9 +86,9 @@ async function verifyRetryAndTimeoutBudget() {
   } catch (err) {
     threw = err instanceof AiTransientError
   }
-  assert(threw, `a persistently transient failure is rethrown after ${MAX_RETRIES} retries, not swallowed`)
+  assert(threw, `a persistently transient failure is rethrown after ${DEFAULT_MAX_RETRIES} retries, not swallowed`)
 
-  console.log(`  retry/timeout-budget path ok: recovered after 1 retry, gave up after ${MAX_RETRIES} retries when the failure persisted`)
+  console.log(`  retry/timeout-budget path ok: recovered after 1 retry, gave up after ${DEFAULT_MAX_RETRIES} retries when the failure persisted`)
 }
 
 async function main() {

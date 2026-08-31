@@ -5,19 +5,24 @@
 // anthropicProvider.ts (or whatever adapter provider.ts resolves to).
 //
 // Timeout/retry budget: SWA hard-caps every request at 45 seconds
-// (CLAUDE_1.md), with no way to raise it. CALL_TIMEOUT_MS * (MAX_RETRIES + 1)
-// must leave real margin under that cap, not just fit under it — 15s * 2 =
-// 30s, leaving 15s for whatever the caller does around this call (a DB
-// write, building the request, etc.). Each provider adapter must disable
-// its own SDK's built-in retry (see anthropicProvider.ts) so this is the
-// only retry loop — two independent retriers could stack past the cap
-// without either one knowing about the other.
+// (CLAUDE_1.md), with no way to raise it. timeoutMs * (maxRetries + 1)
+// must leave real margin under that cap, not just fit under it — the
+// defaults below (15s * 2 = 30s) suit small, fast calls; a caller with a
+// known larger realistic latency should override both via AiCallOptions
+// rather than lean on retries to cover an unrealistically tight timeout
+// (issue #22 hit exactly this: a 15s timeout is provably too tight for a
+// call whose real worst-case latency is ~18-19s — both attempts would
+// time out on every genuinely large input, not just occasionally). Each
+// provider adapter must disable its own SDK's built-in retry (see
+// anthropicProvider.ts) so this is the only retry loop — two independent
+// retriers could stack past the cap without either one knowing about the
+// other.
 import { costForCall } from './pricing'
 import { getAiProvider } from './provider'
 import { AiPermanentError, AiTransientError, type AiCallOptions, type AiCallResult } from './types'
 
-export const CALL_TIMEOUT_MS = 15_000
-export const MAX_RETRIES = 1
+export const DEFAULT_CALL_TIMEOUT_MS = 15_000
+export const DEFAULT_MAX_RETRIES = 1
 const RETRY_BASE_DELAY_MS = 500
 
 function sleep(ms: number): Promise<void> {
@@ -27,17 +32,19 @@ function sleep(ms: number): Promise<void> {
 export async function callAi(options: AiCallOptions): Promise<AiCallResult> {
   const provider = options.provider ?? getAiProvider()
   const log = options.log
+  const timeoutMs = options.timeoutMs ?? DEFAULT_CALL_TIMEOUT_MS
+  const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES
   const startedAt = Date.now()
 
   let lastError: unknown
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const result = await provider.complete({
         system: options.promptVersion.system,
         messages: options.messages,
         model: options.model,
         maxTokens: options.maxTokens,
-        timeoutMs: CALL_TIMEOUT_MS,
+        timeoutMs,
       })
 
       const latencyMs = Date.now() - startedAt
@@ -69,7 +76,7 @@ export async function callAi(options: AiCallOptions): Promise<AiCallResult> {
       }
     } catch (err) {
       lastError = err
-      if (!(err instanceof AiTransientError) || attempt === MAX_RETRIES) break
+      if (!(err instanceof AiTransientError) || attempt === maxRetries) break
       log({
         event: 'ai_call_retry',
         promptKey: options.promptVersion.key,

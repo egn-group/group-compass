@@ -8,8 +8,18 @@ const PRICING_PER_MILLION_TOKENS: Record<string, { input: number; output: number
   'claude-haiku-4-5': { input: 1, output: 5 },
 }
 
+// The API resolves some bare model aliases to a dated snapshot in its
+// response (confirmed while building issue #22: requesting
+// "claude-haiku-4-5" gets served by, and reports back, "claude-haiku-4-5-
+// 20251001" — while "claude-sonnet-5" reports back unchanged). Strip a
+// trailing date suffix before the lookup so pricing.ts only needs the
+// bare id, regardless of which models the API happens to date-stamp.
+function stripDateSuffix(model: string): string {
+  return model.replace(/-\d{8}$/, '')
+}
+
 export function costForCall(model: string, inputTokens: number, outputTokens: number): number | null {
-  const pricing = PRICING_PER_MILLION_TOKENS[model]
+  const pricing = PRICING_PER_MILLION_TOKENS[stripDateSuffix(model)]
   if (!pricing) return null
   return (inputTokens / 1_000_000) * pricing.input + (outputTokens / 1_000_000) * pricing.output
 }
