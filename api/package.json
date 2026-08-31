@@ -10,7 +10,8 @@
     "db:verify:users": "npm run build && node dist/api/scripts/verify-users-auth.js",
     "db:verify:groups": "npm run build && node dist/api/scripts/verify-groups-import.js",
     "verify:ai": "npm run build && node dist/api/scripts/verify-ai-call.js",
-    "verify:dna": "npm run build && node dist/api/scripts/verify-dna-generation.js"
+    "verify:dna": "npm run build && node dist/api/scripts/verify-dna-generation.js",
+    "verify:launch": "npm run build && node dist/api/scripts/verify-launch.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
