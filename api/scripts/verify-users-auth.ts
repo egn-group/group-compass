@@ -37,6 +37,15 @@ async function call(path: string, opts: { method: string; email?: string; body?:
 }
 
 async function main() {
+  // Full cascade, not just User — a prior verify script's leftover
+  // Group/Event/etc. rows referencing these emails would otherwise block
+  // deleting them (FK RESTRICT), regardless of which script happened to
+  // run last.
+  await prisma.aiConversationTurn.deleteMany({})
+  await prisma.comment.deleteMany({})
+  await prisma.event.deleteMany({})
+  await prisma.dnaVersion.deleteMany({})
+  await prisma.group.deleteMany({})
   await prisma.user.deleteMany({})
 
   const trustedAdminEmail = 'admin@example.com' // matches INITIAL_ADMIN_EMAILS in .env/local.settings.json

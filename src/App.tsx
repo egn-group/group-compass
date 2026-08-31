@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AdminUsers from './AdminUsers'
+import ChairReview from './ChairReview'
 import ImportGroups from './ImportGroups'
 import NaComments from './NaComments'
 
@@ -34,6 +35,7 @@ function App() {
       <AdminUsers />
       <ImportGroups />
       <NaComments />
+      <ChairReview />
     </main>
   )
 }

@@ -117,6 +117,12 @@ model Group {
   companiesProfile  String
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
+  // Which of the 3 fields the Chair has individually approved during
+  // review (issue #25). Never cleared by a later edit — once a field is
+  // approved, editing its text again doesn't un-approve it; only
+  // `pendingReapproval` (set when editing an already-Approved group)
+  // signals that a fresh look is warranted.
+  approvedFields    DnaField[]           @default([])
 
   chairEmail          String?
   chair               User?   @relation("GroupChair", fields: [chairEmail], references: [email])
@@ -172,6 +178,10 @@ model Comment {
   author       CommentAuthorRole
   text         String
   createdAt    DateTime          @default(now())
+  // Set once the Chair has addressed this comment — via "Read & accept"
+  // (approving the field as-is) or a manual edit to that field (issue
+  // #25). Comments are never deleted; this is the only state that changes.
+  resolved     Boolean           @default(false)
 }
 
 model Event {

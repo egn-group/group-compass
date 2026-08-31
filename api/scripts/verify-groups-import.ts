@@ -50,6 +50,7 @@ function rawRow(overrides: Partial<Record<string, string>> = {}) {
 }
 
 async function main() {
+  await prisma.aiConversationTurn.deleteMany({})
   await prisma.comment.deleteMany({})
   await prisma.event.deleteMany({})
   await prisma.dnaVersion.deleteMany({})
@@ -166,6 +167,7 @@ async function main() {
   const groups = res.json as Array<{ egnGroupId: string; chairEmail: string | null }>
   assert(groups.length === 2, `expected 2 groups, got ${groups.length}`)
 
+  await prisma.aiConversationTurn.deleteMany({})
   await prisma.comment.deleteMany({})
   await prisma.event.deleteMany({})
   await prisma.dnaVersion.deleteMany({})
