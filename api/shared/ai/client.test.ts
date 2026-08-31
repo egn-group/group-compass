@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { CALL_TIMEOUT_MS, MAX_RETRIES, callAi } from './client'
+import { DEFAULT_CALL_TIMEOUT_MS, DEFAULT_MAX_RETRIES, callAi } from './client'
 import { AiPermanentError, AiTransientError, type AiCompletionRequest, type AiCompletionResult, type AiPromptVersion, type AiProvider } from './types'
 
 const promptVersion: AiPromptVersion = { key: 'test-prompt', version: 1, system: 'Be terse.' }
@@ -37,7 +37,7 @@ describe('callAi', () => {
     const provider = fakeProvider(() => fakeResult())
     await callAi({ promptVersion, messages: [], model: 'claude-sonnet-5', maxTokens: 100, log: vi.fn(), provider })
 
-    expect(provider.complete).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: CALL_TIMEOUT_MS }))
+    expect(provider.complete).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: DEFAULT_CALL_TIMEOUT_MS }))
   })
 
   it('logs a null cost for a model with no pricing entry, without failing the call', async () => {
@@ -65,14 +65,14 @@ describe('callAi', () => {
     expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: 'ai_call_retry', attempt: 1 }))
   })
 
-  it(`gives up after ${MAX_RETRIES} retries and throws the transient error`, async () => {
+  it(`gives up after ${DEFAULT_MAX_RETRIES} retries and throws the transient error`, async () => {
     const provider = fakeProvider(() => {
       throw new AiTransientError('still rate limited')
     })
     const log = vi.fn()
 
     await expect(callAi({ promptVersion, messages: [], model: 'claude-sonnet-5', maxTokens: 100, log, provider })).rejects.toThrow(AiTransientError)
-    expect(provider.complete).toHaveBeenCalledTimes(MAX_RETRIES + 1)
+    expect(provider.complete).toHaveBeenCalledTimes(DEFAULT_MAX_RETRIES + 1)
     expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: 'ai_call_failed' }))
   })
 

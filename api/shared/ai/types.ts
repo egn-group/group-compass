@@ -64,6 +64,21 @@ export interface AiCallOptions {
   log: (entry: Record<string, unknown>) => void
   /** Override for tests; production callers omit this and get provider.ts's env-selected provider. */
   provider?: AiProvider
+  /**
+   * Per-attempt timeout and retry count, sized for THIS call's real
+   * latency profile — not every AI call fits one fixed budget (a fast
+   * classification call and a large-document rewrite call have very
+   * different realistic latencies; issue #22 measured a real ~18-19s
+   * worst case for the DNA pipeline's own Stage 1/2 calls). Whatever is
+   * chosen must still fit SWA's 45s hard request cap:
+   * timeoutMs * (maxRetries + 1) needs real margin under 45000, not just
+   * to fit under it. Defaults (client.ts's DEFAULT_CALL_TIMEOUT_MS /
+   * DEFAULT_MAX_RETRIES) suit small, fast calls; override for anything
+   * with a known larger realistic latency instead of hoping retries cover
+   * for an unrealistically tight timeout.
+   */
+  timeoutMs?: number
+  maxRetries?: number
 }
 
 export interface AiCallResult {
