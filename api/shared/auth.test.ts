@@ -1,6 +1,6 @@
 import type { HttpRequest } from '@azure/functions'
 import { describe, expect, it } from 'vitest'
-import { getPrincipal, requireAdmin, requireAuth } from './auth'
+import { getPrincipal, requireAdmin, requireAuth, requireNetworkAdvisor } from './auth'
 
 function reqWithHeader(value?: string): HttpRequest {
   return { headers: value === undefined ? {} : { 'x-ms-client-principal': value } } as unknown as HttpRequest
@@ -56,5 +56,22 @@ describe('requireAdmin', () => {
   it('returns null (allowed) when the user has the Admin role', () => {
     expect(requireAdmin({ roles: ['Admin'] })).toBeNull()
     expect(requireAdmin({ roles: ['Chair', 'Admin'] })).toBeNull()
+  })
+})
+
+describe('requireNetworkAdvisor', () => {
+  it('returns a 403 response when the user is null (no stored User row)', () => {
+    const result = requireNetworkAdvisor(null)
+    expect(result?.status).toBe(403)
+  })
+
+  it('returns a 403 response when the user lacks the NetworkAdvisor role', () => {
+    const result = requireNetworkAdvisor({ roles: ['Chair'] })
+    expect(result?.status).toBe(403)
+  })
+
+  it('returns null (allowed) when the user has the NetworkAdvisor role', () => {
+    expect(requireNetworkAdvisor({ roles: ['NetworkAdvisor'] })).toBeNull()
+    expect(requireNetworkAdvisor({ roles: ['Chair', 'NetworkAdvisor'] })).toBeNull()
   })
 })

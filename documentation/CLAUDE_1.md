@@ -56,17 +56,18 @@ time.
 Use **Azure Database for PostgreSQL Flexible Server** (Single Server is
 retired) with **Prisma** for schema, types and migrations.
 
-- Enable Flexible Server's **built-in PgBouncer** (off by default — enable
-  `pgbouncer.enabled` in the Azure Portal Parameters pane; listens on port
-  6432, not 5432; **not available on the Burstable pricing tier** — use
-  General Purpose or Memory Optimized). Point Prisma's runtime
-  `DATABASE_URL` at the pooled port — serverless function instances each
-  open their own DB connection and can exhaust the connection limit under
-  burst load otherwise.
-- Use a second, direct, unpooled `DIRECT_URL` (port 5432) for
-  `prisma migrate` — the Prisma Schema Engine needs one dedicated
-  connection and does not work through PgBouncer's transaction-pooling
-  mode.
+- **Burstable, B1ms** (1 vCore, 2 GiB RAM) — sized for the pilot's load (8
+  groups, 8 named Chairs/NAs), not General Purpose. 32 GiB storage,
+  performance tier P4 (120 IOPS baseline, burst to 3,500 IOPS), storage
+  autogrow on.
+- **No PgBouncer.** Flexible Server's built-in PgBouncer isn't available on
+  the Burstable tier at all (General Purpose/Memory Optimized only), and
+  isn't needed at this load. Instead, cap Prisma's own connection pool with
+  `connection_limit` in `DATABASE_URL` — serverless function instances each
+  open their own DB connection, so this hard cap is what keeps burst load
+  under B1ms's ~35 usable connections, in place of a pooler.
+- `DATABASE_URL` and `DIRECT_URL` both point at the same unpooled port 5432
+  — there's no pooler in front for `prisma migrate` to need routing around.
 
 Why not a schema-less/NoSQL store, in order of weight:
 1. **Multi-entity transactions.** Approving a DNA writes status + version +
