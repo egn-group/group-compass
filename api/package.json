@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Azure Functions API for Group Compass",
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "tsc",
     "watch": "tsc -w",
     "test": "vitest run",
