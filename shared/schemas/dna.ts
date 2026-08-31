@@ -53,6 +53,15 @@ export const CommitDnaGenerationResponseSchema = z.object({
 })
 export type CommitDnaGenerationResponse = z.infer<typeof CommitDnaGenerationResponseSchema>
 
+export const ScoreDnaVersionRequestSchema = z.object({
+  dnaVersionId: z.string().min(1),
+})
+export const ScoreDnaVersionResponseSchema = z.object({
+  dnaVersionId: z.string(),
+  score: z.number().int().min(1).max(5),
+})
+export type ScoreDnaVersionResponse = z.infer<typeof ScoreDnaVersionResponseSchema>
+
 export const LaunchGroupRequestSchema = z.object({
   groupId: z.string().min(1),
 })
