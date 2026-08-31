@@ -68,3 +68,9 @@ export function requireAdminOrChairLeader(user: Pick<User, 'roles'> | null): Api
   }
   return null
 }
+
+/** Guard: caller must be a Chair per their own stored User record. */
+export function requireChair(user: Pick<User, 'roles'> | null): ApiError | null {
+  if (!user?.roles.includes('Chair')) return errorResponse(403, 'Chair access required.')
+  return null
+}

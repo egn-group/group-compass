@@ -129,6 +129,7 @@ function profileLength(p: RealProfile): number {
 }
 
 async function main() {
+  await prisma.aiConversationTurn.deleteMany({})
   await prisma.comment.deleteMany({})
   await prisma.event.deleteMany({})
   await prisma.dnaVersion.deleteMany({})

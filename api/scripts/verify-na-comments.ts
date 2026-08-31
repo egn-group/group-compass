@@ -34,6 +34,7 @@ async function call(path: string, opts: { method: string; email?: string; body?:
 }
 
 async function main() {
+  await prisma.aiConversationTurn.deleteMany({})
   await prisma.comment.deleteMany({})
   await prisma.event.deleteMany({})
   await prisma.dnaVersion.deleteMany({})
