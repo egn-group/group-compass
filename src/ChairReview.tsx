@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DnaFieldValue } from '../shared/schemas/dna'
-import type { ChairGroupDetail, ChairGroupListItem } from '../shared/schemas/chairReview'
+import type { ChairChatResponse, ChairGroupDetail, ChairGroupListItem, ConversationTurnDto } from '../shared/schemas/chairReview'
 
 const FIELD_LABELS: Record<DnaFieldValue, string> = {
   GroupProfile: 'Group Profile',
@@ -35,10 +35,21 @@ function ChairReview() {
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<DnaFieldValue, string>>>({})
   const [reapproving, setReapproving] = useState(false)
 
+  // AI assistant chat (issue #26) — at most one field's chat is open at a
+  // time, mirroring "only one editing mode per field at once" from #25.
+  const [chatField, setChatField] = useState<DnaFieldValue | null>(null)
+  const [chatTurns, setChatTurns] = useState<ConversationTurnDto[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatBusy, setChatBusy] = useState(false)
+  const [chatError, setChatError] = useState('')
+  const [suggestions, setSuggestions] = useState<Array<{ field: DnaFieldValue; suggestion: string }> | null>(null)
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+
   // Guards against an earlier, slower request resolving after a later one
   // and overwriting fresher state with stale data.
   const groupsRequestId = useRef(0)
   const detailRequestId = useRef(0)
+  const chatRequestId = useRef(0)
 
   async function loadGroups() {
     setError('')
@@ -76,12 +87,16 @@ function ChairReview() {
     setFieldFeedback({})
     setFieldErrors({})
     setEditingField(null)
+    closeChat()
+    setSuggestions(null)
     void loadDetail(groupId)
   }
 
   function backToList() {
     setSelectedGroupId(null)
     setDetail(null)
+    closeChat()
+    setSuggestions(null)
     void loadGroups()
   }
 
@@ -109,6 +124,7 @@ function ChairReview() {
   }
 
   function startEdit(field: DnaFieldValue, currentText: string) {
+    closeChat()
     setEditingField(field)
     setEditDraft(currentText)
     setFieldErrors((e) => ({ ...e, [field]: '' }))
@@ -154,6 +170,113 @@ function ChairReview() {
       if (res.ok) await loadDetail(selectedGroupId)
     } finally {
       setReapproving(false)
+    }
+  }
+
+  async function loadChatTurns(field: DnaFieldValue) {
+    if (!selectedGroupId) return
+    const id = ++chatRequestId.current
+    const res = await fetch(`/api/getChairFieldConversation?groupId=${encodeURIComponent(selectedGroupId)}&field=${field}`)
+    if (id !== chatRequestId.current) return
+    if (!res.ok) {
+      setChatError(`Could not load this conversation (${res.status}).`)
+      return
+    }
+    const body = (await res.json()) as { turns: ConversationTurnDto[] }
+    setChatTurns(body.turns)
+  }
+
+  function openChat(field: DnaFieldValue) {
+    setChatField(field)
+    setChatTurns([])
+    setChatError('')
+    setChatInput('')
+    setEditingField(null)
+    void loadChatTurns(field)
+  }
+  function closeChat() {
+    setChatField(null)
+    setChatTurns([])
+    setChatInput('')
+  }
+
+  async function sendChatMessage() {
+    if (!selectedGroupId || !chatField || !chatInput.trim()) return
+    const field = chatField
+    const message = chatInput.trim()
+    setChatInput('')
+    setChatBusy(true)
+    setChatError('')
+    try {
+      const res = await fetch('/api/chairChat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: selectedGroupId, field, message }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setChatError(body?.error ?? `Send failed (${res.status}).`)
+        return
+      }
+      const data = (await res.json()) as ChairChatResponse
+      void data // the refreshed conversation below already reflects this turn
+      await loadChatTurns(field)
+    } finally {
+      setChatBusy(false)
+    }
+  }
+
+  async function acceptProposal(turnId: string) {
+    if (!selectedGroupId || !chatField) return
+    setChatBusy(true)
+    try {
+      const res = await fetch('/api/acceptChairProposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnId }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setChatError(body?.error ?? `Accept failed (${res.status}).`)
+        return
+      }
+      await loadChatTurns(chatField)
+      await loadDetail(selectedGroupId)
+    } finally {
+      setChatBusy(false)
+    }
+  }
+
+  async function rejectProposal(turnId: string) {
+    if (!chatField) return
+    setChatBusy(true)
+    try {
+      const res = await fetch('/api/rejectChairProposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnId }),
+      })
+      if (res.ok) await loadChatTurns(chatField)
+    } finally {
+      setChatBusy(false)
+    }
+  }
+
+  async function checkSuggestions() {
+    if (!selectedGroupId) return
+    setSuggestionsLoading(true)
+    try {
+      const res = await fetch('/api/suggestImprovements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: selectedGroupId }),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as { suggestions: Array<{ field: DnaFieldValue; suggestion: string }> }
+        setSuggestions(data.suggestions)
+      }
+    } finally {
+      setSuggestionsLoading(false)
     }
   }
 
@@ -318,6 +441,9 @@ function ChairReview() {
                       <button type="button" className="btn" onClick={() => startEdit(field, f.text)}>
                         Edit
                       </button>
+                      <button type="button" className="btn" onClick={() => (chatField === field ? closeChat() : openChat(field))}>
+                        {chatField === field ? 'Close AI assistant' : 'Ask AI assistant'}
+                      </button>
                       {!f.approved && (
                         <button
                           type="button"
@@ -331,9 +457,91 @@ function ChairReview() {
                     </>
                   )}
                 </div>
+
+                {chatField === field && (
+                  <div className="card" style={{ background: 'var(--egn-sand)', padding: 12, marginTop: 12 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+                      {chatTurns.map((t) => (
+                        <div key={t.id}>
+                          {t.messageText && (
+                            <p
+                              style={{
+                                whiteSpace: 'pre-wrap',
+                                fontWeight: t.role === 'Chair' ? 600 : 400,
+                                marginBottom: t.proposedText ? 4 : 0,
+                              }}
+                            >
+                              {t.role === 'Chair' ? 'You: ' : 'Assistant: '}
+                              {t.messageText}
+                            </p>
+                          )}
+                          {t.proposedText && (
+                            <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10 }}>
+                              <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{t.proposedText}</p>
+                              {t.outcome === 'None' ? (
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button type="button" className="btn btn-primary" disabled={chatBusy} onClick={() => void acceptProposal(t.id)}>
+                                    Accept
+                                  </button>
+                                  <button type="button" className="btn" disabled={chatBusy} onClick={() => void rejectProposal(t.id)}>
+                                    Reject
+                                  </button>
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.outcome}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {chatError && (
+                      <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
+                        {chatError}
+                      </p>
+                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        aria-label={`Message the AI assistant about ${FIELD_LABELS[field]}`}
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            void sendChatMessage()
+                          }
+                        }}
+                        placeholder="e.g. incorporate the Network Advisor's comment"
+                      />
+                      <button type="button" className="btn btn-primary" disabled={chatBusy || !chatInput.trim()} onClick={() => void sendChatMessage()}>
+                        {chatBusy ? 'Sending…' : 'Send'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
+
+          {detail.lifecycleStatus === 'Approved' && (
+            <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+              <button type="button" className="btn" disabled={suggestionsLoading} onClick={() => void checkSuggestions()}>
+                {suggestionsLoading ? 'Checking…' : 'Check for improvement suggestions'}
+              </button>
+              {suggestions && suggestions.length === 0 && (
+                <p style={{ color: 'var(--text-muted)', marginTop: 8 }}>No specific improvements to suggest right now.</p>
+              )}
+              {suggestions && suggestions.length > 0 && (
+                <ul style={{ marginTop: 8, paddingLeft: 18 }}>
+                  {suggestions.map((s, i) => (
+                    <li key={i}>
+                      <strong>{FIELD_LABELS[s.field]}:</strong> {s.suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </>
       )}
     </section>
