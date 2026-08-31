@@ -52,6 +52,7 @@ function rawRow(overrides: Partial<Record<string, string>> = {}) {
 }
 
 async function main() {
+  await prisma.comment.deleteMany({})
   await prisma.event.deleteMany({})
   await prisma.dnaVersion.deleteMany({})
   await prisma.group.deleteMany({})

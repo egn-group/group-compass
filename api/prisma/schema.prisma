@@ -84,6 +84,10 @@ model User {
   roles     Role[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Network Advisor first-time guidance banner (spec §5's three prompts) —
+  // shown once per NA, not repeated every visit. Keyed to the real logged-in
+  // user, unlike the prototype's per-browser localStorage stand-in.
+  hasSeenNaGuidance Boolean @default(false)
 
   chairOfGroups          Group[]              @relation("GroupChair")
   networkAdvisorOfGroups Group[]              @relation("GroupNetworkAdvisor")

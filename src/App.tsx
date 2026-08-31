@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AdminUsers from './AdminUsers'
 import ImportGroups from './ImportGroups'
+import NaComments from './NaComments'
 
 function App() {
   const [apiResult, setApiResult] = useState<string>('')
@@ -32,6 +33,7 @@ function App() {
       </div>
       <AdminUsers />
       <ImportGroups />
+      <NaComments />
     </main>
   )
 }

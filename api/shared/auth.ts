@@ -54,3 +54,9 @@ export function requireAdmin(user: Pick<User, 'roles'> | null): ApiError | null 
   if (!user?.roles.includes('Admin')) return errorResponse(403, 'Admin access required.')
   return null
 }
+
+/** Guard: caller must be a Network Advisor per their own stored User record. */
+export function requireNetworkAdvisor(user: Pick<User, 'roles'> | null): ApiError | null {
+  if (!user?.roles.includes('NetworkAdvisor')) return errorResponse(403, 'Network Advisor access required.')
+  return null
+}

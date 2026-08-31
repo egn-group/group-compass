@@ -50,7 +50,9 @@ function rawRow(overrides: Partial<Record<string, string>> = {}) {
 }
 
 async function main() {
+  await prisma.comment.deleteMany({})
   await prisma.event.deleteMany({})
+  await prisma.dnaVersion.deleteMany({})
   await prisma.group.deleteMany({})
   await prisma.user.deleteMany({})
 
@@ -164,7 +166,9 @@ async function main() {
   const groups = res.json as Array<{ egnGroupId: string; chairEmail: string | null }>
   assert(groups.length === 2, `expected 2 groups, got ${groups.length}`)
 
+  await prisma.comment.deleteMany({})
   await prisma.event.deleteMany({})
+  await prisma.dnaVersion.deleteMany({})
   await prisma.group.deleteMany({})
   await prisma.user.deleteMany({})
   console.log('Group import verification passed: new/unchanged/changed detection, country lookup, unmatched-Chair/NA handling, and auth all correct.')
