@@ -44,7 +44,9 @@ function rawRow(overrides: Partial<Record<string, string>> = {}) {
     memberProfile: '',
     companiesProfile: '',
     responsibleChairName: 'Chair Person',
+    responsibleChairEmail: 'chair@example.com',
     responsibleSalesName: 'NA Person',
+    responsibleSalesEmail: 'na@example.com',
     ...overrides,
   }
 }
@@ -70,13 +72,13 @@ async function main() {
   res = await call('/api/checkGroupImport', { method: 'POST', email: chairEmail, body: { rows: [rawRow()] } })
   assert(res.status === 403, `expected 403 non-admin checkGroupImport, got ${res.status}`)
 
-  // 2. Check a brand-new group: status 'new', Chair/NA best-guess matched by name.
+  // 2. Check a brand-new group: status 'new', Chair/NA matched by the CSV's own email column.
   res = await call('/api/checkGroupImport', { method: 'POST', email: adminEmail, body: { rows: [rawRow()] } })
   assert(res.status === 200, `expected 200 checkGroupImport, got ${res.status}: ${JSON.stringify(res.json)}`)
   let checked = res.json as Array<{ status: string; suggestedChairEmail: string | null; suggestedNetworkAdvisorEmail: string | null }>
   assert(checked[0].status === 'new', `expected status 'new', got ${checked[0].status}`)
-  assert(checked[0].suggestedChairEmail === chairEmail, 'Chair should be matched by name')
-  assert(checked[0].suggestedNetworkAdvisorEmail === naEmail, 'NA should be matched by name')
+  assert(checked[0].suggestedChairEmail === chairEmail, 'Chair should be matched by the row\'s own email')
+  assert(checked[0].suggestedNetworkAdvisorEmail === naEmail, 'NA should be matched by the row\'s own email')
 
   // 3. Import it (create), country resolved from partner code, noSourceDna false (one section filled).
   res = await call('/api/putGroups', {
@@ -142,14 +144,25 @@ async function main() {
   const overwritten = await prisma.group.findUniqueOrThrow({ where: { id: created.id } })
   assert(overwritten.groupProfile === 'Completely different wording now.', 'overwrite should update the profile text')
 
-  // 7. An unmatched Chair/NA name still imports, flagged (nullable FKs).
+  // 7. A Chair/NA email that doesn't match an existing User is flagged as
+  // unmatched (never auto-created, never guessed) — the row still imports,
+  // just with no Chair wired up (nullable FK), same as an unmatched name
+  // used to behave.
+  res = await call('/api/checkGroupImport', {
+    method: 'POST',
+    email: adminEmail,
+    body: { rows: [rawRow({ egnGroupId: '999', responsibleChairName: 'Nobody Matching', responsibleChairEmail: 'nobody-matching@example.com' })] },
+  })
+  checked = res.json as typeof checked
+  assert(checked[0].suggestedChairEmail === null, "an email with no matching User should come back unmatched (null), not guessed or created")
+
   res = await call('/api/putGroups', {
     method: 'POST',
     email: adminEmail,
     body: {
       rows: [
         {
-          ...rawRow({ egnGroupId: '999', responsibleChairName: 'Nobody Matching' }),
+          ...rawRow({ egnGroupId: '999', responsibleChairName: 'Nobody Matching', responsibleChairEmail: 'nobody-matching@example.com' }),
           chairEmail: null,
           networkAdvisorEmail: naEmail,
           action: { type: 'create' },

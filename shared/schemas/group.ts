@@ -11,11 +11,16 @@ export const RawImportRowSchema = z.object({
   groupProfile: z.string(),
   memberProfile: z.string(),
   companiesProfile: z.string(),
-  // Raw free-text names from the export, not yet resolved to a real User —
-  // that resolution is what checkGroupImport's suggested*Email fields, and
-  // the admin's own confirm/change, are for.
+  // Names are kept for a human reading the raw export — not the matching
+  // key. Email is: checkGroupImport looks it up directly against existing
+  // Users (never auto-creates one), surfacing an unmatched email the same
+  // way an unmatched name used to show — the Chair/NA must already exist
+  // (via the Users CSV import or the Add user form) before their group can
+  // resolve to them.
   responsibleChairName: z.string().min(1),
+  responsibleChairEmail: z.string().email(),
   responsibleSalesName: z.string().min(1),
+  responsibleSalesEmail: z.string().email(),
 })
 export type RawImportRow = z.infer<typeof RawImportRowSchema>
 

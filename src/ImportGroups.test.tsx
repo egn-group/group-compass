@@ -68,7 +68,9 @@ describe('ImportGroups', () => {
             memberProfile: '',
             companiesProfile: '',
             responsibleChairName: 'Chair Person',
+            responsibleChairEmail: chair.email,
             responsibleSalesName: 'NA Person',
+            responsibleSalesEmail: advisor.email,
           },
           status: 'new',
           existingGroupId: null,
@@ -85,7 +87,9 @@ describe('ImportGroups', () => {
     fireEvent.change(screen.getByLabelText('MMSGroup: Name'), { target: { value: 'MMS-1' } })
     fireEvent.change(screen.getByLabelText('Partner Code'), { target: { value: 'EGDK' } })
     fireEvent.change(screen.getByLabelText('Responsible Chair'), { target: { value: 'Chair Person' } })
+    fireEvent.change(screen.getByLabelText('Responsible Chair Email'), { target: { value: chair.email } })
     fireEvent.change(screen.getByLabelText('Responsible Sales'), { target: { value: 'NA Person' } })
+    fireEvent.change(screen.getByLabelText('Responsible Sales Email'), { target: { value: advisor.email } })
     fireEvent.click(screen.getByText('Check group'))
 
     await waitFor(() => {
@@ -108,6 +112,53 @@ describe('ImportGroups', () => {
         }),
       )
     })
+  })
+
+  it('shows an unmatched Chair/NA email as "— unmatched —", not silently guessed or auto-created', async () => {
+    const fetchMock = mockFetch({
+      getUsers: [chair, advisor],
+      checkGroupImport: [
+        {
+          row: {
+            egnGroupName: 'New Group',
+            egnGroupId: '999',
+            mmsGroupCode: 'MMS-1',
+            partnerCode: 'EGDK',
+            groupProfile: '',
+            memberProfile: '',
+            companiesProfile: '',
+            responsibleChairName: 'Someone Not Yet A User',
+            responsibleChairEmail: 'not-a-user-yet@example.com',
+            responsibleSalesName: 'NA Person',
+            responsibleSalesEmail: advisor.email,
+          },
+          status: 'new',
+          existingGroupId: null,
+          // checkGroupImport itself found no matching User for this email —
+          // this is what it returns in that case.
+          suggestedChairEmail: null,
+          suggestedNetworkAdvisorEmail: advisor.email,
+        },
+      ],
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportGroups />)
+
+    fireEvent.change(screen.getByLabelText('EGN Group Name'), { target: { value: 'New Group' } })
+    fireEvent.change(screen.getByLabelText('EGN Group Id'), { target: { value: '999' } })
+    fireEvent.change(screen.getByLabelText('MMSGroup: Name'), { target: { value: 'MMS-1' } })
+    fireEvent.change(screen.getByLabelText('Partner Code'), { target: { value: 'EGDK' } })
+    fireEvent.change(screen.getByLabelText('Responsible Chair'), { target: { value: 'Someone Not Yet A User' } })
+    fireEvent.change(screen.getByLabelText('Responsible Chair Email'), { target: { value: 'not-a-user-yet@example.com' } })
+    fireEvent.change(screen.getByLabelText('Responsible Sales'), { target: { value: 'NA Person' } })
+    fireEvent.change(screen.getByLabelText('Responsible Sales Email'), { target: { value: advisor.email } })
+    fireEvent.click(screen.getByText('Check group'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Review before import')).toBeInTheDocument()
+    })
+    expect(screen.getByLabelText('Chair for New Group')).toHaveValue('')
+    expect(screen.getByLabelText('Network Advisor for New Group')).toHaveValue(advisor.email)
   })
 
   it('rejects a non-UTF-8 CSV file with a clear banner', async () => {
