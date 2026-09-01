@@ -3,6 +3,7 @@ import AdminUsers from './AdminUsers'
 import ChairReview from './ChairReview'
 import ImportGroups from './ImportGroups'
 import NaComments from './NaComments'
+import WhoAmI from './WhoAmI'
 
 function App() {
   const [apiResult, setApiResult] = useState<string>('')
@@ -21,6 +22,7 @@ function App() {
   return (
     <main style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 32px' }}>
       <h1>Group Compass</h1>
+      <WhoAmI />
       <div className="card" style={{ padding: '28px 32px', margin: '16px 0 32px' }}>
         <p style={{ marginBottom: 16 }}>Scaffold placeholder page.</p>
         <button className="btn btn-primary" onClick={() => void callPing()}>
