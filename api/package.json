@@ -15,7 +15,8 @@
     "verify:na-comments": "npm run build && node dist/api/scripts/verify-na-comments.js",
     "verify:score-dna-version": "npm run build && node dist/api/scripts/verify-score-dna-version.js",
     "verify:chair-review": "npm run build && node dist/api/scripts/verify-chair-review.js",
-    "verify:chair-chat": "npm run build && node dist/api/scripts/verify-chair-chat.js"
+    "verify:chair-chat": "npm run build && node dist/api/scripts/verify-chair-chat.js",
+    "verify:get-me": "npm run build && node dist/api/scripts/verify-get-me.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
