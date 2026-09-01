@@ -76,7 +76,7 @@ function ImportGroups() {
   const [checking, setChecking] = useState(false)
   const [importing, setImporting] = useState(false)
 
-  // Generate/Score/Launch (issue #13) — Admin-only actions, available both
+  // Generate/Score/Launch (issue #47) — Admin-only actions, available both
   // as row buttons on the list and inside a group's own detail view.
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [detail, setDetail] = useState<GroupDetail | null>(null)

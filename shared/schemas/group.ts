@@ -76,7 +76,7 @@ export const GroupDtoSchema = z.object({
   lifecycleStatus: z.string(),
   noSourceDna: z.boolean(),
   emptySectionCount: z.number(),
-  // Drives the list's own Generate/Score/Launch row actions (issue #13)
+  // Drives the list's own Generate/Score/Launch row actions (issue #47)
   // without a separate per-row detail fetch first.
   latestDnaVersionId: z.string().nullable(),
   latestDnaVersionScore: z.number().nullable(),

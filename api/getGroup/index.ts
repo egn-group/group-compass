@@ -5,7 +5,7 @@ import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from 
 import { errorResponse, serverError } from '../shared/errors'
 
 // Admin-only detail view backing the Groups tab's Generate/Score/Launch
-// UI (issue #13) — the latest DnaVersion's own content is returned (not
+// UI (issue #47) — the latest DnaVersion's own content is returned (not
 // just Group's live fields) so an unlaunched AI draft is visible before
 // Launch overwrites Group's fields with it.
 const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {

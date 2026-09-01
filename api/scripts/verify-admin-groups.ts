@@ -5,7 +5,7 @@ import { PrismaClient } from '../shared/prismaClient'
 // headers, same local-auth-stub approach as verify-launch.ts. No AI calls —
 // generateDnaStage1/2's own pipeline is already covered end-to-end by
 // verify-dna-generation.ts; this script only exercises the NEW surface
-// added for the Groups tab's Generate/Score/Launch UI (issue #13):
+// added for the Groups tab's Generate/Score/Launch UI (issue #47):
 // getGroups' latestDnaVersionId/latestDnaVersionScore/hasPendingAiDraft
 // fields, and the new getGroup detail endpoint — so DnaVersions are
 // created directly, the same way verify-score-dna-version.ts does.
