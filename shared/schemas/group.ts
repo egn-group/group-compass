@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DnaContentSchema } from './dna'
 
 // The 6 required metadata columns from the real Salesforce export (spec §12).
 // The 3 profile columns may be blank — a group with all three blank still
@@ -75,5 +76,43 @@ export const GroupDtoSchema = z.object({
   lifecycleStatus: z.string(),
   noSourceDna: z.boolean(),
   emptySectionCount: z.number(),
+  // Drives the list's own Generate/Score/Launch row actions (issue #13)
+  // without a separate per-row detail fetch first.
+  latestDnaVersionId: z.string().nullable(),
+  latestDnaVersionScore: z.number().nullable(),
+  // Mirrors launchGroup's own precondition check exactly (latest version's
+  // author is 'Ai') — the list can gate the Launch button on this instead
+  // of duplicating that business rule client-side.
+  hasPendingAiDraft: z.boolean(),
 })
 export type GroupDto = z.infer<typeof GroupDtoSchema>
+
+export const DnaVersionSummarySchema = z.object({
+  id: z.string(),
+  versionNumber: z.number(),
+  author: z.string().nullable(),
+  score: z.number().nullable(),
+  scoreStage: z.string().nullable(),
+  createdAt: z.string(),
+  content: DnaContentSchema,
+})
+export type DnaVersionSummary = z.infer<typeof DnaVersionSummarySchema>
+
+export const GetGroupRequestSchema = z.object({
+  groupId: z.string().min(1),
+})
+
+export const GroupDetailSchema = z.object({
+  id: z.string(),
+  egnGroupId: z.string(),
+  name: z.string(),
+  country: z.string(),
+  chairEmail: z.string().nullable(),
+  networkAdvisorEmail: z.string().nullable(),
+  lifecycleStatus: z.string(),
+  groupProfile: z.string(),
+  memberProfile: z.string(),
+  companiesProfile: z.string(),
+  latestDnaVersion: DnaVersionSummarySchema.nullable(),
+})
+export type GroupDetail = z.infer<typeof GroupDetailSchema>

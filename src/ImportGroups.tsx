@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
-import type { GroupDto, ImportCheckResult, RawImportRow } from '../shared/schemas/group'
+import type { GroupDetail, GroupDto, ImportCheckResult, RawImportRow } from '../shared/schemas/group'
 import type { UserDto } from '../shared/schemas/user'
 
 const REQUIRED_COLS = [
@@ -76,9 +76,27 @@ function ImportGroups() {
   const [checking, setChecking] = useState(false)
   const [importing, setImporting] = useState(false)
 
+  // Generate/Score/Launch (issue #13) — Admin-only actions, available both
+  // as row buttons on the list and inside a group's own detail view.
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<GroupDetail | null>(null)
+  const [detailError, setDetailError] = useState('')
+  // Keyed by groupId so a busy/error state on one row's action doesn't
+  // affect any other row, whether triggered from the list or the detail view.
+  const [actionBusy, setActionBusy] = useState<Record<string, 'generate' | 'score' | 'launch' | undefined>>({})
+  const [actionError, setActionError] = useState<Record<string, string | undefined>>({})
+
   // Guards against out-of-order responses for the standalone lists.
   const usersRequestId = useRef(0)
   const groupsRequestId = useRef(0)
+  const detailRequestId = useRef(0)
+  // A ref, not just the selectedGroupId state, because refreshAfterAction
+  // runs after an await (a Generate action can take upwards of a minute) —
+  // reading the state variable there would close over its value from
+  // click-time, not the admin's current selection, so a switch to a
+  // different group mid-action would wrongly re-fetch and overwrite the
+  // now-displayed group's detail with the original one's.
+  const selectedGroupIdRef = useRef<string | null>(null)
   // Guards the check/import workflow as a whole (csvBanner, csvRows, review):
   // selecting a file, running a check, and confirming an import are all
   // async and can overlap (e.g. a slow manual-row check resolving after a
@@ -108,6 +126,139 @@ function ImportGroups() {
 
   const chairs = users.filter((u) => u.roles.includes('Chair'))
   const advisors = users.filter((u) => u.roles.includes('NetworkAdvisor'))
+
+  async function loadDetail(groupId: string) {
+    setDetailError('')
+    const id = ++detailRequestId.current
+    const res = await fetch(`/api/getGroup?groupId=${encodeURIComponent(groupId)}`)
+    if (id !== detailRequestId.current) return
+    if (!res.ok) {
+      setDetailError(`Could not load this group (${res.status}).`)
+      return
+    }
+    setDetail((await res.json()) as GroupDetail)
+  }
+
+  function openGroup(groupId: string) {
+    selectedGroupIdRef.current = groupId
+    setSelectedGroupId(groupId)
+    setDetail(null)
+    void loadDetail(groupId)
+  }
+
+  function backToList() {
+    selectedGroupIdRef.current = null
+    setSelectedGroupId(null)
+    setDetail(null)
+  }
+
+  async function refreshAfterAction(groupId: string) {
+    await loadGroups()
+    if (selectedGroupIdRef.current === groupId) await loadDetail(groupId)
+  }
+
+  // Generate/Regenerate: the 4-call pipeline (spec §8, issue #22) as one
+  // user-facing action — stage1 -> stage2 -> score -> commit. Each call is
+  // its own request (not combined) because generateDnaStage1/2 already
+  // budget close to SWA's 45s cap on their own; see those endpoints'
+  // comments.
+  async function generateDna(groupId: string) {
+    setActionError((e) => ({ ...e, [groupId]: undefined }))
+    setActionBusy((b) => ({ ...b, [groupId]: 'generate' }))
+    try {
+      const s1 = await fetch('/api/generateDnaStage1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId }),
+      })
+      if (!s1.ok) {
+        const body = (await s1.json().catch(() => null)) as { error?: string } | null
+        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Stage 1 failed (${s1.status}).` }))
+        return
+      }
+      const { stage1Text } = (await s1.json()) as { stage1Text: string }
+
+      const s2 = await fetch('/api/generateDnaStage2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, stage1Text }),
+      })
+      if (!s2.ok) {
+        const body = (await s2.json().catch(() => null)) as { error?: string } | null
+        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Stage 2 failed (${s2.status}).` }))
+        return
+      }
+      const { stage2Text } = (await s2.json()) as { stage2Text: string }
+
+      const scoreRes = await fetch('/api/scoreDna', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: stage2Text }),
+      })
+      if (!scoreRes.ok) {
+        const body = (await scoreRes.json().catch(() => null)) as { error?: string } | null
+        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Scoring failed (${scoreRes.status}).` }))
+        return
+      }
+      const { score } = (await scoreRes.json()) as { score: number }
+
+      const commitRes = await fetch('/api/commitDnaGeneration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, stage2Text, autoGeneratedScore: score }),
+      })
+      if (!commitRes.ok) {
+        const body = (await commitRes.json().catch(() => null)) as { error?: string } | null
+        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Commit failed (${commitRes.status}).` }))
+        return
+      }
+
+      await refreshAfterAction(groupId)
+    } finally {
+      setActionBusy((b) => ({ ...b, [groupId]: undefined }))
+    }
+  }
+
+  // On-demand scoring (issue #31) of the group's latest DnaVersion, whatever its stage.
+  async function scoreLatest(groupId: string, dnaVersionId: string) {
+    setActionError((e) => ({ ...e, [groupId]: undefined }))
+    setActionBusy((b) => ({ ...b, [groupId]: 'score' }))
+    try {
+      const res = await fetch('/api/scoreDnaVersion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dnaVersionId }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Scoring failed (${res.status}).` }))
+        return
+      }
+      await refreshAfterAction(groupId)
+    } finally {
+      setActionBusy((b) => ({ ...b, [groupId]: undefined }))
+    }
+  }
+
+  async function launch(groupId: string) {
+    setActionError((e) => ({ ...e, [groupId]: undefined }))
+    setActionBusy((b) => ({ ...b, [groupId]: 'launch' }))
+    try {
+      const res = await fetch('/api/launchGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Launch failed (${res.status}).` }))
+        return
+      }
+      await refreshAfterAction(groupId)
+    } finally {
+      setActionBusy((b) => ({ ...b, [groupId]: undefined }))
+    }
+  }
 
   async function runCheck(rows: RawImportRow[]) {
     setError('')
@@ -279,6 +430,34 @@ function ImportGroups() {
     }
   }
 
+  function dnaChip(g: Pick<GroupDto, 'latestDnaVersionId' | 'latestDnaVersionScore' | 'hasPendingAiDraft'>) {
+    if (!g.latestDnaVersionId) return 'No DNA version yet'
+    if (g.hasPendingAiDraft) return g.latestDnaVersionScore !== null ? `AI draft pending, score ${g.latestDnaVersionScore}/5` : 'AI draft pending'
+    return g.latestDnaVersionScore !== null ? `Score ${g.latestDnaVersionScore}/5` : 'Not yet scored'
+  }
+
+  function actionButtons(g: Pick<GroupDto, 'id' | 'latestDnaVersionId' | 'hasPendingAiDraft'>) {
+    const busy = actionBusy[g.id]
+    return (
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" className="btn" disabled={!!busy} onClick={() => void generateDna(g.id)}>
+          {busy === 'generate' ? 'Generating…' : g.latestDnaVersionId ? 'Regenerate' : 'Generate'}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={!!busy || !g.latestDnaVersionId}
+          onClick={() => g.latestDnaVersionId && void scoreLatest(g.id, g.latestDnaVersionId)}
+        >
+          {busy === 'score' ? 'Scoring…' : 'Score'}
+        </button>
+        <button type="button" className="btn btn-primary" disabled={!!busy || !g.hasPendingAiDraft} onClick={() => void launch(g.id)}>
+          {busy === 'launch' ? 'Launching…' : 'Launch'}
+        </button>
+      </div>
+    )
+  }
+
   function qualityChips(g: GroupDto) {
     const chips: string[] = []
     if (g.noSourceDna) chips.push('no source DNA')
@@ -286,6 +465,61 @@ function ImportGroups() {
     if (!g.chairEmail) chips.push('no Chair')
     if (!g.networkAdvisorEmail) chips.push('no NA')
     return chips
+  }
+
+  if (selectedGroupId) {
+    const latest = detail?.latestDnaVersion ?? null
+    return (
+      <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
+        <button type="button" className="btn" style={{ marginBottom: 16 }} onClick={backToList}>
+          ← Back to groups
+        </button>
+        {detailError && (
+          <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+            {detailError}
+          </p>
+        )}
+        {!detail && !detailError && <p>Loading…</p>}
+        {detail && (
+          <>
+            <h2 style={{ marginBottom: 4 }}>{detail.name}</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+              {detail.country} · {detail.lifecycleStatus} · Chair: {detail.chairEmail ?? '—'} · NA: {detail.networkAdvisorEmail ?? '—'}
+            </p>
+
+            {actionError[detail.id] && (
+              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+                {actionError[detail.id]}
+              </p>
+            )}
+            <div style={{ marginBottom: 24 }}>
+              {actionButtons({ id: detail.id, latestDnaVersionId: latest?.id ?? null, hasPendingAiDraft: latest?.author === 'Ai' })}
+            </div>
+
+            <h3 style={{ marginBottom: 8 }}>
+              {latest ? `Latest DNA version (v${latest.versionNumber}, ${latest.author ?? 'Imported'})` : 'No DNA version yet'}
+            </h3>
+            {latest && (
+              <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+                {latest.score !== null ? `Score ${latest.score}/5` : 'Not yet scored'} · {new Date(latest.createdAt).toLocaleString()}
+              </p>
+            )}
+            {(
+              [
+                ['groupProfile', 'Group Profile'],
+                ['memberProfile', 'Member Profile'],
+                ['companiesProfile', 'Companies Profile'],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key} className="card" style={{ padding: 16, marginBottom: 16 }}>
+                <h4 style={{ marginBottom: 8 }}>{label}</h4>
+                <p style={{ whiteSpace: 'pre-wrap' }}>{(latest ? latest.content[key] : detail[key]) || '—'}</p>
+              </div>
+            ))}
+          </>
+        )}
+      </section>
+    )
   }
 
   return (
@@ -477,12 +711,18 @@ function ImportGroups() {
             <th style={cellStyle}>Country</th>
             <th style={cellStyle}>Status</th>
             <th style={cellStyle}>Quality</th>
+            <th style={cellStyle}>DNA</th>
+            <th style={cellStyle}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {groups.map((g) => (
             <tr key={g.id} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={cellStyle}>{g.name}</td>
+              <td style={cellStyle}>
+                <button type="button" className="btn" style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }} onClick={() => openGroup(g.id)}>
+                  {g.name}
+                </button>
+              </td>
               <td style={cellStyle}>{g.egnGroupId}</td>
               <td style={cellStyle}>{g.country || '—'}</td>
               <td style={cellStyle}>{g.lifecycleStatus}</td>
@@ -493,6 +733,15 @@ function ImportGroups() {
                   </span>
                 ))}
               </td>
+              <td style={cellStyle}>
+                {dnaChip(g)}
+                {actionError[g.id] && (
+                  <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 4, fontSize: 12 }}>
+                    {actionError[g.id]}
+                  </p>
+                )}
+              </td>
+              <td style={cellStyle}>{actionButtons(g)}</td>
             </tr>
           ))}
         </tbody>
