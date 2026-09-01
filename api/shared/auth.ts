@@ -14,7 +14,7 @@
 // request body.
 
 import type { HttpRequest } from '@azure/functions'
-import { PrismaClient, type User } from '@prisma/client'
+import { PrismaClient, type User } from './prismaClient'
 import { errorResponse, type ApiError } from './errors'
 
 export const prisma = new PrismaClient()

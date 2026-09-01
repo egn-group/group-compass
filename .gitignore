@@ -13,6 +13,10 @@ node_modules/
 dist/
 api/dist/
 node_modules/.tmp/
+# Prisma's generated client — deliberately output outside node_modules
+# (see api/prisma/schema.prisma's generator block); still build output,
+# not source, so gitignored the same as api/dist/.
+api/generated/
 api/local.settings.json
 .swa/
 # shared/ holds only source .ts — each consumer (api/, the React app)

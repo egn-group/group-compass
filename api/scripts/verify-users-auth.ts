@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../shared/prismaClient'
 
 // This script resets the User table to test bootstrap behavior, and hits a
 // real running Functions host with hand-built x-ms-client-principal headers
