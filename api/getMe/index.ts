@@ -1,11 +1,14 @@
 import type { Context, HttpRequest } from '@azure/functions'
-import { getPrincipal, requireAuth } from '../shared/auth'
+import type { GetMeResponse } from '../../shared/schemas/me'
+import { getPrincipal, getUserByEmail, requireAuth } from '../shared/auth'
 import { serverError } from '../shared/errors'
 
 // Proves the authenticated-caller identity flow end-to-end (issue #13):
-// no role check, no DB lookup — just the email SWA already decoded from
-// the real Entra ID token into x-ms-client-principal. Any authenticated
-// user may call this; it exposes nothing beyond their own identity.
+// no role check on this endpoint itself — any authenticated user may call
+// it, and it exposes only their own identity. Roles come from our own
+// User table (empty if the caller has signed in but hasn't been
+// bootstrapped yet — a real, expected state the frontend uses to decide
+// what to show, not an error).
 const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {
   const authFailure = requireAuth(req)
   if (authFailure) {
@@ -15,10 +18,12 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
   try {
     const principal = getPrincipal(req)!
+    const caller = await getUserByEmail(principal.email)
+    const body: GetMeResponse = { email: principal.email, roles: caller?.roles ?? [] }
     context.res = {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: principal.email }),
+      body: JSON.stringify(body),
     }
   } catch (err) {
     context.res = serverError(context.log.error, err)
