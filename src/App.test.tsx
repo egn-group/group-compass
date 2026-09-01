@@ -40,40 +40,47 @@ describe('App', () => {
     expect(fetch).toHaveBeenCalledWith('/api/ping')
   })
 
-  it('shows only the Admin screens for an Admin', async () => {
+  it('gives an Admin a Groups tab (default) and a Users tab, switching between them', async () => {
     vi.stubGlobal('fetch', mockFetch(['Admin']))
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Users')).toBeInTheDocument())
-    expect(screen.getByText('Import groups')).toBeInTheDocument()
-    expect(screen.queryByText('Network Advisor — comment on your groups')).not.toBeInTheDocument()
-    expect(screen.queryByText('My groups')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Import groups')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Groups' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Users' })).toBeInTheDocument()
+    // Groups is the default tab — Users' own content isn't shown yet.
+    expect(screen.queryByText('Users', { selector: 'h2' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Users' }))
+    await waitFor(() => expect(screen.getByText('Users', { selector: 'h2' })).toBeInTheDocument())
+    // Switching tabs actually swaps the content — Groups' own content is gone.
+    expect(screen.queryByText('Import groups')).not.toBeInTheDocument()
   })
 
-  it('shows only the Network Advisor screen for a Network Advisor', async () => {
+  it('gives a Network Advisor a single "My groups" tab', async () => {
     vi.stubGlobal('fetch', mockFetch(['NetworkAdvisor']))
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Network Advisor — comment on your groups')).toBeInTheDocument())
-    expect(screen.queryByText('Users')).not.toBeInTheDocument()
-    expect(screen.queryByText('Import groups')).not.toBeInTheDocument()
-    expect(screen.queryByText('My groups')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'My groups' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Groups' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Users' })).not.toBeInTheDocument()
   })
 
-  it('shows only the Chair screen for a Chair', async () => {
+  it('gives a Chair a single "My groups" tab', async () => {
     vi.stubGlobal('fetch', mockFetch(['Chair']))
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('My groups')).toBeInTheDocument())
-    expect(screen.queryByText('Users')).not.toBeInTheDocument()
-    expect(screen.queryByText('Network Advisor — comment on your groups')).not.toBeInTheDocument()
+    // Both the tab button and ChairReview's own heading read "My groups".
+    await waitFor(() => expect(screen.getAllByText('My groups')).toHaveLength(2))
+    expect(screen.getByRole('button', { name: 'My groups' })).toBeInTheDocument()
   })
 
-  it('shows the Users (bootstrap) section for a signed-in caller with no roles yet', async () => {
+  it('shows only the Users tab (no Groups tab) for a signed-in caller with no roles yet', async () => {
     vi.stubGlobal('fetch', mockFetch([]))
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Users')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Users', { selector: 'h2' })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Groups' })).not.toBeInTheDocument()
     expect(screen.queryByText('Import groups')).not.toBeInTheDocument()
   })
 
@@ -84,7 +91,6 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('No screens are available for your role(s) yet.')).toBeInTheDocument()
     })
-    expect(screen.queryByText('Users')).not.toBeInTheDocument()
   })
 
   it('shows an error when the identity call fails', async () => {
