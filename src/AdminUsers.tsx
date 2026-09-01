@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { UpsertUserSchema, type RoleValue, type UserDto } from '../shared/schemas/user'
+import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
+import { UpsertUserSchema, type RoleValue, type UpsertUserInput, type UserDto } from '../shared/schemas/user'
 
 // Chair Leader and Sales Leader are deferred past this pilot (wayfinder map,
 // issue #1) — this Admin page only offers the three active roles.
 const ASSIGNABLE_ROLES: RoleValue[] = ['Admin', 'Chair', 'NetworkAdvisor']
+
+const REQUIRED_COLS = ['Email', 'Name', 'Initials', 'Role'] as const
 
 function emptyForm() {
   return { email: '', name: '', initials: '', roles: [] as RoleValue[] }
@@ -18,6 +21,10 @@ function AdminUsers() {
   // checkboxes for (e.g. ChairLeader/SalesLeader, deferred past this pilot).
   // Carried silently so saving an edit can't accidentally strip them.
   const [hiddenRoles, setHiddenRoles] = useState<string[]>([])
+
+  const [csvBanner, setCsvBanner] = useState<{ kind: 'error' | 'warning'; title: string; items: string[] } | null>(null)
+  const [csvRows, setCsvRows] = useState<UpsertUserInput[]>([])
+  const [importing, setImporting] = useState(false)
 
   // Guards against an earlier, slower loadUsers() call resolving after a
   // later one and overwriting fresher state with stale data (this page
@@ -85,6 +92,100 @@ function AdminUsers() {
     }
   }
 
+  function handleCsvFile(file: File) {
+    setCsvBanner(null)
+    setCsvRows([])
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const buf = ev.target?.result as ArrayBuffer
+      const dec = decodeUtf8Strict(buf)
+      if (!dec.ok) {
+        setCsvBanner({
+          kind: 'error',
+          title: 'This file is not saved as UTF-8 — import blocked',
+          items: [
+            `First invalid byte: 0x${dec.byteVal.toString(16).toUpperCase()} at position ${dec.bytePos} (typical of a Windows ANSI / Windows-1252 export).`,
+            'Fix: in Excel use Save As → CSV UTF-8, or choose UTF-8 in the export, then re-upload.',
+          ],
+        })
+        return
+      }
+      const text = dec.text
+      if (!text.trim()) {
+        setCsvBanner({ kind: 'error', title: 'Cannot import', items: ['The file is empty.'] })
+        return
+      }
+
+      const delim = sniffDelimiter(text)
+      const aoa = parseCsv(text, delim)
+      if (aoa.length < 2) {
+        setCsvBanner({ kind: 'error', title: 'Cannot import', items: ['No data rows below the header row.'] })
+        return
+      }
+
+      const idx = headerIndex(aoa[0])
+      const missingCols = REQUIRED_COLS.filter((c) => idx[c] === undefined)
+      if (missingCols.length) {
+        setCsvBanner({ kind: 'error', title: 'Missing required columns', items: missingCols })
+        return
+      }
+
+      const rejections: string[] = []
+      const rows: UpsertUserInput[] = []
+      aoa.slice(1).forEach((row, i) => {
+        const ln = i + 2
+        const email = String(row[idx.Email] ?? '').trim()
+        const name = String(row[idx.Name] ?? '').trim()
+        const initials = String(row[idx.Initials] ?? '').trim()
+        // One row per person — a person needing more than one role lists
+        // them all in this one cell, semicolon-separated (not the CSV's own
+        // delimiter, which this cell's value would otherwise collide with).
+        const roles = String(row[idx.Role] ?? '')
+          .split(';')
+          .map((r) => r.trim())
+          .filter(Boolean)
+        const label = email || name || '(unidentified row)'
+        const parsed = UpsertUserSchema.safeParse({ email, name, initials, roles })
+        if (!parsed.success) {
+          rejections.push(`Row ${ln} (${label}): ${parsed.error.issues[0]?.message ?? 'invalid'} — will be rejected.`)
+          return
+        }
+        rows.push(parsed.data)
+      })
+
+      setCsvRows(rows)
+      if (rejections.length) setCsvBanner({ kind: 'warning', title: 'Rows that will be rejected (invalid)', items: rejections })
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  async function confirmUsersImport() {
+    if (!csvRows.length) return
+    setImporting(true)
+    setError('')
+    try {
+      const failures: string[] = []
+      for (const row of csvRows) {
+        const res = await fetch('/api/putUsers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(row),
+        })
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null
+          failures.push(`${row.email}: ${body?.error ?? `failed (${res.status})`}`)
+        }
+      }
+      await loadUsers()
+      setCsvRows([])
+      if (failures.length) setCsvBanner({ kind: 'error', title: 'Some users failed to import', items: failures })
+      else setCsvBanner(null)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const isEditing = form.email !== '' && users.some((u) => u.email === form.email)
 
   return (
@@ -128,6 +229,7 @@ function AdminUsers() {
           e.preventDefault()
           void submit()
         }}
+        style={{ marginBottom: 32 }}
       >
         <div className="field">
           <label className="lbl" htmlFor="user-email">
@@ -180,6 +282,68 @@ function AdminUsers() {
           {saving ? 'Saving…' : 'Save'}
         </button>
       </form>
+
+      <h3 style={{ marginBottom: 12 }}>Import users from CSV</h3>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
+        Required columns: {REQUIRED_COLS.join(', ')}. Role may list more than one value in one cell, separated by{' '}
+        <code>;</code> (e.g. <code>Chair;NetworkAdvisor</code>). Must be UTF-8; delimiter auto-detected.
+      </p>
+      <input
+        type="file"
+        accept=".csv,text/csv"
+        aria-label="Users CSV file"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) handleCsvFile(file)
+        }}
+        style={{ marginBottom: 16 }}
+      />
+      {csvBanner && (
+        <div
+          role={csvBanner.kind === 'error' ? 'alert' : 'status'}
+          style={{
+            padding: 12,
+            borderRadius: 8,
+            marginBottom: 16,
+            background: csvBanner.kind === 'error' ? '#fef2f2' : 'var(--egn-light-blue)',
+            color: csvBanner.kind === 'error' ? 'var(--status-danger)' : 'var(--text-main)',
+          }}
+        >
+          <strong>{csvBanner.title}</strong>
+          <ul style={{ marginTop: 6, paddingLeft: 18 }}>
+            {csvBanner.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {csvRows.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+            <thead>
+              <tr style={{ background: 'var(--egn-sand)' }}>
+                <th style={cellStyle}>Email</th>
+                <th style={cellStyle}>Name</th>
+                <th style={cellStyle}>Initials</th>
+                <th style={cellStyle}>Roles</th>
+              </tr>
+            </thead>
+            <tbody>
+              {csvRows.map((r) => (
+                <tr key={r.email} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={cellStyle}>{r.email}</td>
+                  <td style={cellStyle}>{r.name}</td>
+                  <td style={cellStyle}>{r.initials}</td>
+                  <td style={cellStyle}>{r.roles.join(', ')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button type="button" className="btn btn-primary" disabled={importing} onClick={() => void confirmUsersImport()}>
+            {importing ? 'Importing…' : `Confirm import (${csvRows.length})`}
+          </button>
+        </div>
+      )}
     </section>
   )
 }
