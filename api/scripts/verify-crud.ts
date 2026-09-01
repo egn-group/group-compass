@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../shared/prismaClient'
 
 // This script creates and deletes rows. Refuse to run against anything
 // but a local database — a misconfigured DATABASE_URL must not point

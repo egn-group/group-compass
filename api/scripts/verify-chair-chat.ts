@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../shared/prismaClient'
 
 // Hits a real running Functions host with hand-built x-ms-client-principal
 // headers, same local-auth-stub approach as verify-chair-review.ts. Makes

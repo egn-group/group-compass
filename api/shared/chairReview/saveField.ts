@@ -1,4 +1,4 @@
-import type { Group } from '@prisma/client'
+import type { Group } from '../prismaClient'
 import { DnaContentSchema, type DnaFieldValue } from '../../../shared/schemas/dna'
 import { prisma } from '../auth'
 import { DNA_FIELD_KEY } from '../dna/fieldKeys'

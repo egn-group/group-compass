@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../shared/prismaClient'
 import { callAi } from '../shared/ai/client'
 import { CONSULTANT_MODEL, NOTARY_MODEL, SCORE_MODEL } from '../shared/dna/models'
 import { parseScore } from '../shared/dna/parseScore'
