@@ -12,7 +12,9 @@ const REQUIRED_COLS = [
   'Member Profile',
   'Companies Profile',
   'Responsible Chair',
+  'Responsible Chair Email',
   'Responsible Sales',
+  'Responsible Sales Email',
 ] as const
 const REQUIRED_METADATA_COLS = [
   'EGN Group Name',
@@ -20,7 +22,9 @@ const REQUIRED_METADATA_COLS = [
   'MMSGroup: Name',
   'Partner Code',
   'Responsible Chair',
+  'Responsible Chair Email',
   'Responsible Sales',
+  'Responsible Sales Email',
 ] as const
 const COL_TO_FIELD: Record<(typeof REQUIRED_COLS)[number], keyof RawImportRow> = {
   'EGN Group Name': 'egnGroupName',
@@ -31,7 +35,9 @@ const COL_TO_FIELD: Record<(typeof REQUIRED_COLS)[number], keyof RawImportRow> =
   'Member Profile': 'memberProfile',
   'Companies Profile': 'companiesProfile',
   'Responsible Chair': 'responsibleChairName',
+  'Responsible Chair Email': 'responsibleChairEmail',
   'Responsible Sales': 'responsibleSalesName',
+  'Responsible Sales Email': 'responsibleSalesEmail',
 }
 
 function emptyManualForm(): RawImportRow {
@@ -44,7 +50,9 @@ function emptyManualForm(): RawImportRow {
     memberProfile: '',
     companiesProfile: '',
     responsibleChairName: '',
+    responsibleChairEmail: '',
     responsibleSalesName: '',
+    responsibleSalesEmail: '',
   }
 }
 
@@ -304,7 +312,9 @@ function ImportGroups() {
             ['mmsGroupCode', 'MMSGroup: Name'],
             ['partnerCode', 'Partner Code'],
             ['responsibleChairName', 'Responsible Chair'],
+            ['responsibleChairEmail', 'Responsible Chair Email'],
             ['responsibleSalesName', 'Responsible Sales'],
+            ['responsibleSalesEmail', 'Responsible Sales Email'],
           ] as const
         ).map(([key, label]) => (
           <div className="field" key={key}>

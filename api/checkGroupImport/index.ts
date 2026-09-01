@@ -9,8 +9,9 @@ import { textEqualsIgnoringWhitespace } from '../shared/textCompare'
 // reports whether it's new, an unchanged duplicate (spec §12: "an unchanged
 // group is a no-op"), or a genuine change against an existing record with
 // the same EGN Group ID (which the admin must then choose to overwrite or
-// import as a new record) — plus a best-guess Chair/NA match by name, for
-// the admin to confirm or change (spec §12).
+// import as a new record) — plus the resolved Chair/NA email (verified
+// against real Users, never auto-created — see the "unmatched" case below),
+// for the admin to confirm or change (spec §12).
 const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {
   const authFailure = requireAuth(req)
   if (authFailure) {
@@ -36,7 +37,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const { rows } = parsed.data
 
     const users = await prisma.user.findMany()
-    const emailByName = new Map(users.map((u) => [u.name.trim().toLowerCase(), u.email]))
+    const knownEmails = new Set(users.map((u) => u.email))
 
     const egnGroupIds = [...new Set(rows.map((r) => r.egnGroupId))]
     const existingGroups = await prisma.group.findMany({
@@ -83,12 +84,18 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
           ? 'unchanged'
           : 'changed'
 
+      const chairEmail = row.responsibleChairEmail.trim().toLowerCase()
+      const naEmail = row.responsibleSalesEmail.trim().toLowerCase()
       return {
         row,
         status,
         existingGroupId: existing?.id ?? null,
-        suggestedChairEmail: emailByName.get(row.responsibleChairName.trim().toLowerCase()) ?? null,
-        suggestedNetworkAdvisorEmail: emailByName.get(row.responsibleSalesName.trim().toLowerCase()) ?? null,
+        // Email is the definitive match now (not a fuzzy name guess) — but
+        // it must already be a real User; an email nobody's created yet
+        // surfaces as unmatched, same as before, rather than being trusted
+        // blindly or auto-creating someone.
+        suggestedChairEmail: knownEmails.has(chairEmail) ? chairEmail : null,
+        suggestedNetworkAdvisorEmail: knownEmails.has(naEmail) ? naEmail : null,
       }
     })
 

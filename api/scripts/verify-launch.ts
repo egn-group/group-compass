@@ -46,7 +46,9 @@ function rawRow(overrides: Partial<Record<string, string>> = {}) {
     memberProfile: 'ORIGINAL MEMBER A',
     companiesProfile: 'ORIGINAL COMPANIES A',
     responsibleChairName: 'Chair Person',
+    responsibleChairEmail: 'chair@example.com',
     responsibleSalesName: 'NA Person',
+    responsibleSalesEmail: 'na@example.com',
     ...overrides,
   }
 }
