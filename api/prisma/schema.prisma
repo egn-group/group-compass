@@ -6,6 +6,17 @@
 
 generator client {
   provider = "prisma-client-js"
+  // "native" alone only produces an engine binary for whatever platform ran
+  // `prisma generate` — GitHub Actions' ubuntu-latest runner. Azure Static
+  // Web Apps' actual managed-Functions runtime is a different Linux image
+  // with a different OpenSSL, so the deployed app threw "@prisma/client did
+  // not initialize yet" at every request even though the build itself
+  // succeeded (prisma generate ran, tsc had real types — this is a runtime
+  // binary mismatch, not a build failure). debian-openssl-3.0.x covers the
+  // modern Debian-based image; debian-openssl-1.1.x is kept for older
+  // OpenSSL 1.1 images, matching the documented fix for this exact error on
+  // Azure Static Web Apps + Prisma (microsoft/Oryx#1696).
+  binaryTargets = ["native", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
 }
 
 datasource db {
