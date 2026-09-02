@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
+import Modal from './Modal'
 import { UpsertUserSchema, type RoleValue, type UpsertUserInput, type UserDto } from '../shared/schemas/user'
 
 // Chair Leader and Sales Leader are deferred past this pilot (wayfinder map,
@@ -24,6 +25,8 @@ function AdminUsers() {
 
   const [csvBanner, setCsvBanner] = useState<{ kind: 'error' | 'warning'; title: string; items: string[] } | null>(null)
   const [csvRows, setCsvRows] = useState<UpsertUserInput[]>([])
+  const [csvFileName, setCsvFileName] = useState('')
+  const csvFileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
 
   // The list is the default view — the add/edit form and CSV import are
@@ -116,6 +119,7 @@ function AdminUsers() {
   function handleCsvFile(file: File) {
     setCsvBanner(null)
     setCsvRows([])
+    setCsvFileName(file.name)
 
     const reader = new FileReader()
     reader.onload = (ev) => {
@@ -204,6 +208,7 @@ function AdminUsers() {
         setCsvBanner({ kind: 'error', title: 'Some users failed to import', items: failures })
       } else {
         setCsvBanner(null)
+        setCsvFileName('')
         setOpenPanel(null)
       }
     } finally {
@@ -216,7 +221,7 @@ function AdminUsers() {
   return (
     <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
       <h2 style={{ marginBottom: 16 }}>Users</h2>
-      {error && (
+      {error && !openPanel && (
         <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
           {error}
         </p>
@@ -231,14 +236,17 @@ function AdminUsers() {
       </div>
 
       {openPanel === 'form' && (
-        <>
-          <h3 style={{ marginBottom: 16 }}>{isEditing ? 'Edit user' : 'Add user'}</h3>
+        <Modal title={isEditing ? 'Edit user' : 'Add user'} onClose={() => setOpenPanel(null)}>
+          {error && (
+            <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+              {error}
+            </p>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault()
               void submit()
             }}
-            style={{ marginBottom: 32 }}
           >
             <div className="field">
               <label className="lbl" htmlFor="user-email">
@@ -291,17 +299,22 @@ function AdminUsers() {
               {saving ? 'Saving…' : 'Save'}
             </button>
           </form>
-        </>
+        </Modal>
       )}
 
       {openPanel === 'csv' && (
-        <div style={{ marginBottom: 32 }}>
-          <h3 style={{ marginBottom: 12 }}>Import users from CSV</h3>
+        <Modal title="Import users from CSV" onClose={() => setOpenPanel(null)}>
+          {error && (
+            <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+              {error}
+            </p>
+          )}
           <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
             Required columns: {REQUIRED_COLS.join(', ')}. Role may list more than one value in one cell, separated by{' '}
             <code>;</code> (e.g. <code>Chair;NetworkAdvisor</code>). Must be UTF-8; delimiter auto-detected.
           </p>
           <input
+            ref={csvFileInputRef}
             type="file"
             accept=".csv,text/csv"
             aria-label="Users CSV file"
@@ -309,8 +322,14 @@ function AdminUsers() {
               const file = e.target.files?.[0]
               if (file) handleCsvFile(file)
             }}
-            style={{ marginBottom: 16 }}
+            style={{ display: 'none' }}
           />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <button type="button" className="btn" onClick={() => csvFileInputRef.current?.click()}>
+              Choose file
+            </button>
+            <span style={{ color: 'var(--text-muted)' }}>{csvFileName || 'No file chosen'}</span>
+          </div>
           {csvBanner && (
             <div
               role={csvBanner.kind === 'error' ? 'alert' : 'status'}
@@ -331,7 +350,7 @@ function AdminUsers() {
             </div>
           )}
           {csvRows.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
+            <div>
               <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
                 <thead>
                   <tr style={{ background: 'var(--egn-sand)' }}>
@@ -357,7 +376,7 @@ function AdminUsers() {
               </button>
             </div>
           )}
-        </div>
+        </Modal>
       )}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 32 }}>

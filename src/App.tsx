@@ -13,7 +13,6 @@ interface Section {
 }
 
 function App() {
-  const [apiResult, setApiResult] = useState<string>('')
   const [me, setMe] = useState<GetMeResponse | null>(null)
   const [meError, setMeError] = useState('')
   const [activeKey, setActiveKey] = useState<string | null>(null)
@@ -29,17 +28,6 @@ function App() {
     }
     void loadMe()
   }, [])
-
-  async function callPing() {
-    setApiResult('Calling /api/ping…')
-    try {
-      const res = await fetch('/api/ping')
-      const data: unknown = await res.json()
-      setApiResult(JSON.stringify(data))
-    } catch (err) {
-      setApiResult(`Error: ${String(err)}`)
-    }
-  }
 
   const roles = me?.roles ?? []
   const isAdmin = roles.includes('Admin')
@@ -78,18 +66,6 @@ function App() {
           {meError}
         </p>
       )}
-
-      <div className="card" style={{ padding: '28px 32px', margin: '16px 0 32px' }}>
-        <p style={{ marginBottom: 16 }}>Scaffold placeholder page.</p>
-        <button className="btn btn-primary" onClick={() => void callPing()}>
-          Call /api/ping
-        </button>
-        {apiResult && (
-          <p data-testid="api-result" style={{ marginTop: 16, color: 'var(--text-muted)' }}>
-            {apiResult}
-          </p>
-        )}
-      </div>
 
       {sections.length > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
