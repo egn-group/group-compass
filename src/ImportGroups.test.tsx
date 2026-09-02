@@ -302,6 +302,29 @@ describe('ImportGroups', () => {
     })
   })
 
+  it('labels a failed Generate step by stage, so a generic server error is still actionable', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => [] }
+      if (url === '/api/getGroups') return { ok: true, status: 200, json: async () => [group] }
+      if (url === '/api/generateDnaStage1') return { ok: true, status: 200, json: async () => ({ stage1Text: 'stage1' }) }
+      if (url === '/api/generateDnaStage2') {
+        return { ok: false, status: 500, json: async () => ({ error: 'Something went wrong. Please try again.' }) }
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Generate'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Stage 2 failed (500): Something went wrong. Please try again.')).toBeInTheDocument()
+    })
+  })
+
   it('calls launchGroup when Launch is clicked on a group with a pending AI draft', async () => {
     const pendingGroup = { ...group, latestDnaVersionId: 'v2', latestDnaVersionScore: 4, hasPendingAiDraft: true }
     const fetchMock = mockFetch({ getGroups: [pendingGroup] })

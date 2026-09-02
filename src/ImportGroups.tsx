@@ -181,7 +181,7 @@ function ImportGroups() {
       })
       if (!s1.ok) {
         const body = (await s1.json().catch(() => null)) as { error?: string } | null
-        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Stage 1 failed (${s1.status}).` }))
+        setActionError((e) => ({ ...e, [groupId]: `Stage 1 failed (${s1.status}): ${body?.error ?? 'unknown error'}` }))
         return
       }
       const { stage1Text } = (await s1.json()) as { stage1Text: string }
@@ -193,7 +193,7 @@ function ImportGroups() {
       })
       if (!s2.ok) {
         const body = (await s2.json().catch(() => null)) as { error?: string } | null
-        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Stage 2 failed (${s2.status}).` }))
+        setActionError((e) => ({ ...e, [groupId]: `Stage 2 failed (${s2.status}): ${body?.error ?? 'unknown error'}` }))
         return
       }
       const { stage2Text } = (await s2.json()) as { stage2Text: string }
@@ -205,7 +205,7 @@ function ImportGroups() {
       })
       if (!scoreRes.ok) {
         const body = (await scoreRes.json().catch(() => null)) as { error?: string } | null
-        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Scoring failed (${scoreRes.status}).` }))
+        setActionError((e) => ({ ...e, [groupId]: `Scoring failed (${scoreRes.status}): ${body?.error ?? 'unknown error'}` }))
         return
       }
       const { score } = (await scoreRes.json()) as { score: number }
@@ -217,11 +217,17 @@ function ImportGroups() {
       })
       if (!commitRes.ok) {
         const body = (await commitRes.json().catch(() => null)) as { error?: string } | null
-        setActionError((e) => ({ ...e, [groupId]: body?.error ?? `Commit failed (${commitRes.status}).` }))
+        setActionError((e) => ({ ...e, [groupId]: `Commit failed (${commitRes.status}): ${body?.error ?? 'unknown error'}` }))
         return
       }
 
       await refreshAfterAction(groupId)
+    } catch (err) {
+      // A network failure or an unexpectedly-shaped response (fetch itself
+      // rejecting, or .json() throwing on a non-JSON body) would otherwise
+      // propagate uncaught here and leave the admin with no visible error
+      // at all — surface it instead of failing silently.
+      setActionError((e) => ({ ...e, [groupId]: `Generate failed: ${err instanceof Error ? err.message : String(err)}` }))
     } finally {
       setActionBusy((b) => ({ ...b, [groupId]: undefined }))
     }
