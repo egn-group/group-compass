@@ -44,7 +44,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetch(['Admin']))
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Import groups')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Groups', { selector: 'h2' })).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Groups' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Users' })).toBeInTheDocument()
     // Groups is the default tab — Users' own content isn't shown yet.
@@ -53,7 +53,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Users' }))
     await waitFor(() => expect(screen.getByText('Users', { selector: 'h2' })).toBeInTheDocument())
     // Switching tabs actually swaps the content — Groups' own content is gone.
-    expect(screen.queryByText('Import groups')).not.toBeInTheDocument()
+    expect(screen.queryByText('Groups', { selector: 'h2' })).not.toBeInTheDocument()
   })
 
   it('gives a Network Advisor a single "My groups" tab', async () => {
@@ -81,7 +81,7 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByText('Users', { selector: 'h2' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Groups' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Import groups')).not.toBeInTheDocument()
+    expect(screen.queryByText('Groups', { selector: 'h2' })).not.toBeInTheDocument()
   })
 
   it('shows a fallback message for a role with no screens built yet', async () => {

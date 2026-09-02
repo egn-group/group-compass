@@ -26,6 +26,11 @@ function AdminUsers() {
   const [csvRows, setCsvRows] = useState<UpsertUserInput[]>([])
   const [importing, setImporting] = useState(false)
 
+  // The list is the default view — the add/edit form and CSV import are
+  // tucked behind buttons, not shown inline by default. At most one open
+  // at a time.
+  const [openPanel, setOpenPanel] = useState<'form' | 'csv' | null>(null)
+
   // Guards against an earlier, slower loadUsers() call resolving after a
   // later one and overwriting fresher state with stale data (this page
   // calls it both on mount and after every save).
@@ -62,6 +67,21 @@ function AdminUsers() {
       roles: user.roles.filter((r): r is RoleValue => (ASSIGNABLE_ROLES as string[]).includes(r)),
     })
     setHiddenRoles(user.roles.filter((r) => !(ASSIGNABLE_ROLES as string[]).includes(r)))
+    setOpenPanel('form')
+  }
+
+  function toggleFormPanel() {
+    if (openPanel === 'form') {
+      setOpenPanel(null)
+    } else {
+      setForm(emptyForm())
+      setHiddenRoles([])
+      setOpenPanel('form')
+    }
+  }
+
+  function toggleCsvPanel() {
+    setOpenPanel((p) => (p === 'csv' ? null : 'csv'))
   }
 
   async function submit() {
@@ -86,6 +106,7 @@ function AdminUsers() {
       }
       setForm(emptyForm())
       setHiddenRoles([])
+      setOpenPanel(null)
       await loadUsers()
     } finally {
       setSaving(false)
@@ -179,8 +200,12 @@ function AdminUsers() {
       }
       await loadUsers()
       setCsvRows([])
-      if (failures.length) setCsvBanner({ kind: 'error', title: 'Some users failed to import', items: failures })
-      else setCsvBanner(null)
+      if (failures.length) {
+        setCsvBanner({ kind: 'error', title: 'Some users failed to import', items: failures })
+      } else {
+        setCsvBanner(null)
+        setOpenPanel(null)
+      }
     } finally {
       setImporting(false)
     }
@@ -196,6 +221,145 @@ function AdminUsers() {
           {error}
         </p>
       )}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button type="button" className={openPanel === 'csv' ? 'btn btn-primary' : 'btn'} onClick={toggleCsvPanel}>
+          Import CSV
+        </button>
+        <button type="button" className={openPanel === 'form' ? 'btn btn-primary' : 'btn'} onClick={toggleFormPanel}>
+          Add user
+        </button>
+      </div>
+
+      {openPanel === 'form' && (
+        <>
+          <h3 style={{ marginBottom: 16 }}>{isEditing ? 'Edit user' : 'Add user'}</h3>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              void submit()
+            }}
+            style={{ marginBottom: 32 }}
+          >
+            <div className="field">
+              <label className="lbl" htmlFor="user-email">
+                Email
+              </label>
+              <input
+                id="user-email"
+                value={form.email}
+                disabled={isEditing}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label className="lbl" htmlFor="user-name">
+                Name
+              </label>
+              <input
+                id="user-name"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label className="lbl" htmlFor="user-initials">
+                Initials
+              </label>
+              <input
+                id="user-initials"
+                value={form.initials}
+                onChange={(e) => setForm((f) => ({ ...f, initials: e.target.value }))}
+              />
+            </div>
+            <fieldset className="field" style={{ border: 'none' }}>
+              <legend className="lbl">Roles</legend>
+              <div style={{ display: 'flex', gap: 16 }}>
+                {ASSIGNABLE_ROLES.map((role) => (
+                  <label key={role} style={{ display: 'flex', alignItems: 'center', gap: 6, width: 'auto' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.roles.includes(role)}
+                      onChange={() => toggleRole(role)}
+                      style={{ width: 'auto' }}
+                    />
+                    {role}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </form>
+        </>
+      )}
+
+      {openPanel === 'csv' && (
+        <div style={{ marginBottom: 32 }}>
+          <h3 style={{ marginBottom: 12 }}>Import users from CSV</h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
+            Required columns: {REQUIRED_COLS.join(', ')}. Role may list more than one value in one cell, separated by{' '}
+            <code>;</code> (e.g. <code>Chair;NetworkAdvisor</code>). Must be UTF-8; delimiter auto-detected.
+          </p>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            aria-label="Users CSV file"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleCsvFile(file)
+            }}
+            style={{ marginBottom: 16 }}
+          />
+          {csvBanner && (
+            <div
+              role={csvBanner.kind === 'error' ? 'alert' : 'status'}
+              style={{
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 16,
+                background: csvBanner.kind === 'error' ? '#fef2f2' : 'var(--egn-light-blue)',
+                color: csvBanner.kind === 'error' ? 'var(--status-danger)' : 'var(--text-main)',
+              }}
+            >
+              <strong>{csvBanner.title}</strong>
+              <ul style={{ marginTop: 6, paddingLeft: 18 }}>
+                {csvBanner.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {csvRows.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+                <thead>
+                  <tr style={{ background: 'var(--egn-sand)' }}>
+                    <th style={cellStyle}>Email</th>
+                    <th style={cellStyle}>Name</th>
+                    <th style={cellStyle}>Initials</th>
+                    <th style={cellStyle}>Roles</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvRows.map((r) => (
+                    <tr key={r.email} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={cellStyle}>{r.email}</td>
+                      <td style={cellStyle}>{r.name}</td>
+                      <td style={cellStyle}>{r.initials}</td>
+                      <td style={cellStyle}>{r.roles.join(', ')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button type="button" className="btn btn-primary" disabled={importing} onClick={() => void confirmUsersImport()}>
+                {importing ? 'Importing…' : `Confirm import (${csvRows.length})`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 32 }}>
         <thead>
           <tr style={{ background: 'var(--egn-sand)' }}>
@@ -222,128 +386,6 @@ function AdminUsers() {
           ))}
         </tbody>
       </table>
-
-      <h3 style={{ marginBottom: 16 }}>{isEditing ? 'Edit user' : 'Add user'}</h3>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          void submit()
-        }}
-        style={{ marginBottom: 32 }}
-      >
-        <div className="field">
-          <label className="lbl" htmlFor="user-email">
-            Email
-          </label>
-          <input
-            id="user-email"
-            value={form.email}
-            disabled={isEditing}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-          />
-        </div>
-        <div className="field">
-          <label className="lbl" htmlFor="user-name">
-            Name
-          </label>
-          <input
-            id="user-name"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          />
-        </div>
-        <div className="field">
-          <label className="lbl" htmlFor="user-initials">
-            Initials
-          </label>
-          <input
-            id="user-initials"
-            value={form.initials}
-            onChange={(e) => setForm((f) => ({ ...f, initials: e.target.value }))}
-          />
-        </div>
-        <fieldset className="field" style={{ border: 'none' }}>
-          <legend className="lbl">Roles</legend>
-          <div style={{ display: 'flex', gap: 16 }}>
-            {ASSIGNABLE_ROLES.map((role) => (
-              <label key={role} style={{ display: 'flex', alignItems: 'center', gap: 6, width: 'auto' }}>
-                <input
-                  type="checkbox"
-                  checked={form.roles.includes(role)}
-                  onChange={() => toggleRole(role)}
-                  style={{ width: 'auto' }}
-                />
-                {role}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <button type="submit" className="btn btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </form>
-
-      <h3 style={{ marginBottom: 12 }}>Import users from CSV</h3>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
-        Required columns: {REQUIRED_COLS.join(', ')}. Role may list more than one value in one cell, separated by{' '}
-        <code>;</code> (e.g. <code>Chair;NetworkAdvisor</code>). Must be UTF-8; delimiter auto-detected.
-      </p>
-      <input
-        type="file"
-        accept=".csv,text/csv"
-        aria-label="Users CSV file"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleCsvFile(file)
-        }}
-        style={{ marginBottom: 16 }}
-      />
-      {csvBanner && (
-        <div
-          role={csvBanner.kind === 'error' ? 'alert' : 'status'}
-          style={{
-            padding: 12,
-            borderRadius: 8,
-            marginBottom: 16,
-            background: csvBanner.kind === 'error' ? '#fef2f2' : 'var(--egn-light-blue)',
-            color: csvBanner.kind === 'error' ? 'var(--status-danger)' : 'var(--text-main)',
-          }}
-        >
-          <strong>{csvBanner.title}</strong>
-          <ul style={{ marginTop: 6, paddingLeft: 18 }}>
-            {csvBanner.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {csvRows.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
-            <thead>
-              <tr style={{ background: 'var(--egn-sand)' }}>
-                <th style={cellStyle}>Email</th>
-                <th style={cellStyle}>Name</th>
-                <th style={cellStyle}>Initials</th>
-                <th style={cellStyle}>Roles</th>
-              </tr>
-            </thead>
-            <tbody>
-              {csvRows.map((r) => (
-                <tr key={r.email} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={cellStyle}>{r.email}</td>
-                  <td style={cellStyle}>{r.name}</td>
-                  <td style={cellStyle}>{r.initials}</td>
-                  <td style={cellStyle}>{r.roles.join(', ')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button type="button" className="btn btn-primary" disabled={importing} onClick={() => void confirmUsersImport()}>
-            {importing ? 'Importing…' : `Confirm import (${csvRows.length})`}
-          </button>
-        </div>
-      )}
     </section>
   )
 }
