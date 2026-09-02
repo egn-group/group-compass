@@ -111,6 +111,25 @@ describe('ImportGroups', () => {
     expect(screen.getByText('no NA')).toBeInTheDocument()
   })
 
+  it('shows the groups list by default, with Import CSV / Add group hidden behind buttons', async () => {
+    vi.stubGlobal('fetch', mockFetch({ getGroups: [group] }))
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    expect(screen.queryByLabelText('EGN Group Name')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('CSV file')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Add group'))
+    expect(screen.getByLabelText('EGN Group Name')).toBeInTheDocument()
+    expect(screen.queryByLabelText('CSV file')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Import CSV'))
+    expect(screen.getByLabelText('CSV file')).toBeInTheDocument()
+    expect(screen.queryByLabelText('EGN Group Name')).not.toBeInTheDocument()
+  })
+
   it('checks a manually entered group and shows it in the review table', async () => {
     const fetchMock = mockFetch({
       getUsers: [chair, advisor],
@@ -139,6 +158,7 @@ describe('ImportGroups', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<ImportGroups />)
 
+    fireEvent.click(screen.getByText('Add group'))
     fireEvent.change(screen.getByLabelText('EGN Group Name'), { target: { value: 'New Group' } })
     fireEvent.change(screen.getByLabelText('EGN Group Id'), { target: { value: '999' } })
     fireEvent.change(screen.getByLabelText('MMSGroup: Name'), { target: { value: 'MMS-1' } })
@@ -201,6 +221,7 @@ describe('ImportGroups', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<ImportGroups />)
 
+    fireEvent.click(screen.getByText('Add group'))
     fireEvent.change(screen.getByLabelText('EGN Group Name'), { target: { value: 'New Group' } })
     fireEvent.change(screen.getByLabelText('EGN Group Id'), { target: { value: '999' } })
     fireEvent.change(screen.getByLabelText('MMSGroup: Name'), { target: { value: 'MMS-1' } })
@@ -222,6 +243,7 @@ describe('ImportGroups', () => {
     vi.stubGlobal('fetch', mockFetch({}))
     render(<ImportGroups />)
 
+    fireEvent.click(screen.getByText('Import CSV'))
     // 0xE6 alone is invalid UTF-8 (a lone continuation-expecting lead byte).
     const badBytes = new Uint8Array([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0xe6])
     const file = new File([badBytes], 'groups.csv', { type: 'text/csv' })
@@ -313,7 +335,7 @@ describe('ImportGroups', () => {
 
     fireEvent.click(screen.getByText('← Back to groups'))
     await waitFor(() => {
-      expect(screen.getByText('Import groups')).toBeInTheDocument()
+      expect(screen.getByText('Groups')).toBeInTheDocument()
     })
   })
 })

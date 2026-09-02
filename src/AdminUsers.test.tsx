@@ -45,6 +45,25 @@ describe('AdminUsers', () => {
     expect(within(screen.getByRole('table')).getByText('Chair')).toBeInTheDocument()
   })
 
+  it('shows the user list by default, with Add user / Import CSV hidden behind buttons', async () => {
+    vi.stubGlobal('fetch', mockFetch({ getUsers: [chair] }))
+    render(<AdminUsers />)
+
+    await waitFor(() => {
+      expect(screen.getByText('chair@example.com')).toBeInTheDocument()
+    })
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Users CSV file')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Add user'))
+    expect(screen.getByLabelText('Email')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Users CSV file')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Import CSV'))
+    expect(screen.getByLabelText('Users CSV file')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+  })
+
   it('shows the server error message when a write is rejected (e.g. non-admin caller)', async () => {
     vi.stubGlobal(
       'fetch',
@@ -52,6 +71,7 @@ describe('AdminUsers', () => {
     )
     render(<AdminUsers />)
 
+    fireEvent.click(screen.getByText('Add user'))
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@example.com' } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Person' } })
     fireEvent.change(screen.getByLabelText('Initials'), { target: { value: 'NP' } })
@@ -68,6 +88,7 @@ describe('AdminUsers', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<AdminUsers />)
 
+    fireEvent.click(screen.getByText('Add user'))
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: chair.email } })
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: chair.name } })
     fireEvent.change(screen.getByLabelText('Initials'), { target: { value: chair.initials } })
@@ -90,6 +111,7 @@ describe('AdminUsers', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<AdminUsers />)
 
+    fireEvent.click(screen.getByText('Import CSV'))
     const csv = 'Email,Name,Initials,Role\nchair@example.com,Chair Person,CP,Chair\nboth@example.com,Both Person,BP,Chair;NetworkAdvisor\n'
     const input = screen.getByLabelText('Users CSV file')
     fireEvent.change(input, { target: { files: [csvFile(csv)] } })
@@ -121,6 +143,7 @@ describe('AdminUsers', () => {
     vi.stubGlobal('fetch', mockFetch({ getUsers: [] }))
     render(<AdminUsers />)
 
+    fireEvent.click(screen.getByText('Import CSV'))
     const csv = 'Email,Name,Initials,Role\nchair@example.com,Chair Person,CP,Chair\nbad@example.com,Bad Person,BX,NotARealRole\n'
     fireEvent.change(screen.getByLabelText('Users CSV file'), { target: { files: [csvFile(csv)] } })
 
@@ -134,6 +157,7 @@ describe('AdminUsers', () => {
     vi.stubGlobal('fetch', mockFetch({ getUsers: [] }))
     render(<AdminUsers />)
 
+    fireEvent.click(screen.getByText('Import CSV'))
     const csv = 'Email,Name,Initials\nchair@example.com,Chair Person,CP\n'
     fireEvent.change(screen.getByLabelText('Users CSV file'), { target: { files: [csvFile(csv)] } })
 
@@ -147,6 +171,7 @@ describe('AdminUsers', () => {
     vi.stubGlobal('fetch', mockFetch({ getUsers: [] }))
     render(<AdminUsers />)
 
+    fireEvent.click(screen.getByText('Import CSV'))
     const badBytes = new Uint8Array([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0xe6])
     const file = new File([badBytes], 'users.csv', { type: 'text/csv' })
     fireEvent.change(screen.getByLabelText('Users CSV file'), { target: { files: [file] } })

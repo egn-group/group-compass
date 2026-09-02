@@ -76,6 +76,11 @@ function ImportGroups() {
   const [checking, setChecking] = useState(false)
   const [importing, setImporting] = useState(false)
 
+  // The Groups list is the default view — the manual-add form and CSV
+  // import are tucked behind buttons, not shown inline by default. At
+  // most one open at a time.
+  const [openPanel, setOpenPanel] = useState<'manual' | 'csv' | null>(null)
+
   // Generate/Score/Launch (issue #47) — Admin-only actions, available both
   // as row buttons on the list and inside a group's own detail view.
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -292,6 +297,9 @@ function ImportGroups() {
           action: 'create',
         })),
       )
+      // The review table is the active step now — collapse whichever input
+      // panel led here (manual form or CSV picker) so it isn't shown twice.
+      setOpenPanel(null)
     } finally {
       // Always clear this call's own busy flag, even if superseded — the
       // Check/CSV-file buttons are disabled while checking is true, so a
@@ -368,6 +376,14 @@ function ImportGroups() {
 
   function updateReviewRow(i: number, patch: Partial<ReviewRow>) {
     setReview((r) => (r ? r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)) : r))
+  }
+
+  function toggleManualPanel() {
+    setOpenPanel((p) => (p === 'manual' ? null : 'manual'))
+  }
+
+  function toggleCsvPanel() {
+    setOpenPanel((p) => (p === 'csv' ? null : 'csv'))
   }
 
   async function confirmImport() {
@@ -524,104 +540,121 @@ function ImportGroups() {
 
   return (
     <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
-      <h2 style={{ marginBottom: 16 }}>Import groups</h2>
+      <h2 style={{ marginBottom: 16 }}>Groups</h2>
       {error && (
         <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
           {error}
         </p>
       )}
 
-      <h3 style={{ marginBottom: 12 }}>Add one group manually</h3>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          void runCheck([manualForm])
-        }}
-        style={{ marginBottom: 32 }}
-      >
-        {(
-          [
-            ['egnGroupName', 'EGN Group Name'],
-            ['egnGroupId', 'EGN Group Id'],
-            ['mmsGroupCode', 'MMSGroup: Name'],
-            ['partnerCode', 'Partner Code'],
-            ['responsibleChairName', 'Responsible Chair'],
-            ['responsibleChairEmail', 'Responsible Chair Email'],
-            ['responsibleSalesName', 'Responsible Sales'],
-            ['responsibleSalesEmail', 'Responsible Sales Email'],
-          ] as const
-        ).map(([key, label]) => (
-          <div className="field" key={key}>
-            <label className="lbl" htmlFor={`manual-${key}`}>
-              {label}
-            </label>
-            <input
-              id={`manual-${key}`}
-              value={manualForm[key]}
-              onChange={(e) => setManualForm((f) => ({ ...f, [key]: e.target.value }))}
-            />
-          </div>
-        ))}
-        {(
-          [
-            ['groupProfile', 'Group Profile'],
-            ['memberProfile', 'Member Profile'],
-            ['companiesProfile', 'Companies Profile'],
-          ] as const
-        ).map(([key, label]) => (
-          <div className="field" key={key}>
-            <label className="lbl" htmlFor={`manual-${key}`}>
-              {label}
-            </label>
-            <textarea
-              id={`manual-${key}`}
-              value={manualForm[key]}
-              onChange={(e) => setManualForm((f) => ({ ...f, [key]: e.target.value }))}
-            />
-          </div>
-        ))}
-        <button type="submit" className="btn btn-primary" disabled={checking}>
-          {checking ? 'Checking…' : 'Check group'}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button type="button" className={openPanel === 'csv' ? 'btn btn-primary' : 'btn'} onClick={toggleCsvPanel}>
+          Import CSV
         </button>
-      </form>
+        <button type="button" className={openPanel === 'manual' ? 'btn btn-primary' : 'btn'} onClick={toggleManualPanel}>
+          Add group
+        </button>
+      </div>
 
-      <h3 style={{ marginBottom: 12 }}>Import from CSV</h3>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
-        Required columns: {REQUIRED_COLS.join(', ')}. Must be UTF-8; delimiter auto-detected.
-      </p>
-      <input
-        type="file"
-        accept=".csv,text/csv"
-        aria-label="CSV file"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) void handleCsvFile(file)
-        }}
-        style={{ marginBottom: 16 }}
-      />
-      {csvBanner && (
-        <div
-          role={csvBanner.kind === 'error' ? 'alert' : 'status'}
-          style={{
-            padding: 12,
-            borderRadius: 8,
-            marginBottom: 16,
-            background: csvBanner.kind === 'error' ? '#fef2f2' : 'var(--egn-light-blue)',
-            color: csvBanner.kind === 'error' ? 'var(--status-danger)' : 'var(--text-main)',
-          }}
-        >
-          <strong>{csvBanner.title}</strong>
-          <ul style={{ marginTop: 6, paddingLeft: 18 }}>
-            {csvBanner.items.map((item) => (
-              <li key={item}>{item}</li>
+      {openPanel === 'manual' && (
+        <>
+          <h3 style={{ marginBottom: 12 }}>Add one group manually</h3>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              void runCheck([manualForm])
+            }}
+            style={{ marginBottom: 32 }}
+          >
+            {(
+              [
+                ['egnGroupName', 'EGN Group Name'],
+                ['egnGroupId', 'EGN Group Id'],
+                ['mmsGroupCode', 'MMSGroup: Name'],
+                ['partnerCode', 'Partner Code'],
+                ['responsibleChairName', 'Responsible Chair'],
+                ['responsibleChairEmail', 'Responsible Chair Email'],
+                ['responsibleSalesName', 'Responsible Sales'],
+                ['responsibleSalesEmail', 'Responsible Sales Email'],
+              ] as const
+            ).map(([key, label]) => (
+              <div className="field" key={key}>
+                <label className="lbl" htmlFor={`manual-${key}`}>
+                  {label}
+                </label>
+                <input
+                  id={`manual-${key}`}
+                  value={manualForm[key]}
+                  onChange={(e) => setManualForm((f) => ({ ...f, [key]: e.target.value }))}
+                />
+              </div>
             ))}
-          </ul>
-        </div>
+            {(
+              [
+                ['groupProfile', 'Group Profile'],
+                ['memberProfile', 'Member Profile'],
+                ['companiesProfile', 'Companies Profile'],
+              ] as const
+            ).map(([key, label]) => (
+              <div className="field" key={key}>
+                <label className="lbl" htmlFor={`manual-${key}`}>
+                  {label}
+                </label>
+                <textarea
+                  id={`manual-${key}`}
+                  value={manualForm[key]}
+                  onChange={(e) => setManualForm((f) => ({ ...f, [key]: e.target.value }))}
+                />
+              </div>
+            ))}
+            <button type="submit" className="btn btn-primary" disabled={checking}>
+              {checking ? 'Checking…' : 'Check group'}
+            </button>
+          </form>
+        </>
       )}
-      {csvRows.length > 0 && !review && (
-        <button type="button" className="btn btn-primary" disabled={checking} onClick={() => void runCheck(csvRows)} style={{ marginBottom: 32 }}>
-          {checking ? 'Checking…' : `Check ${csvRows.length} row(s)`}
-        </button>
+
+      {openPanel === 'csv' && (
+        <div style={{ marginBottom: 32 }}>
+          <h3 style={{ marginBottom: 12 }}>Import from CSV</h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
+            Required columns: {REQUIRED_COLS.join(', ')}. Must be UTF-8; delimiter auto-detected.
+          </p>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            aria-label="CSV file"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void handleCsvFile(file)
+            }}
+            style={{ marginBottom: 16 }}
+          />
+          {csvBanner && (
+            <div
+              role={csvBanner.kind === 'error' ? 'alert' : 'status'}
+              style={{
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 16,
+                background: csvBanner.kind === 'error' ? '#fef2f2' : 'var(--egn-light-blue)',
+                color: csvBanner.kind === 'error' ? 'var(--status-danger)' : 'var(--text-main)',
+              }}
+            >
+              <strong>{csvBanner.title}</strong>
+              <ul style={{ marginTop: 6, paddingLeft: 18 }}>
+                {csvBanner.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {csvRows.length > 0 && !review && (
+            <button type="button" className="btn btn-primary" disabled={checking} onClick={() => void runCheck(csvRows)}>
+              {checking ? 'Checking…' : `Check ${csvRows.length} row(s)`}
+            </button>
+          )}
+        </div>
       )}
 
       {review && (
