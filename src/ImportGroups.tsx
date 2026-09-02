@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
+import Modal from './Modal'
 import type { GroupDetail, GroupDto, ImportCheckResult, RawImportRow } from '../shared/schemas/group'
 import type { UserDto } from '../shared/schemas/user'
 
@@ -71,15 +72,17 @@ function ImportGroups() {
   const [manualForm, setManualForm] = useState(emptyManualForm())
   const [csvBanner, setCsvBanner] = useState<{ kind: 'error' | 'warning'; title: string; items: string[] } | null>(null)
   const [csvRows, setCsvRows] = useState<RawImportRow[]>([])
+  const [csvFileName, setCsvFileName] = useState('')
+  const csvFileInputRef = useRef<HTMLInputElement>(null)
 
   const [review, setReview] = useState<ReviewRow[] | null>(null)
   const [checking, setChecking] = useState(false)
   const [importing, setImporting] = useState(false)
 
-  // The Groups list is the default view — the manual-add form and CSV
-  // import are tucked behind buttons, not shown inline by default. At
-  // most one open at a time.
-  const [openPanel, setOpenPanel] = useState<'manual' | 'csv' | null>(null)
+  // The Groups list is the default view — the manual-add form, CSV import,
+  // and review-before-import steps are all overlays, not inline page
+  // sections. At most one open at a time.
+  const [openPanel, setOpenPanel] = useState<'manual' | 'csv' | 'review' | null>(null)
 
   // Generate/Score/Launch (issue #47) — Admin-only actions, available both
   // as row buttons on the list and inside a group's own detail view.
@@ -297,9 +300,9 @@ function ImportGroups() {
           action: 'create',
         })),
       )
-      // The review table is the active step now — collapse whichever input
-      // panel led here (manual form or CSV picker) so it isn't shown twice.
-      setOpenPanel(null)
+      // The review table is the active step now — replaces whichever input
+      // panel led here (manual form or CSV picker) in the same overlay.
+      setOpenPanel('review')
     } finally {
       // Always clear this call's own busy flag, even if superseded — the
       // Check/CSV-file buttons are disabled while checking is true, so a
@@ -313,6 +316,7 @@ function ImportGroups() {
     const gen = ++workflowGeneration.current // supersede any in-flight check/import
     setCsvBanner(null)
     setCsvRows([])
+    setCsvFileName(file.name)
     setReview(null)
 
     const reader = new FileReader()
@@ -412,6 +416,8 @@ function ImportGroups() {
       if (!rows.length) {
         setReview(null)
         setCsvRows([])
+        setCsvFileName('')
+        setOpenPanel(null)
         return
       }
       const res = await fetch('/api/putGroups', {
@@ -437,7 +443,9 @@ function ImportGroups() {
       if (gen === workflowGeneration.current) {
         setReview(null)
         setCsvRows([])
+        setCsvFileName('')
         setManualForm(emptyManualForm())
+        setOpenPanel(null)
       }
     } finally {
       // Same reasoning as runCheck's finally: always clear this call's own
@@ -541,11 +549,6 @@ function ImportGroups() {
   return (
     <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
       <h2 style={{ marginBottom: 16 }}>Groups</h2>
-      {error && (
-        <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
-          {error}
-        </p>
-      )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button type="button" className={openPanel === 'csv' ? 'btn btn-primary' : 'btn'} onClick={toggleCsvPanel}>
@@ -557,14 +560,17 @@ function ImportGroups() {
       </div>
 
       {openPanel === 'manual' && (
-        <>
-          <h3 style={{ marginBottom: 12 }}>Add one group manually</h3>
+        <Modal title="Add one group manually" onClose={() => setOpenPanel(null)}>
+          {error && (
+            <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+              {error}
+            </p>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault()
               void runCheck([manualForm])
             }}
-            style={{ marginBottom: 32 }}
           >
             {(
               [
@@ -611,16 +617,21 @@ function ImportGroups() {
               {checking ? 'Checking…' : 'Check group'}
             </button>
           </form>
-        </>
+        </Modal>
       )}
 
       {openPanel === 'csv' && (
-        <div style={{ marginBottom: 32 }}>
-          <h3 style={{ marginBottom: 12 }}>Import from CSV</h3>
+        <Modal title="Import from CSV" onClose={() => setOpenPanel(null)}>
+          {error && (
+            <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+              {error}
+            </p>
+          )}
           <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
             Required columns: {REQUIRED_COLS.join(', ')}. Must be UTF-8; delimiter auto-detected.
           </p>
           <input
+            ref={csvFileInputRef}
             type="file"
             accept=".csv,text/csv"
             aria-label="CSV file"
@@ -628,8 +639,14 @@ function ImportGroups() {
               const file = e.target.files?.[0]
               if (file) void handleCsvFile(file)
             }}
-            style={{ marginBottom: 16 }}
+            style={{ display: 'none' }}
           />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <button type="button" className="btn" onClick={() => csvFileInputRef.current?.click()}>
+              Choose file
+            </button>
+            <span style={{ color: 'var(--text-muted)' }}>{csvFileName || 'No file chosen'}</span>
+          </div>
           {csvBanner && (
             <div
               role={csvBanner.kind === 'error' ? 'alert' : 'status'}
@@ -649,17 +666,27 @@ function ImportGroups() {
               </ul>
             </div>
           )}
-          {csvRows.length > 0 && !review && (
+          {csvRows.length > 0 && (
             <button type="button" className="btn btn-primary" disabled={checking} onClick={() => void runCheck(csvRows)}>
               {checking ? 'Checking…' : `Check ${csvRows.length} row(s)`}
             </button>
           )}
-        </div>
+        </Modal>
       )}
 
-      {review && (
-        <div style={{ marginBottom: 32 }}>
-          <h3 style={{ marginBottom: 12 }}>Review before import</h3>
+      {openPanel === 'review' && review && (
+        <Modal
+          title="Review before import"
+          onClose={() => {
+            setReview(null)
+            setOpenPanel(null)
+          }}
+        >
+          {error && (
+            <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+              {error}
+            </p>
+          )}
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
             <thead>
               <tr style={{ background: 'var(--egn-sand)' }}>
@@ -732,7 +759,7 @@ function ImportGroups() {
           <button type="button" className="btn btn-primary" disabled={importing} onClick={() => void confirmImport()}>
             {importing ? 'Importing…' : 'Confirm import'}
           </button>
-        </div>
+        </Modal>
       )}
 
       <h3 style={{ marginBottom: 12 }}>Imported groups ({groups.length})</h3>

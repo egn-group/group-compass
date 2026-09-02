@@ -5,7 +5,6 @@ import App from './App.tsx'
 function mockFetch(roles: string[]) {
   return vi.fn(async (url: string) => {
     if (url === '/api/getMe') return { ok: true, status: 200, json: async () => ({ email: 'me@example.com', roles }) }
-    if (url === '/api/ping') return { ok: true, status: 200, json: async () => ({ message: 'pong' }) }
     if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => [] }
     if (url === '/api/getGroups') return { ok: true, status: 200, json: async () => [] }
     if (url === '/api/getNaGroups') return { ok: true, status: 200, json: async () => ({ groups: [], showGuidance: false }) }
@@ -19,7 +18,7 @@ describe('App', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders the placeholder page and shows the signed-in identity', async () => {
+  it('renders the app header and shows the signed-in identity', async () => {
     vi.stubGlobal('fetch', mockFetch([]))
     render(<App />)
 
@@ -27,17 +26,6 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByTestId('who-am-i')).toHaveTextContent('Signed in as me@example.com')
     })
-  })
-
-  it('calls /api/ping and shows the response when the button is clicked', async () => {
-    vi.stubGlobal('fetch', mockFetch([]))
-    render(<App />)
-    fireEvent.click(screen.getByText('Call /api/ping'))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('api-result')).toHaveTextContent('pong')
-    })
-    expect(fetch).toHaveBeenCalledWith('/api/ping')
   })
 
   it('gives an Admin a Groups tab (default) and a Users tab, switching between them', async () => {
