@@ -43,6 +43,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const body: GroupDetail = {
       id: group.id,
       egnGroupId: group.egnGroupId,
+      mmsGroupCode: group.mmsGroupCode,
       name: group.name,
       country: group.country,
       chairEmail: group.chairEmail,

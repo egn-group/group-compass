@@ -106,6 +106,7 @@ export const GetGroupRequestSchema = z.object({
 export const GroupDetailSchema = z.object({
   id: z.string(),
   egnGroupId: z.string(),
+  mmsGroupCode: z.string().nullable(),
   name: z.string(),
   country: z.string(),
   chairEmail: z.string().nullable(),

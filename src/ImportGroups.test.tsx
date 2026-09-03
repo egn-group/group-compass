@@ -26,6 +26,7 @@ const group = {
 const groupDetail = {
   id: 'g1',
   egnGroupId: '38494',
+  mmsGroupCode: '02092-EGDK',
   name: 'Test Group',
   country: 'Denmark',
   chairEmail: null,
@@ -380,6 +381,11 @@ describe('ImportGroups', () => {
     fireEvent.click(screen.getByText('Test Group'))
 
     await waitFor(() => {
+      expect(screen.getByText('Reassign Chair / Network Advisor')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Reassign Chair / Network Advisor'))
+
+    await waitFor(() => {
       expect(screen.getByLabelText('Chair')).toHaveValue(chair.email)
     })
     expect(screen.getByLabelText('Network Advisor')).toHaveValue(advisor.email)
@@ -401,6 +407,11 @@ describe('ImportGroups', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
     fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Reassign Chair / Network Advisor')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Reassign Chair / Network Advisor'))
 
     await waitFor(() => {
       expect(screen.getByLabelText('Chair')).toBeInTheDocument()
@@ -440,6 +451,11 @@ describe('ImportGroups', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
     fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Reassign Chair / Network Advisor')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Reassign Chair / Network Advisor'))
 
     await waitFor(() => {
       expect(screen.getByLabelText('Chair')).toBeInTheDocument()

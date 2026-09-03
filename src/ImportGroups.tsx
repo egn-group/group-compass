@@ -119,11 +119,13 @@ function ImportGroups() {
   const [assignNaEmail, setAssignNaEmail] = useState('')
   const [assignSaving, setAssignSaving] = useState(false)
   const [assignError, setAssignError] = useState('')
+  const [showReassign, setShowReassign] = useState(false)
   useEffect(() => {
     if (detail) {
       setAssignChairEmail(detail.chairEmail ?? '')
       setAssignNaEmail(detail.networkAdvisorEmail ?? '')
       setAssignError('')
+      setShowReassign(false)
     }
     // Only detail.id — see the comment above.
   }, [detail?.id])
@@ -199,8 +201,8 @@ function ImportGroups() {
     if (selectedGroupIdRef.current === groupId) await loadDetail(groupId)
   }
 
-  async function saveAssignment() {
-    if (!detail) return
+  async function saveAssignment(): Promise<boolean> {
+    if (!detail) return false
     setAssignError('')
     setAssignSaving(true)
     try {
@@ -212,9 +214,10 @@ function ImportGroups() {
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null
         setAssignError(body?.error ?? `Save failed (${res.status}).`)
-        return
+        return false
       }
       await refreshAfterAction(detail.id)
+      return true
     } finally {
       setAssignSaving(false)
     }
@@ -566,45 +569,71 @@ function ImportGroups() {
         {detail && (
           <>
             <h2 style={{ marginBottom: 4 }}>{detail.name}</h2>
-            <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+            <p style={{ color: 'var(--text-muted)', marginBottom: 4 }}>
               {detail.country} · {detail.lifecycleStatus}
             </p>
+            <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+              EGN Group ID: {detail.egnGroupId} · MMS ID: {detail.mmsGroupCode || '—'}
+            </p>
 
-            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 8 }}>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label className="lbl" htmlFor="assign-chair">
-                  Chair
-                </label>
-                <select id="assign-chair" value={assignChairEmail} onChange={(e) => setAssignChairEmail(e.target.value)} style={{ width: 'auto' }}>
-                  <option value="">— unassigned —</option>
-                  {chairs.map((c) => (
-                    <option key={c.email} value={c.email}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label className="lbl" htmlFor="assign-na">
-                  Network Advisor
-                </label>
-                <select id="assign-na" value={assignNaEmail} onChange={(e) => setAssignNaEmail(e.target.value)} style={{ width: 'auto' }}>
-                  <option value="">— unassigned —</option>
-                  {advisors.map((a) => (
-                    <option key={a.email} value={a.email}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button type="button" className="btn" disabled={assignSaving} onClick={() => void saveAssignment()}>
-                {assignSaving ? 'Saving…' : 'Save assignment'}
+            <p style={{ marginBottom: 16 }}>
+              <button
+                type="button"
+                className="btn"
+                style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }}
+                onClick={() => setShowReassign(true)}
+              >
+                Reassign Chair / Network Advisor
               </button>
-            </div>
-            {assignError && (
-              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
-                {assignError}
-              </p>
+            </p>
+            {showReassign && (
+              <Modal title="Reassign Chair / Network Advisor" onClose={() => setShowReassign(false)}>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 8 }}>
+                  <div className="field" style={{ marginBottom: 0 }}>
+                    <label className="lbl" htmlFor="assign-chair">
+                      Chair
+                    </label>
+                    <select id="assign-chair" value={assignChairEmail} onChange={(e) => setAssignChairEmail(e.target.value)} style={{ width: 'auto' }}>
+                      <option value="">— unassigned —</option>
+                      {chairs.map((c) => (
+                        <option key={c.email} value={c.email}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field" style={{ marginBottom: 0 }}>
+                    <label className="lbl" htmlFor="assign-na">
+                      Network Advisor
+                    </label>
+                    <select id="assign-na" value={assignNaEmail} onChange={(e) => setAssignNaEmail(e.target.value)} style={{ width: 'auto' }}>
+                      <option value="">— unassigned —</option>
+                      {advisors.map((a) => (
+                        <option key={a.email} value={a.email}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={assignSaving}
+                    onClick={() =>
+                      void saveAssignment().then((ok) => {
+                        if (ok) setShowReassign(false)
+                      })
+                    }
+                  >
+                    {assignSaving ? 'Saving…' : 'Save assignment'}
+                  </button>
+                </div>
+                {assignError && (
+                  <p role="alert" style={{ color: 'var(--status-danger)' }}>
+                    {assignError}
+                  </p>
+                )}
+              </Modal>
             )}
 
             {actionError[detail.id] && (
