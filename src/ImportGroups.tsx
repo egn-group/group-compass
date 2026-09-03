@@ -555,6 +555,7 @@ function ImportGroups() {
 
   if (selectedGroupId) {
     const latest = detail?.latestDnaVersion ?? null
+    const pill = detail ? (STATUS_PILL[detail.lifecycleStatus] ?? { label: detail.lifecycleStatus, bg: 'var(--egn-sand)', color: 'var(--text-muted)' }) : null
     return (
       <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
         <button type="button" className="btn" style={{ marginBottom: 16 }} onClick={backToList}>
@@ -566,12 +567,14 @@ function ImportGroups() {
           </p>
         )}
         {!detail && !detailError && <p>Loading…</p>}
-        {detail && (
+        {detail && pill && (
           <>
-            <h2 style={{ marginBottom: 4 }}>{detail.name}</h2>
-            <p style={{ color: 'var(--text-muted)', marginBottom: 4 }}>
-              {detail.country} · {detail.lifecycleStatus}
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+              <h2 style={{ margin: 0 }}>{detail.name}</h2>
+              <span className="badge" style={{ background: pill.bg, color: pill.color, flexShrink: 0 }}>
+                {pill.label}
+              </span>
+            </div>
             <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
               EGN Group ID: {detail.egnGroupId} · MMS ID: {detail.mmsGroupCode || '—'}
             </p>
@@ -586,7 +589,7 @@ function ImportGroups() {
               <button
                 type="button"
                 className="btn"
-                style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }}
+                style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline', color: 'var(--status-info)' }}
                 onClick={() => setShowReassign(true)}
               >
                 Reassign
@@ -652,9 +655,18 @@ function ImportGroups() {
                 {latest ? `Latest DNA version (v${latest.versionNumber}, ${latest.author ?? 'Imported'})` : 'No DNA version yet'}
               </h3>
               {latest && (
-                <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-                  {latest.score !== null ? `Score ${latest.score}/5` : 'Not yet scored'} · {new Date(latest.createdAt).toLocaleString()}
-                </p>
+                <>
+                  <p style={{ marginBottom: 4 }}>
+                    {latest.score !== null ? (
+                      <span style={{ fontWeight: 700, fontSize: 20, color: 'var(--egn-navy)' }}>Score {latest.score}/5</span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>Not yet scored</span>
+                    )}
+                  </p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 16 }}>
+                    {new Date(latest.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </>
               )}
               <div style={{ marginBottom: 24 }}>
                 {actionButtons({ id: detail.id, latestDnaVersionId: latest?.id ?? null, hasPendingAiDraft: latest?.author === 'Ai' })}

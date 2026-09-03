@@ -362,7 +362,7 @@ describe('ImportGroups', () => {
       expect(screen.getByText('Latest DNA version (v2, Ai)')).toBeInTheDocument()
     })
     expect(screen.getByText('draft group profile')).toBeInTheDocument()
-    expect(screen.getByText(/^Score 4\/5 ·/)).toBeInTheDocument()
+    expect(screen.getByText('Score 4/5')).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('← Back to groups'))
     await waitFor(() => {
