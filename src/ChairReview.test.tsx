@@ -300,4 +300,31 @@ describe('ChairReview', () => {
       expect(screen.getByText('Add geography.')).toBeInTheDocument()
     })
   })
+
+  it('sends x-view-as-email and hides every mutating action when viewAsEmail is set (Admin "View as" preview)', async () => {
+    const approvedDetail = { ...groupDetail, lifecycleStatus: 'Approved', pendingReapproval: true }
+    const fetchMock = mockFetch({
+      getChairGroups: { groups: [{ ...groupListItem, lifecycleStatus: 'Approved', pendingReapproval: true }] },
+      getChairGroup: approvedDetail,
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview viewAsEmail="chair@example.com" />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    expect(fetchMock).toHaveBeenCalledWith('/api/getChairGroups', expect.objectContaining({ headers: { 'x-view-as-email': 'chair@example.com' } }))
+
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/getChairGroup?'),
+      expect.objectContaining({ headers: { 'x-view-as-email': 'chair@example.com' } }),
+    )
+
+    // No affordance to mutate anything is rendered — read-only, full stop.
+    expect(screen.queryByText('Read & accept')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
+    expect(screen.queryByText('Ask AI assistant')).not.toBeInTheDocument()
+    expect(screen.queryByText('Approve whole DNA')).not.toBeInTheDocument()
+    expect(screen.queryByText('Check for improvement suggestions')).not.toBeInTheDocument()
+  })
 })

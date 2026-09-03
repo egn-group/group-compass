@@ -74,3 +74,24 @@ export function requireChair(user: Pick<User, 'roles'> | null): ApiError | null 
   if (!user?.roles.includes('Chair')) return errorResponse(403, 'Chair access required.')
   return null
 }
+
+export interface ViewAsResult {
+  effectiveEmail: string
+  isAdminViewingAs: boolean
+}
+
+/**
+ * Admin-only, read-only impersonation ("View as"): when the real caller is
+ * Admin (per their own stored User record — never trusting the header
+ * itself for identity, same as every other guard here) and sends
+ * x-view-as-email, an ownership-scoped read endpoint uses that email
+ * instead of the caller's own. Deliberately not honored by any endpoint
+ * that writes data — callers of this helper are read-only endpoints only,
+ * so an Admin viewing as someone else can never perform an action
+ * attributed to them.
+ */
+export function resolveViewAs(req: HttpRequest, principal: Principal, caller: Pick<User, 'roles'> | null): ViewAsResult {
+  const viewAsEmail = req.headers?.['x-view-as-email']
+  const isAdminViewingAs = !!viewAsEmail && !!caller?.roles.includes('Admin')
+  return { effectiveEmail: isAdminViewingAs ? viewAsEmail.toLowerCase() : principal.email, isAdminViewingAs }
+}

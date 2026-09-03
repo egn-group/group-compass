@@ -1,9 +1,13 @@
 import type { HttpRequest } from '@azure/functions'
 import { describe, expect, it } from 'vitest'
-import { getPrincipal, requireAdmin, requireAdminOrChairLeader, requireAuth, requireChair, requireNetworkAdvisor } from './auth'
+import { getPrincipal, requireAdmin, requireAdminOrChairLeader, requireAuth, requireChair, requireNetworkAdvisor, resolveViewAs } from './auth'
 
 function reqWithHeader(value?: string): HttpRequest {
   return { headers: value === undefined ? {} : { 'x-ms-client-principal': value } } as unknown as HttpRequest
+}
+
+function reqWithViewAs(viewAsEmail?: string): HttpRequest {
+  return { headers: viewAsEmail === undefined ? {} : { 'x-view-as-email': viewAsEmail } } as unknown as HttpRequest
 }
 
 function principalHeader(payload: Record<string, unknown>): string {
@@ -93,6 +97,38 @@ describe('requireAdminOrChairLeader', () => {
 
   it('returns null (allowed) when the user has the ChairLeader role', () => {
     expect(requireAdminOrChairLeader({ roles: ['ChairLeader'] })).toBeNull()
+  })
+})
+
+describe('resolveViewAs', () => {
+  const principal = { userId: 'abc', email: 'admin@example.com' }
+
+  it('falls back to the caller\'s own email when no header is sent, even for a real Admin', () => {
+    expect(resolveViewAs(reqWithViewAs(), principal, { roles: ['Admin'] })).toEqual({
+      effectiveEmail: 'admin@example.com',
+      isAdminViewingAs: false,
+    })
+  })
+
+  it('ignores the header when the caller has no stored User row', () => {
+    expect(resolveViewAs(reqWithViewAs('chair@example.com'), principal, null)).toEqual({
+      effectiveEmail: 'admin@example.com',
+      isAdminViewingAs: false,
+    })
+  })
+
+  it('ignores the header when the real caller is not an Admin', () => {
+    expect(resolveViewAs(reqWithViewAs('chair@example.com'), principal, { roles: ['Chair'] })).toEqual({
+      effectiveEmail: 'admin@example.com',
+      isAdminViewingAs: false,
+    })
+  })
+
+  it('honors the header, lowercased, when the real caller is a genuine Admin', () => {
+    expect(resolveViewAs(reqWithViewAs('Chair@Example.com'), principal, { roles: ['Admin'] })).toEqual({
+      effectiveEmail: 'chair@example.com',
+      isAdminViewingAs: true,
+    })
   })
 })
 

@@ -17,7 +17,16 @@ const STATUS_LABEL: Record<string, string> = {
 
 type StatusFilter = 'all' | 'Launched' | 'ChairReview' | 'Approved'
 
-function ChairReview() {
+interface ChairReviewProps {
+  // Set only by App.tsx's Admin-only "View as" preview — when present, every
+  // fetch here carries x-view-as-email (honored server-side, read-only, only
+  // by getChairGroups/getChairGroup — see api/shared/auth.ts's
+  // resolveViewAs) and every mutating action in this component is hidden.
+  viewAsEmail?: string
+}
+
+function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
+  const readOnly = !!viewAsEmail
   const [groups, setGroups] = useState<ChairGroupListItem[]>([])
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
@@ -51,10 +60,12 @@ function ChairReview() {
   const detailRequestId = useRef(0)
   const chatRequestId = useRef(0)
 
+  const viewAsHeaders: HeadersInit | undefined = viewAsEmail ? { 'x-view-as-email': viewAsEmail } : undefined
+
   async function loadGroups() {
     setError('')
     const id = ++groupsRequestId.current
-    const res = await fetch('/api/getChairGroups')
+    const res = await fetch('/api/getChairGroups', { headers: viewAsHeaders })
     if (id !== groupsRequestId.current) return
     if (!res.ok) {
       setError(`Could not load groups (${res.status}).`)
@@ -65,13 +76,18 @@ function ChairReview() {
   }
 
   useEffect(() => {
+    // Re-fires on a viewAsEmail change too — App.tsx can switch "View as"
+    // targets without unmounting this component, so an empty dep array
+    // would leave a stale, wrongly-attributed group list on screen.
+    setSelectedGroupId(null)
+    setDetail(null)
     void loadGroups()
-  }, [])
+  }, [viewAsEmail])
 
   async function loadDetail(groupId: string) {
     setDetailError('')
     const id = ++detailRequestId.current
-    const res = await fetch(`/api/getChairGroup?groupId=${encodeURIComponent(groupId)}`)
+    const res = await fetch(`/api/getChairGroup?groupId=${encodeURIComponent(groupId)}`, { headers: viewAsHeaders })
     if (id !== detailRequestId.current) return
     if (!res.ok) {
       setDetailError(`Could not load this group (${res.status}).`)
@@ -377,7 +393,7 @@ function ChairReview() {
             </div>
           )}
 
-          {detail.lifecycleStatus === 'Approved' && detail.pendingReapproval && (
+          {!readOnly && detail.lifecycleStatus === 'Approved' && detail.pendingReapproval && (
             <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
               <p style={{ marginBottom: 8 }}>You&apos;ve edited this DNA since it was last approved.</p>
               <button type="button" className="btn btn-primary" disabled={reapproving} onClick={() => void reapprove()}>
@@ -426,37 +442,39 @@ function ChairReview() {
                   </p>
                 )}
 
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {isEditing ? (
-                    <>
-                      <button type="button" className="btn btn-primary" disabled={isBusy} onClick={() => void saveEdit(field)}>
-                        {isBusy ? 'Saving…' : 'Save'}
-                      </button>
-                      <button type="button" className="btn" onClick={cancelEdit}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" className="btn" onClick={() => startEdit(field, f.text)}>
-                        Edit
-                      </button>
-                      <button type="button" className="btn" onClick={() => (chatField === field ? closeChat() : openChat(field))}>
-                        {chatField === field ? 'Close AI assistant' : 'Ask AI assistant'}
-                      </button>
-                      {!f.approved && (
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={isBusy}
-                          onClick={() => void approveField(field)}
-                        >
-                          {isBusy ? 'Approving…' : 'Read & accept'}
+                {!readOnly && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {isEditing ? (
+                      <>
+                        <button type="button" className="btn btn-primary" disabled={isBusy} onClick={() => void saveEdit(field)}>
+                          {isBusy ? 'Saving…' : 'Save'}
                         </button>
-                      )}
-                    </>
-                  )}
-                </div>
+                        <button type="button" className="btn" onClick={cancelEdit}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" className="btn" onClick={() => startEdit(field, f.text)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn" onClick={() => (chatField === field ? closeChat() : openChat(field))}>
+                          {chatField === field ? 'Close AI assistant' : 'Ask AI assistant'}
+                        </button>
+                        {!f.approved && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={isBusy}
+                            onClick={() => void approveField(field)}
+                          >
+                            {isBusy ? 'Approving…' : 'Read & accept'}
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {chatField === field && (
                   <div className="card" style={{ background: 'var(--egn-sand)', padding: 12, marginTop: 12 }}>
@@ -523,7 +541,7 @@ function ChairReview() {
             )
           })}
 
-          {detail.lifecycleStatus === 'Approved' && (
+          {!readOnly && detail.lifecycleStatus === 'Approved' && (
             <div className="card" style={{ padding: 16, marginBottom: 16 }}>
               <button type="button" className="btn" disabled={suggestionsLoading} onClick={() => void checkSuggestions()}>
                 {suggestionsLoading ? 'Checking…' : 'Check for improvement suggestions'}

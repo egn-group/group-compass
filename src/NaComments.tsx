@@ -8,7 +8,16 @@ const FIELDS: Array<{ field: DnaFieldValue; label: string; textKey: 'groupProfil
   { field: 'CompaniesProfile', label: 'Companies Profile', textKey: 'companiesProfile' },
 ]
 
-function NaComments() {
+interface NaCommentsProps {
+  // Set only by App.tsx's Admin-only "View as" preview — when present, the
+  // fetch here carries x-view-as-email (honored server-side, read-only —
+  // see api/shared/auth.ts's resolveViewAs) and every mutating action in
+  // this component is hidden/disabled.
+  viewAsEmail?: string
+}
+
+function NaComments({ viewAsEmail }: NaCommentsProps = {}) {
+  const readOnly = !!viewAsEmail
   const [groups, setGroups] = useState<NaGroupDto[]>([])
   const [showGuidance, setShowGuidance] = useState(false)
   const [error, setError] = useState('')
@@ -21,10 +30,12 @@ function NaComments() {
   // later one and overwriting fresher state with stale data.
   const groupsRequestId = useRef(0)
 
+  const viewAsHeaders: HeadersInit | undefined = viewAsEmail ? { 'x-view-as-email': viewAsEmail } : undefined
+
   async function loadGroups() {
     setError('')
     const id = ++groupsRequestId.current
-    const res = await fetch('/api/getNaGroups')
+    const res = await fetch('/api/getNaGroups', { headers: viewAsHeaders })
     if (id !== groupsRequestId.current) return
     if (!res.ok) {
       setError(`Could not load groups (${res.status}).`)
@@ -36,8 +47,11 @@ function NaComments() {
   }
 
   useEffect(() => {
+    // Re-fires on a viewAsEmail change too — App.tsx can switch "View as"
+    // targets without unmounting this component, so an empty dep array
+    // would leave a stale, wrongly-attributed group list on screen.
     void loadGroups()
-  }, [])
+  }, [viewAsEmail])
 
   function dismissGuidance() {
     // Dismiss immediately — a failed server write just means the banner
@@ -87,7 +101,7 @@ function NaComments() {
         </p>
       )}
 
-      {showGuidance && (
+      {showGuidance && !readOnly && (
         <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
           <p style={{ fontWeight: 600, marginBottom: 8 }}>When you read a Group DNA, please consider the following:</p>
           <ul style={{ marginBottom: 12, paddingLeft: 18 }}>
@@ -120,6 +134,7 @@ function NaComments() {
                 id={`comment-${g.id}-${f.field}`}
                 value={drafts[g.id]?.[f.field] ?? ''}
                 onChange={(e) => updateDraft(g.id, f.field, e.target.value)}
+                disabled={readOnly}
               />
             </div>
           ))}
@@ -128,9 +143,11 @@ function NaComments() {
               {groupErrors[g.id]}
             </p>
           )}
-          <button type="button" className="btn btn-primary" disabled={!!sending[g.id]} onClick={() => void sendToChair(g.id)}>
-            {sending[g.id] ? 'Sending…' : 'Send to Chair'}
-          </button>
+          {!readOnly && (
+            <button type="button" className="btn btn-primary" disabled={!!sending[g.id]} onClick={() => void sendToChair(g.id)}>
+              {sending[g.id] ? 'Sending…' : 'Send to Chair'}
+            </button>
+          )}
         </div>
       ))}
     </section>

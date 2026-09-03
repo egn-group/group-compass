@@ -136,4 +136,22 @@ describe('NaComments', () => {
     })
     expect(screen.getByText('Test Group')).toBeInTheDocument()
   })
+
+  it('sends x-view-as-email, disables comment textareas, and hides Send/guidance when viewAsEmail is set (Admin "View as" preview)', async () => {
+    const fetchMock = mockFetch({ getNaGroups: { groups: [group], showGuidance: true } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<NaComments viewAsEmail="na@example.com" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    expect(fetchMock).toHaveBeenCalledWith('/api/getNaGroups', expect.objectContaining({ headers: { 'x-view-as-email': 'na@example.com' } }))
+
+    // No affordance to mutate anything — read-only, full stop.
+    expect(screen.queryByText('Send to Chair')).not.toBeInTheDocument()
+    expect(screen.queryByText('Got it')).not.toBeInTheDocument()
+    for (const textarea of screen.getAllByLabelText('Comment for the Chair (optional)')) {
+      expect(textarea).toBeDisabled()
+    }
+  })
 })
