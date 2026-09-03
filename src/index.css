@@ -9,6 +9,12 @@
   font-style: normal;
   font-display: swap;
 }
+/* Self-hosted fallback only — these two files have no glyphs at all for
+   å/ø/æ/é/è/ü/ö/ä/ñ (confirmed via glyph-table inspection), so every usage
+   below lists EGN's Adobe Fonts 'futura-pt' (index.html's Typekit link,
+   full glyph coverage) first. Kept as a fallback in case that kit's domain
+   allowlist doesn't cover this app, and to fail gracefully if the request
+   to Typekit's CDN is blocked. */
 @font-face {
   font-family: 'Futura PT';
   src: url('./fonts/FuturaCyrillicBook.woff2') format('woff2');
@@ -92,7 +98,7 @@
 body {
   background: var(--brand-bg);
   color: var(--text-main);
-  font-family: 'Futura PT', sans-serif;
+  font-family: 'futura-pt', 'Futura PT', Futura, 'Century Gothic', sans-serif;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
 }
@@ -109,7 +115,7 @@ input, textarea, select {
   border-radius: var(--radius-md);
   padding: 12px 16px;
   width: 100%;
-  font-family: 'Futura PT', sans-serif;
+  font-family: 'futura-pt', 'Futura PT', Futura, 'Century Gothic', sans-serif;
   font-size: 16px;
   resize: vertical;
   transition: border-color 0.2s var(--ease-standard);
@@ -133,7 +139,7 @@ input::placeholder, textarea::placeholder {
   border: none;
   cursor: pointer;
   border-radius: var(--radius-pill);
-  font-family: 'Futura PT', sans-serif;
+  font-family: 'futura-pt', 'Futura PT', Futura, 'Century Gothic', sans-serif;
   font-weight: 600;
   font-size: 16px;
   padding: 10px 20px;
