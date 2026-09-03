@@ -460,10 +460,11 @@ function ImportGroups() {
     }
   }
 
-  function dnaChip(g: Pick<GroupDto, 'latestDnaVersionId' | 'latestDnaVersionScore' | 'hasPendingAiDraft'>) {
+  // The score has its own column — this just says whether there's a
+  // generated draft still waiting to be pushed live via Launch.
+  function dnaStatus(g: Pick<GroupDto, 'latestDnaVersionId' | 'hasPendingAiDraft'>) {
     if (!g.latestDnaVersionId) return 'No DNA version yet'
-    if (g.hasPendingAiDraft) return g.latestDnaVersionScore !== null ? `AI draft pending, score ${g.latestDnaVersionScore}/5` : 'AI draft pending'
-    return g.latestDnaVersionScore !== null ? `Score ${g.latestDnaVersionScore}/5` : 'Not yet scored'
+    return g.hasPendingAiDraft ? 'Draft ready to launch' : 'No pending draft'
   }
 
   function actionButtons(g: Pick<GroupDto, 'id' | 'latestDnaVersionId' | 'hasPendingAiDraft'>) {
@@ -778,11 +779,14 @@ function ImportGroups() {
             <th style={cellStyle}>Status</th>
             <th style={cellStyle}>Quality</th>
             <th style={cellStyle}>DNA</th>
+            <th style={cellStyle}>Score</th>
             <th style={cellStyle}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {groups.map((g) => (
+          {groups.map((g) => {
+            const chips = qualityChips(g)
+            return (
             <tr key={g.id} style={{ borderTop: '1px solid var(--border)' }}>
               <td style={cellStyle}>
                 <button type="button" className="btn" style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }} onClick={() => openGroup(g.id)}>
@@ -793,23 +797,31 @@ function ImportGroups() {
               <td style={cellStyle}>{g.country || '—'}</td>
               <td style={cellStyle}>{g.lifecycleStatus}</td>
               <td style={cellStyle}>
-                {qualityChips(g).map((chip) => (
-                  <span key={chip} className="badge" style={{ background: '#fef2f2', color: 'var(--status-danger)', marginRight: 4 }}>
-                    {chip}
+                {chips.length === 0 ? (
+                  <span className="badge" style={{ background: '#ecfdf5', color: 'var(--status-success)' }}>
+                    OK
                   </span>
-                ))}
+                ) : (
+                  chips.map((chip) => (
+                    <span key={chip} className="badge" style={{ background: '#fef2f2', color: 'var(--status-danger)', marginRight: 4 }}>
+                      {chip}
+                    </span>
+                  ))
+                )}
               </td>
               <td style={cellStyle}>
-                {dnaChip(g)}
+                {dnaStatus(g)}
                 {actionError[g.id] && (
                   <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 4, fontSize: 12 }}>
                     {actionError[g.id]}
                   </p>
                 )}
               </td>
+              <td style={cellStyle}>{g.latestDnaVersionScore !== null ? `${g.latestDnaVersionScore}/5` : '—'}</td>
               <td style={cellStyle}>{actionButtons(g)}</td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </section>
