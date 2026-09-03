@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from './test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import AdminUsers from './AdminUsers'
 

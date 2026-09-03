@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRef, useState, type CSSProperties } from 'react'
 import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
+import { apiGet } from './lib/api'
 import Modal from './Modal'
 import { UpsertUserSchema, type RoleValue, type UpsertUserInput, type UserDto } from '../shared/schemas/user'
 
@@ -14,8 +16,14 @@ function emptyForm() {
 }
 
 function AdminUsers() {
-  const [users, setUsers] = useState<UserDto[]>([])
+  const queryClient = useQueryClient()
+  const usersQuery = useQuery({
+    queryKey: ['users'],
+    queryFn: () => apiGet<UserDto[]>('/api/getUsers', 'Could not load users'),
+  })
+  const users = usersQuery.data ?? []
   const [error, setError] = useState('')
+  const loadError = usersQuery.isError ? usersQuery.error.message : ''
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
   // Roles the edited user already has that this page doesn't expose
@@ -33,27 +41,6 @@ function AdminUsers() {
   // tucked behind buttons, not shown inline by default. At most one open
   // at a time.
   const [openPanel, setOpenPanel] = useState<'form' | 'csv' | null>(null)
-
-  // Guards against an earlier, slower loadUsers() call resolving after a
-  // later one and overwriting fresher state with stale data (this page
-  // calls it both on mount and after every save).
-  const usersRequestId = useRef(0)
-
-  async function loadUsers() {
-    setError('')
-    const id = ++usersRequestId.current
-    const res = await fetch('/api/getUsers')
-    if (id !== usersRequestId.current) return
-    if (!res.ok) {
-      setError(`Could not load users (${res.status}).`)
-      return
-    }
-    setUsers((await res.json()) as UserDto[])
-  }
-
-  useEffect(() => {
-    void loadUsers()
-  }, [])
 
   function toggleRole(role: RoleValue) {
     setForm((f) => ({
@@ -110,7 +97,7 @@ function AdminUsers() {
       setForm(emptyForm())
       setHiddenRoles([])
       setOpenPanel(null)
-      await loadUsers()
+      await queryClient.invalidateQueries({ queryKey: ['users'] })
     } finally {
       setSaving(false)
     }
@@ -202,7 +189,7 @@ function AdminUsers() {
           failures.push(`${row.email}: ${body?.error ?? `failed (${res.status})`}`)
         }
       }
-      await loadUsers()
+      await queryClient.invalidateQueries({ queryKey: ['users'] })
       setCsvRows([])
       if (failures.length) {
         setCsvBanner({ kind: 'error', title: 'Some users failed to import', items: failures })
@@ -221,9 +208,9 @@ function AdminUsers() {
   return (
     <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
       <h2 style={{ marginBottom: 16 }}>Users</h2>
-      {error && !openPanel && (
+      {(error || loadError) && !openPanel && (
         <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
-          {error}
+          {error || loadError}
         </p>
       )}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>

@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import type { NaGroupDto } from '../../shared/schemas/naComment'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireNetworkAdvisor, resolveViewAs } from '../shared/auth'
+import { SHORT_PRIVATE_CACHE } from '../shared/cacheHeaders'
 import { serverError } from '../shared/errors'
 
 // Network-Advisor-only: a caller's own Launched groups, awaiting their
@@ -51,7 +52,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     // Admin's own (irrelevant) hasSeenNaGuidance flag.
     context.res = {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...SHORT_PRIVATE_CACHE },
       body: JSON.stringify({ groups: body, showGuidance: isAdminViewingAs ? false : !caller!.hasSeenNaGuidance }),
     }
   } catch (err) {

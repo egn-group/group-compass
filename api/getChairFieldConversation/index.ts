@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { GetChairFieldConversationRequestSchema, type ConversationTurnDto } from '../../shared/schemas/chairReview'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { SHORT_PRIVATE_CACHE } from '../shared/cacheHeaders'
 import { errorResponse, serverError } from '../shared/errors'
 
 // A Chair's own live chat for one field — never another Chair's, and
@@ -49,7 +50,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
     context.res = {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...SHORT_PRIVATE_CACHE },
       body: JSON.stringify({ turns: body }),
     }
   } catch (err) {

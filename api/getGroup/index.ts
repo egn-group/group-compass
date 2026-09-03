@@ -2,6 +2,7 @@ import type { Context, HttpRequest } from '@azure/functions'
 import { DnaContentSchema } from '../../shared/schemas/dna'
 import { GetGroupRequestSchema, type GroupDetail } from '../../shared/schemas/group'
 import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from '../shared/auth'
+import { SHORT_PRIVATE_CACHE } from '../shared/cacheHeaders'
 import { errorResponse, serverError } from '../shared/errors'
 
 // Admin-only detail view backing the Groups tab's Generate/Score/Launch
@@ -68,7 +69,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
     context.res = {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...SHORT_PRIVATE_CACHE },
       body: JSON.stringify(body),
     }
   } catch (err) {

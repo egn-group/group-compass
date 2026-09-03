@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import type { GroupDto } from '../../shared/schemas/group'
 import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from '../shared/auth'
+import { SHORT_PRIVATE_CACHE } from '../shared/cacheHeaders'
 import { serverError } from '../shared/errors'
 
 function emptySectionCount(g: { groupProfile: string; memberProfile: string; companiesProfile: string }): number {
@@ -61,7 +62,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
     context.res = {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...SHORT_PRIVATE_CACHE },
       body: JSON.stringify(body),
     }
   } catch (err) {

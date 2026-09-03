@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { apiGet } from './lib/api'
 import type { DnaFieldValue } from '../shared/schemas/dna'
-import type { GetNaGroupsResponse, NaGroupDto } from '../shared/schemas/naComment'
+import type { GetNaGroupsResponse } from '../shared/schemas/naComment'
 
 const FIELDS: Array<{ field: DnaFieldValue; label: string; textKey: 'groupProfile' | 'memberProfile' | 'companiesProfile' }> = [
   { field: 'GroupProfile', label: 'Group Profile', textKey: 'groupProfile' },
@@ -18,45 +20,33 @@ interface NaCommentsProps {
 
 function NaComments({ viewAsEmail }: NaCommentsProps = {}) {
   const readOnly = !!viewAsEmail
-  const [groups, setGroups] = useState<NaGroupDto[]>([])
-  const [showGuidance, setShowGuidance] = useState(false)
-  const [error, setError] = useState('')
+  const [dismissed, setDismissed] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, Partial<Record<DnaFieldValue, string>>>>({})
   const [sending, setSending] = useState<Record<string, boolean>>({})
   const [groupErrors, setGroupErrors] = useState<Record<string, string>>({})
   const [sentGroupIds, setSentGroupIds] = useState<Set<string>>(new Set())
 
-  // Guards against an earlier, slower loadGroups() call resolving after a
-  // later one and overwriting fresher state with stale data.
-  const groupsRequestId = useRef(0)
-
   const viewAsHeaders: HeadersInit | undefined = viewAsEmail ? { 'x-view-as-email': viewAsEmail } : undefined
 
-  async function loadGroups() {
-    setError('')
-    const id = ++groupsRequestId.current
-    const res = await fetch('/api/getNaGroups', { headers: viewAsHeaders })
-    if (id !== groupsRequestId.current) return
-    if (!res.ok) {
-      setError(`Could not load groups (${res.status}).`)
-      return
-    }
-    const body = (await res.json()) as GetNaGroupsResponse
-    setGroups(body.groups)
-    setShowGuidance(body.showGuidance)
-  }
+  const groupsQuery = useQuery({
+    queryKey: ['naGroups', viewAsEmail ?? null],
+    queryFn: () => apiGet<GetNaGroupsResponse>('/api/getNaGroups', 'Could not load groups', viewAsHeaders),
+  })
+  const groups = groupsQuery.data?.groups ?? []
+  const error = groupsQuery.isError ? groupsQuery.error.message : ''
+  const showGuidance = (groupsQuery.data?.showGuidance ?? false) && !dismissed
 
   useEffect(() => {
-    // Re-fires on a viewAsEmail change too — App.tsx can switch "View as"
-    // targets without unmounting this component, so an empty dep array
-    // would leave a stale, wrongly-attributed group list on screen.
-    void loadGroups()
+    // App.tsx can switch "View as" targets without unmounting this
+    // component — a locally-dismissed guidance banner shouldn't carry over
+    // to a different identity's own dismissal state.
+    setDismissed(false)
   }, [viewAsEmail])
 
   function dismissGuidance() {
     // Dismiss immediately — a failed server write just means the banner
     // reappears next visit, not worth blocking the UI on.
-    setShowGuidance(false)
+    setDismissed(true)
     void fetch('/api/dismissNaGuidance', { method: 'POST' })
   }
 

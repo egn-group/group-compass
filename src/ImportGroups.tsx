@@ -1,4 +1,6 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
+import { apiGet } from './lib/api'
 import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
 import Modal from './Modal'
 import type { GroupDetail, GroupDto, ImportCheckResult, RawImportRow } from '../shared/schemas/group'
@@ -82,8 +84,17 @@ interface ReviewRow {
 }
 
 function ImportGroups() {
-  const [users, setUsers] = useState<UserDto[]>([])
-  const [groups, setGroups] = useState<GroupDto[]>([])
+  const queryClient = useQueryClient()
+  const usersQuery = useQuery({
+    queryKey: ['users'],
+    queryFn: () => apiGet<UserDto[]>('/api/getUsers', 'Could not load users'),
+  })
+  const users = usersQuery.data ?? []
+  const groupsQuery = useQuery({
+    queryKey: ['groups'],
+    queryFn: () => apiGet<GroupDto[]>('/api/getGroups', 'Could not load groups'),
+  })
+  const groups = groupsQuery.data ?? []
   const [error, setError] = useState('')
 
   const [manualForm, setManualForm] = useState(emptyManualForm())
@@ -104,8 +115,13 @@ function ImportGroups() {
   // Generate/Score/Launch (issue #47) — Admin-only actions, available both
   // as row buttons on the list and inside a group's own detail view.
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
-  const [detail, setDetail] = useState<GroupDetail | null>(null)
-  const [detailError, setDetailError] = useState('')
+  const detailQuery = useQuery({
+    queryKey: ['group', selectedGroupId],
+    queryFn: () => apiGet<GroupDetail>(`/api/getGroup?groupId=${encodeURIComponent(selectedGroupId!)}`, 'Could not load this group'),
+    enabled: selectedGroupId !== null,
+  })
+  const detail = detailQuery.data ?? null
+  const detailError = detailQuery.isError ? detailQuery.error.message : ''
   // Keyed by groupId so a busy/error state on one row's action doesn't
   // affect any other row, whether triggered from the list or the detail view.
   const [actionBusy, setActionBusy] = useState<Record<string, 'generate' | 'score' | 'launch' | undefined>>({})
@@ -130,17 +146,6 @@ function ImportGroups() {
     // Only detail.id — see the comment above.
   }, [detail?.id])
 
-  // Guards against out-of-order responses for the standalone lists.
-  const usersRequestId = useRef(0)
-  const groupsRequestId = useRef(0)
-  const detailRequestId = useRef(0)
-  // A ref, not just the selectedGroupId state, because refreshAfterAction
-  // runs after an await (a Generate action can take upwards of a minute) —
-  // reading the state variable there would close over its value from
-  // click-time, not the admin's current selection, so a switch to a
-  // different group mid-action would wrongly re-fetch and overwrite the
-  // now-displayed group's detail with the original one's.
-  const selectedGroupIdRef = useRef<string | null>(null)
   // Guards the check/import workflow as a whole (csvBanner, csvRows, review):
   // selecting a file, running a check, and confirming an import are all
   // async and can overlap (e.g. a slow manual-row check resolving after a
@@ -149,56 +154,20 @@ function ImportGroups() {
   // superseded skips applying its result instead of clobbering newer state.
   const workflowGeneration = useRef(0)
 
-  async function loadUsers() {
-    const id = ++usersRequestId.current
-    const res = await fetch('/api/getUsers')
-    if (id !== usersRequestId.current) return
-    if (res.ok) setUsers((await res.json()) as UserDto[])
-  }
-
-  async function loadGroups() {
-    const id = ++groupsRequestId.current
-    const res = await fetch('/api/getGroups')
-    if (id !== groupsRequestId.current) return
-    if (res.ok) setGroups((await res.json()) as GroupDto[])
-  }
-
-  useEffect(() => {
-    void loadUsers()
-    void loadGroups()
-  }, [])
-
   const chairs = users.filter((u) => u.roles.includes('Chair'))
   const advisors = users.filter((u) => u.roles.includes('NetworkAdvisor'))
 
-  async function loadDetail(groupId: string) {
-    setDetailError('')
-    const id = ++detailRequestId.current
-    const res = await fetch(`/api/getGroup?groupId=${encodeURIComponent(groupId)}`)
-    if (id !== detailRequestId.current) return
-    if (!res.ok) {
-      setDetailError(`Could not load this group (${res.status}).`)
-      return
-    }
-    setDetail((await res.json()) as GroupDetail)
-  }
-
   function openGroup(groupId: string) {
-    selectedGroupIdRef.current = groupId
     setSelectedGroupId(groupId)
-    setDetail(null)
-    void loadDetail(groupId)
   }
 
   function backToList() {
-    selectedGroupIdRef.current = null
     setSelectedGroupId(null)
-    setDetail(null)
   }
 
   async function refreshAfterAction(groupId: string) {
-    await loadGroups()
-    if (selectedGroupIdRef.current === groupId) await loadDetail(groupId)
+    await queryClient.invalidateQueries({ queryKey: ['groups'] })
+    await queryClient.invalidateQueries({ queryKey: ['group', groupId] })
   }
 
   async function saveAssignment(): Promise<boolean> {
@@ -340,7 +309,7 @@ function ImportGroups() {
       // Refresh the roster right before checking — an Admin may have just
       // added a Chair/NA in the Users section above on this same page load,
       // and the review dropdowns need that user to actually be selectable.
-      await loadUsers()
+      await queryClient.invalidateQueries({ queryKey: ['users'] })
       const res = await fetch('/api/checkGroupImport', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -500,10 +469,9 @@ function ImportGroups() {
       }
       // The import genuinely happened server-side — refresh the groups
       // table regardless of whether the admin has since moved on to a new
-      // file (loadGroups has its own out-of-order guard for the fetch
-      // itself). Only the review/csvRows/manualForm UI state — which a
-      // newer action may already own — is gated on still being current.
-      await loadGroups()
+      // file. Only the review/csvRows/manualForm UI state — which a newer
+      // action may already own — is gated on still being current.
+      await queryClient.invalidateQueries({ queryKey: ['groups'] })
       if (gen === workflowGeneration.current) {
         setReview(null)
         setCsvRows([])

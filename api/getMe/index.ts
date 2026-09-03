@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import type { GetMeResponse } from '../../shared/schemas/me'
 import { getPrincipal, getUserByEmail, requireAuth } from '../shared/auth'
+import { SHORT_PRIVATE_CACHE } from '../shared/cacheHeaders'
 import { serverError } from '../shared/errors'
 
 // Proves the authenticated-caller identity flow end-to-end (issue #13):
@@ -22,7 +23,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const body: GetMeResponse = { email: principal.email, name: caller?.name ?? null, initials: caller?.initials ?? null, roles: caller?.roles ?? [] }
     context.res = {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...SHORT_PRIVATE_CACHE },
       body: JSON.stringify(body),
     }
   } catch (err) {

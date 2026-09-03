@@ -1,10 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useState, type ReactNode } from 'react'
 import type { GetMeResponse } from '../shared/schemas/me'
 import type { UserDto } from '../shared/schemas/user'
 import AdminUsers from './AdminUsers'
 import ChairReview from './ChairReview'
 import Header from './Header'
 import ImportGroups from './ImportGroups'
+import { apiGet } from './lib/api'
 import Modal from './Modal'
 import NaComments from './NaComments'
 
@@ -21,8 +23,12 @@ interface ViewAsTarget {
 }
 
 function App() {
-  const [me, setMe] = useState<GetMeResponse | null>(null)
-  const [meError, setMeError] = useState('')
+  const meQuery = useQuery({
+    queryKey: ['me'],
+    queryFn: () => apiGet<GetMeResponse>('/api/getMe', 'Could not load your identity'),
+  })
+  const me = meQuery.data ?? null
+  const meError = meQuery.isError ? meQuery.error.message : ''
   const [activeKey, setActiveKey] = useState<string | null>(null)
 
   // Admin-only "View as" preview (read-only — see api/shared/auth.ts's
@@ -30,20 +36,13 @@ function App() {
   // below, entered/exited independently of it.
   const [viewAs, setViewAs] = useState<ViewAsTarget | null>(null)
   const [viewAsPickerOpen, setViewAsPickerOpen] = useState(false)
-  const [viewAsUsers, setViewAsUsers] = useState<UserDto[]>([])
-  const [viewAsError, setViewAsError] = useState('')
-
-  useEffect(() => {
-    async function loadMe() {
-      const res = await fetch('/api/getMe')
-      if (!res.ok) {
-        setMeError(`Could not load your identity (${res.status}).`)
-        return
-      }
-      setMe((await res.json()) as GetMeResponse)
-    }
-    void loadMe()
-  }, [])
+  const viewAsUsersQuery = useQuery({
+    queryKey: ['users'],
+    queryFn: () => apiGet<UserDto[]>('/api/getUsers', 'Could not load users'),
+    enabled: viewAsPickerOpen,
+  })
+  const viewAsUsers = viewAsUsersQuery.data ?? []
+  const viewAsError = viewAsUsersQuery.isError ? viewAsUsersQuery.error.message : ''
 
   const roles = me?.roles ?? []
   const isAdmin = roles.includes('Admin')
@@ -73,15 +72,8 @@ function App() {
   // initial load (activeKey starts null) and a hypothetical role change.
   const activeSection = sections.find((s) => s.key === activeKey) ?? sections[0]
 
-  async function openViewAsPicker() {
-    setViewAsError('')
+  function openViewAsPicker() {
     setViewAsPickerOpen(true)
-    const res = await fetch('/api/getUsers')
-    if (!res.ok) {
-      setViewAsError(`Could not load users (${res.status}).`)
-      return
-    }
-    setViewAsUsers((await res.json()) as UserDto[])
   }
 
   function selectViewAs(user: UserDto, role: 'Chair' | 'NetworkAdvisor') {
@@ -94,7 +86,7 @@ function App() {
 
   return (
     <>
-      <Header email={me?.email ?? null} name={me?.name ?? null} initials={me?.initials ?? null} isAdmin={isAdmin} onOpenViewAs={() => void openViewAsPicker()} />
+      <Header email={me?.email ?? null} name={me?.name ?? null} initials={me?.initials ?? null} isAdmin={isAdmin} onOpenViewAs={openViewAsPicker} />
 
       <main className="page-container" style={{ paddingTop: 32, paddingBottom: 32 }}>
         {meError && (

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { apiGet } from './lib/api'
 import type { DnaFieldValue } from '../shared/schemas/dna'
 import type { ChairChatResponse, ChairGroupDetail, ChairGroupListItem, ConversationTurnDto } from '../shared/schemas/chairReview'
 
@@ -27,14 +29,12 @@ interface ChairReviewProps {
 
 function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
   const readOnly = !!viewAsEmail
-  const [groups, setGroups] = useState<ChairGroupListItem[]>([])
-  const [error, setError] = useState('')
+  const queryClient = useQueryClient()
+  const viewAsKey = viewAsEmail ?? null
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
-  const [detail, setDetail] = useState<ChairGroupDetail | null>(null)
-  const [detailError, setDetailError] = useState('')
   const [justFullyApproved, setJustFullyApproved] = useState(false)
 
   const [editingField, setEditingField] = useState<DnaFieldValue | null>(null)
@@ -47,73 +47,50 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
   // AI assistant chat (issue #26) — at most one field's chat is open at a
   // time, mirroring "only one editing mode per field at once" from #25.
   const [chatField, setChatField] = useState<DnaFieldValue | null>(null)
-  const [chatTurns, setChatTurns] = useState<ConversationTurnDto[]>([])
   const [chatInput, setChatInput] = useState('')
   const [chatBusy, setChatBusy] = useState(false)
   const [chatError, setChatError] = useState('')
   const [suggestions, setSuggestions] = useState<Array<{ field: DnaFieldValue; suggestion: string }> | null>(null)
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
 
-  // Guards against an earlier, slower request resolving after a later one
-  // and overwriting fresher state with stale data.
-  const groupsRequestId = useRef(0)
-  const detailRequestId = useRef(0)
-  const chatRequestId = useRef(0)
-
   const viewAsHeaders: HeadersInit | undefined = viewAsEmail ? { 'x-view-as-email': viewAsEmail } : undefined
 
-  async function loadGroups() {
-    setError('')
-    const id = ++groupsRequestId.current
-    const res = await fetch('/api/getChairGroups', { headers: viewAsHeaders })
-    if (id !== groupsRequestId.current) return
-    if (!res.ok) {
-      setError(`Could not load groups (${res.status}).`)
-      return
-    }
-    const body = (await res.json()) as { groups: ChairGroupListItem[] }
-    setGroups(body.groups)
-  }
+  const groupsQuery = useQuery({
+    queryKey: ['chairGroups', viewAsKey],
+    queryFn: () => apiGet<{ groups: ChairGroupListItem[] }>('/api/getChairGroups', 'Could not load groups', viewAsHeaders),
+  })
+  const groups = groupsQuery.data?.groups ?? []
+  const error = groupsQuery.isError ? groupsQuery.error.message : ''
 
   useEffect(() => {
-    // Re-fires on a viewAsEmail change too — App.tsx can switch "View as"
-    // targets without unmounting this component, so an empty dep array
-    // would leave a stale, wrongly-attributed group list on screen.
+    // App.tsx can switch "View as" targets without unmounting this
+    // component — clear the selection so a stale, wrongly-attributed group
+    // detail can't stay on screen under the new identity.
     setSelectedGroupId(null)
-    setDetail(null)
-    void loadGroups()
   }, [viewAsEmail])
 
-  async function loadDetail(groupId: string) {
-    setDetailError('')
-    const id = ++detailRequestId.current
-    const res = await fetch(`/api/getChairGroup?groupId=${encodeURIComponent(groupId)}`, { headers: viewAsHeaders })
-    if (id !== detailRequestId.current) return
-    if (!res.ok) {
-      setDetailError(`Could not load this group (${res.status}).`)
-      return
-    }
-    setDetail((await res.json()) as ChairGroupDetail)
-  }
+  const detailQuery = useQuery({
+    queryKey: ['chairGroup', selectedGroupId, viewAsKey],
+    queryFn: () => apiGet<ChairGroupDetail>(`/api/getChairGroup?groupId=${encodeURIComponent(selectedGroupId!)}`, 'Could not load this group', viewAsHeaders),
+    enabled: selectedGroupId !== null,
+  })
+  const detail = detailQuery.data ?? null
+  const detailError = detailQuery.isError ? detailQuery.error.message : ''
 
   function openGroup(groupId: string) {
     setSelectedGroupId(groupId)
-    setDetail(null)
     setJustFullyApproved(false)
     setFieldFeedback({})
     setFieldErrors({})
     setEditingField(null)
     closeChat()
     setSuggestions(null)
-    void loadDetail(groupId)
   }
 
   function backToList() {
     setSelectedGroupId(null)
-    setDetail(null)
     closeChat()
     setSuggestions(null)
-    void loadGroups()
   }
 
   async function approveField(field: DnaFieldValue) {
@@ -133,7 +110,8 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
       }
       const data = (await res.json()) as { justFullyApproved: boolean }
       if (data.justFullyApproved) setJustFullyApproved(true)
-      await loadDetail(selectedGroupId)
+      await queryClient.invalidateQueries({ queryKey: ['chairGroup', selectedGroupId, viewAsKey] })
+      await queryClient.invalidateQueries({ queryKey: ['chairGroups', viewAsKey] })
     } finally {
       setBusyField(null)
     }
@@ -168,7 +146,8 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
       setFieldFeedback((f) => ({ ...f, [field]: data.aiFeedback }))
       setEditingField(null)
       setEditDraft('')
-      await loadDetail(selectedGroupId)
+      await queryClient.invalidateQueries({ queryKey: ['chairGroup', selectedGroupId, viewAsKey] })
+      await queryClient.invalidateQueries({ queryKey: ['chairGroups', viewAsKey] })
     } finally {
       setBusyField(null)
     }
@@ -183,36 +162,31 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId: selectedGroupId }),
       })
-      if (res.ok) await loadDetail(selectedGroupId)
+      if (res.ok) {
+        await queryClient.invalidateQueries({ queryKey: ['chairGroup', selectedGroupId, viewAsKey] })
+        await queryClient.invalidateQueries({ queryKey: ['chairGroups', viewAsKey] })
+      }
     } finally {
       setReapproving(false)
     }
   }
 
-  async function loadChatTurns(field: DnaFieldValue) {
-    if (!selectedGroupId) return
-    const id = ++chatRequestId.current
-    const res = await fetch(`/api/getChairFieldConversation?groupId=${encodeURIComponent(selectedGroupId)}&field=${field}`)
-    if (id !== chatRequestId.current) return
-    if (!res.ok) {
-      setChatError(`Could not load this conversation (${res.status}).`)
-      return
-    }
-    const body = (await res.json()) as { turns: ConversationTurnDto[] }
-    setChatTurns(body.turns)
-  }
+  const chatQuery = useQuery({
+    queryKey: ['chairChat', selectedGroupId, chatField],
+    queryFn: () => apiGet<{ turns: ConversationTurnDto[] }>(`/api/getChairFieldConversation?groupId=${encodeURIComponent(selectedGroupId!)}&field=${chatField}`, 'Could not load this conversation'),
+    enabled: selectedGroupId !== null && chatField !== null,
+  })
+  const chatTurns = chatQuery.data?.turns ?? []
+  const chatLoadError = chatQuery.isError ? chatQuery.error.message : ''
 
   function openChat(field: DnaFieldValue) {
     setChatField(field)
-    setChatTurns([])
     setChatError('')
     setChatInput('')
     setEditingField(null)
-    void loadChatTurns(field)
   }
   function closeChat() {
     setChatField(null)
-    setChatTurns([])
     setChatInput('')
   }
 
@@ -236,7 +210,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
       }
       const data = (await res.json()) as ChairChatResponse
       void data // the refreshed conversation below already reflects this turn
-      await loadChatTurns(field)
+      await queryClient.invalidateQueries({ queryKey: ['chairChat', selectedGroupId, field] })
     } finally {
       setChatBusy(false)
     }
@@ -256,8 +230,12 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
         setChatError(body?.error ?? `Accept failed (${res.status}).`)
         return
       }
-      await loadChatTurns(chatField)
-      await loadDetail(selectedGroupId)
+      await queryClient.invalidateQueries({ queryKey: ['chairChat', selectedGroupId, chatField] })
+      // Accepting a proposal saves it the same way saveEdit does (see
+      // acceptChairProposal's own comment) — the field text and the list's
+      // pendingReapproval/lifecycleStatus can both change.
+      await queryClient.invalidateQueries({ queryKey: ['chairGroup', selectedGroupId, viewAsKey] })
+      await queryClient.invalidateQueries({ queryKey: ['chairGroups', viewAsKey] })
     } finally {
       setChatBusy(false)
     }
@@ -272,7 +250,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ turnId }),
       })
-      if (res.ok) await loadChatTurns(chatField)
+      if (res.ok) await queryClient.invalidateQueries({ queryKey: ['chairChat', selectedGroupId, chatField] })
     } finally {
       setChatBusy(false)
     }
@@ -515,9 +493,9 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
                         </div>
                       ))}
                     </div>
-                    {chatError && (
+                    {(chatError || chatLoadError) && (
                       <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
-                        {chatError}
+                        {chatError || chatLoadError}
                       </p>
                     )}
                     <div style={{ display: 'flex', gap: 8 }}>
