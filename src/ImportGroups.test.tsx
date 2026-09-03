@@ -263,8 +263,9 @@ describe('ImportGroups', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
     expect(screen.getByText('No DNA version yet')).toBeInTheDocument()
-    const scoreButtons = screen.getAllByText('Score')
-    const launchButtons = screen.getAllByText('Launch')
+    expect(screen.getByText('—')).toBeInTheDocument()
+    const scoreButtons = screen.getAllByRole('button', { name: 'Score' })
+    const launchButtons = screen.getAllByRole('button', { name: 'Launch' })
     expect(scoreButtons[0]).toBeDisabled()
     expect(launchButtons[0]).toBeDisabled()
   })
@@ -298,7 +299,8 @@ describe('ImportGroups', () => {
       )
     })
     await waitFor(() => {
-      expect(screen.getByText('AI draft pending, score 4/5')).toBeInTheDocument()
+      expect(screen.getByText('Draft ready to launch')).toBeInTheDocument()
+      expect(screen.getByText('4/5')).toBeInTheDocument()
     })
   })
 
