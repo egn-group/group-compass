@@ -2,10 +2,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import App from './App.tsx'
 
-function mockFetch(roles: string[]) {
+function mockFetch(roles: string[], opts: { getUsers?: unknown } = {}) {
   return vi.fn(async (url: string) => {
-    if (url === '/api/getMe') return { ok: true, status: 200, json: async () => ({ email: 'me@example.com', roles }) }
-    if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => [] }
+    if (url === '/api/getMe') return { ok: true, status: 200, json: async () => ({ email: 'me@example.com', name: null, initials: null, roles }) }
+    if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => opts.getUsers ?? [] }
     if (url === '/api/getGroups') return { ok: true, status: 200, json: async () => [] }
     if (url === '/api/getNaGroups') return { ok: true, status: 200, json: async () => ({ groups: [], showGuidance: false }) }
     if (url === '/api/getChairGroups') return { ok: true, status: 200, json: async () => ({ groups: [] }) }
@@ -24,7 +24,7 @@ describe('App', () => {
 
     expect(screen.getByText('Group Compass')).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByTestId('who-am-i')).toHaveTextContent('Signed in as me@example.com')
+      expect(screen.getByTestId('who-am-i')).toHaveTextContent('me@example.com')
     })
   })
 
@@ -79,6 +79,36 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('No screens are available for your role(s) yet.')).toBeInTheDocument()
     })
+  })
+
+  it('lets an Admin view as a Chair or NA, read-only, and exit back to the normal shell', async () => {
+    const users = [
+      { email: 'chair@example.com', name: 'Chair Person', initials: 'CP', roles: ['Chair'] },
+      { email: 'na@example.com', name: 'NA Person', initials: 'NP', roles: ['NetworkAdvisor'] },
+    ]
+    vi.stubGlobal('fetch', mockFetch(['Admin'], { getUsers: users }))
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Groups', { selector: 'h2' })).toBeInTheDocument())
+    // Only an Admin gets the button — a non-admin case is covered by the
+    // other role-based tests above never finding it.
+    fireEvent.click(screen.getByText('View as…'))
+
+    await waitFor(() => expect(screen.getByText('Chair Person — chair@example.com')).toBeInTheDocument())
+    expect(screen.getByText('NA Person — na@example.com')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Chair Person — chair@example.com'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Viewing as/)).toBeInTheDocument()
+    })
+    // The normal tab shell is gone while viewing as someone else.
+    expect(screen.queryByRole('button', { name: 'Groups' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Users' })).not.toBeInTheDocument()
+    // ChairReview's own heading confirms the right screen rendered.
+    expect(screen.getByText('My groups', { selector: 'h2' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Exit view as'))
+    await waitFor(() => expect(screen.getByText('Groups', { selector: 'h2' })).toBeInTheDocument())
   })
 
   it('shows an error when the identity call fails', async () => {

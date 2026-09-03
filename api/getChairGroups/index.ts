@@ -1,6 +1,6 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import type { ChairGroupListItem } from '../../shared/schemas/chairReview'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveViewAs } from '../shared/auth'
 import { serverError } from '../shared/errors'
 
 // Chair-only: a caller's own groups (scoped server-side to chairEmail ===
@@ -16,6 +16,11 @@ import { serverError } from '../shared/errors'
 // entirely from this pilot ("no screens or flows built for them"), so a
 // Chair-Leader-wide view across other Chairs' groups is out of scope until
 // that's revisited.
+//
+// An Admin's own "View as" preview (resolveViewAs) is the one exception to
+// "Chair-only": a real Admin sending x-view-as-email skips the Chair-role
+// check and gets that email's groups instead of their own — read-only,
+// only here and in getChairGroup, never on any endpoint that writes.
 const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {
   const authFailure = requireAuth(req)
   if (authFailure) {
@@ -26,14 +31,17 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireChair(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminViewingAs } = resolveViewAs(req, principal, caller)
+    if (!isAdminViewingAs) {
+      const roleFailure = requireChair(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
     const groups = await prisma.group.findMany({
-      where: { chairEmail: principal.email, lifecycleStatus: { in: ['Launched', 'ChairReview', 'Approved'] } },
+      where: { chairEmail: effectiveEmail, lifecycleStatus: { in: ['Launched', 'ChairReview', 'Approved'] } },
       include: { networkAdvisor: true },
       orderBy: { updatedAt: 'desc' },
     })

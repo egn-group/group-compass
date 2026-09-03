@@ -19,7 +19,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const body: GetMeResponse = { email: principal.email, roles: caller?.roles ?? [] }
+    const body: GetMeResponse = { email: principal.email, name: caller?.name ?? null, initials: caller?.initials ?? null, roles: caller?.roles ?? [] }
     context.res = {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
