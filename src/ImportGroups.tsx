@@ -111,6 +111,23 @@ function ImportGroups() {
   const [actionBusy, setActionBusy] = useState<Record<string, 'generate' | 'score' | 'launch' | undefined>>({})
   const [actionError, setActionError] = useState<Record<string, string | undefined>>({})
 
+  // Chair/NA reassignment — draft select values, synced from `detail`
+  // whenever the viewed group changes (but not on every re-fetch of the
+  // same group, so an in-progress edit doesn't get clobbered by e.g. a
+  // Generate action's own refresh).
+  const [assignChairEmail, setAssignChairEmail] = useState('')
+  const [assignNaEmail, setAssignNaEmail] = useState('')
+  const [assignSaving, setAssignSaving] = useState(false)
+  const [assignError, setAssignError] = useState('')
+  useEffect(() => {
+    if (detail) {
+      setAssignChairEmail(detail.chairEmail ?? '')
+      setAssignNaEmail(detail.networkAdvisorEmail ?? '')
+      setAssignError('')
+    }
+    // Only detail.id — see the comment above.
+  }, [detail?.id])
+
   // Guards against out-of-order responses for the standalone lists.
   const usersRequestId = useRef(0)
   const groupsRequestId = useRef(0)
@@ -180,6 +197,27 @@ function ImportGroups() {
   async function refreshAfterAction(groupId: string) {
     await loadGroups()
     if (selectedGroupIdRef.current === groupId) await loadDetail(groupId)
+  }
+
+  async function saveAssignment() {
+    if (!detail) return
+    setAssignError('')
+    setAssignSaving(true)
+    try {
+      const res = await fetch('/api/reassignGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: detail.id, chairEmail: assignChairEmail || null, networkAdvisorEmail: assignNaEmail || null }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setAssignError(body?.error ?? `Save failed (${res.status}).`)
+        return
+      }
+      await refreshAfterAction(detail.id)
+    } finally {
+      setAssignSaving(false)
+    }
   }
 
   // Generate/Regenerate: the 4-call pipeline (spec §8, issue #22) as one
@@ -529,8 +567,45 @@ function ImportGroups() {
           <>
             <h2 style={{ marginBottom: 4 }}>{detail.name}</h2>
             <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-              {detail.country} · {detail.lifecycleStatus} · Chair: {detail.chairEmail ?? '—'} · NA: {detail.networkAdvisorEmail ?? '—'}
+              {detail.country} · {detail.lifecycleStatus}
             </p>
+
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 8 }}>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label className="lbl" htmlFor="assign-chair">
+                  Chair
+                </label>
+                <select id="assign-chair" value={assignChairEmail} onChange={(e) => setAssignChairEmail(e.target.value)} style={{ width: 'auto' }}>
+                  <option value="">— unassigned —</option>
+                  {chairs.map((c) => (
+                    <option key={c.email} value={c.email}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label className="lbl" htmlFor="assign-na">
+                  Network Advisor
+                </label>
+                <select id="assign-na" value={assignNaEmail} onChange={(e) => setAssignNaEmail(e.target.value)} style={{ width: 'auto' }}>
+                  <option value="">— unassigned —</option>
+                  {advisors.map((a) => (
+                    <option key={a.email} value={a.email}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button type="button" className="btn" disabled={assignSaving} onClick={() => void saveAssignment()}>
+                {assignSaving ? 'Saving…' : 'Save assignment'}
+              </button>
+            </div>
+            {assignError && (
+              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+                {assignError}
+              </p>
+            )}
 
             {actionError[detail.id] && (
               <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>

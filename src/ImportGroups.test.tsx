@@ -57,6 +57,7 @@ function mockFetch(handlers: {
   commitDnaGeneration?: { status: number; body: unknown }
   scoreDnaVersion?: { status: number; body: unknown }
   launchGroup?: { status: number; body: unknown }
+  reassignGroup?: { status: number; body: unknown }
 }) {
   return vi.fn(async (url: string) => {
     if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => handlers.getUsers ?? [] }
@@ -89,6 +90,10 @@ function mockFetch(handlers: {
     }
     if (url === '/api/launchGroup') {
       const { status, body } = handlers.launchGroup ?? { status: 200, body: { groupId: 'g1', lifecycleStatus: 'Launched', launchedVersionNumber: 2 } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/reassignGroup') {
+      const { status, body } = handlers.reassignGroup ?? { status: 200, body: { groupId: 'g1', chairEmail: null, networkAdvisorEmail: null } }
       return { ok: status < 300, status, json: async () => body }
     }
     throw new Error(`Unexpected fetch: ${url}`)
@@ -361,6 +366,88 @@ describe('ImportGroups', () => {
     fireEvent.click(screen.getByText('← Back to groups'))
     await waitFor(() => {
       expect(screen.getByText('Groups')).toBeInTheDocument()
+    })
+  })
+
+  it('pre-fills the Chair/NA assignment selects from the group detail, offering every Chair/NA as options', async () => {
+    const assignedDetail = { ...groupDetail, chairEmail: chair.email, networkAdvisorEmail: advisor.email }
+    vi.stubGlobal('fetch', mockFetch({ getGroups: [group], getUsers: [chair, advisor], getGroup: assignedDetail }))
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Chair')).toHaveValue(chair.email)
+    })
+    expect(screen.getByLabelText('Network Advisor')).toHaveValue(advisor.email)
+    expect(screen.getByRole('option', { name: chair.name })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: advisor.name })).toBeInTheDocument()
+  })
+
+  it('saves a Chair/NA reassignment and refreshes the group afterward', async () => {
+    const fetchMock = mockFetch({
+      getGroups: [group],
+      getUsers: [chair, advisor],
+      getGroup: groupDetail,
+      reassignGroup: { status: 200, body: { groupId: 'g1', chairEmail: chair.email, networkAdvisorEmail: advisor.email } },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Chair')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByLabelText('Chair'), { target: { value: chair.email } })
+    fireEvent.change(screen.getByLabelText('Network Advisor'), { target: { value: advisor.email } })
+    fireEvent.click(screen.getByText('Save assignment'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/reassignGroup',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ groupId: 'g1', chairEmail: chair.email, networkAdvisorEmail: advisor.email }),
+        }),
+      )
+    })
+    // refreshAfterAction re-fetches the group list.
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([url]) => url === '/api/getGroups').length).toBe(2)
+    })
+  })
+
+  it('shows an error when saving a Chair/NA reassignment fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({
+        getGroups: [group],
+        getUsers: [chair, advisor],
+        getGroup: groupDetail,
+        reassignGroup: { status: 400, body: { error: 'na@example.com is not a User with the NetworkAdvisor role.' } },
+      }),
+    )
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Chair')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Save assignment'))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('na@example.com is not a User with the NetworkAdvisor role.')
     })
   })
 })
