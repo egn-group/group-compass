@@ -572,18 +572,24 @@ function ImportGroups() {
             <p style={{ color: 'var(--text-muted)', marginBottom: 4 }}>
               {detail.country} · {detail.lifecycleStatus}
             </p>
-            <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+            <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
               EGN Group ID: {detail.egnGroupId} · MMS ID: {detail.mmsGroupCode || '—'}
             </p>
 
-            <p style={{ marginBottom: 16 }}>
+            <p style={{ marginBottom: 24, display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
+              <span>
+                Chair: <strong>{chairs.find((c) => c.email === detail.chairEmail)?.name ?? detail.chairEmail ?? '— unassigned —'}</strong>
+                {' · '}
+                Network Advisor:{' '}
+                <strong>{advisors.find((a) => a.email === detail.networkAdvisorEmail)?.name ?? detail.networkAdvisorEmail ?? '— unassigned —'}</strong>
+              </span>
               <button
                 type="button"
                 className="btn"
                 style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }}
                 onClick={() => setShowReassign(true)}
               >
-                Reassign Chair / Network Advisor
+                Reassign
               </button>
             </p>
             {showReassign && (
@@ -636,35 +642,37 @@ function ImportGroups() {
               </Modal>
             )}
 
-            {actionError[detail.id] && (
-              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
-                {actionError[detail.id]}
-              </p>
-            )}
-            <div style={{ marginBottom: 24 }}>
-              {actionButtons({ id: detail.id, latestDnaVersionId: latest?.id ?? null, hasPendingAiDraft: latest?.author === 'Ai' })}
-            </div>
-
-            <h3 style={{ marginBottom: 8 }}>
-              {latest ? `Latest DNA version (v${latest.versionNumber}, ${latest.author ?? 'Imported'})` : 'No DNA version yet'}
-            </h3>
-            {latest && (
-              <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-                {latest.score !== null ? `Score ${latest.score}/5` : 'Not yet scored'} · {new Date(latest.createdAt).toLocaleString()}
-              </p>
-            )}
-            {(
-              [
-                ['groupProfile', 'Group Profile'],
-                ['memberProfile', 'Member Profile'],
-                ['companiesProfile', 'Companies Profile'],
-              ] as const
-            ).map(([key, label]) => (
-              <div key={key} className="card" style={{ padding: 16, marginBottom: 16 }}>
-                <h4 style={{ marginBottom: 8 }}>{label}</h4>
-                <p style={{ whiteSpace: 'pre-wrap' }}>{(latest ? latest.content[key] : detail[key]) || '—'}</p>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24 }}>
+              {actionError[detail.id] && (
+                <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+                  {actionError[detail.id]}
+                </p>
+              )}
+              <h3 style={{ marginBottom: 8 }}>
+                {latest ? `Latest DNA version (v${latest.versionNumber}, ${latest.author ?? 'Imported'})` : 'No DNA version yet'}
+              </h3>
+              {latest && (
+                <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+                  {latest.score !== null ? `Score ${latest.score}/5` : 'Not yet scored'} · {new Date(latest.createdAt).toLocaleString()}
+                </p>
+              )}
+              <div style={{ marginBottom: 24 }}>
+                {actionButtons({ id: detail.id, latestDnaVersionId: latest?.id ?? null, hasPendingAiDraft: latest?.author === 'Ai' })}
               </div>
-            ))}
+
+              {(
+                [
+                  ['groupProfile', 'Group Profile'],
+                  ['memberProfile', 'Member Profile'],
+                  ['companiesProfile', 'Companies Profile'],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className="card" style={{ padding: 16, marginBottom: 16 }}>
+                  <h4 style={{ marginBottom: 8 }}>{label}</h4>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{(latest ? latest.content[key] : detail[key]) || '—'}</p>
+                </div>
+              ))}
+            </div>
           </>
         )}
       </section>

@@ -381,9 +381,9 @@ describe('ImportGroups', () => {
     fireEvent.click(screen.getByText('Test Group'))
 
     await waitFor(() => {
-      expect(screen.getByText('Reassign Chair / Network Advisor')).toBeInTheDocument()
+      expect(screen.getByText('Reassign')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByText('Reassign Chair / Network Advisor'))
+    fireEvent.click(screen.getByText('Reassign'))
 
     await waitFor(() => {
       expect(screen.getByLabelText('Chair')).toHaveValue(chair.email)
@@ -409,9 +409,9 @@ describe('ImportGroups', () => {
     fireEvent.click(screen.getByText('Test Group'))
 
     await waitFor(() => {
-      expect(screen.getByText('Reassign Chair / Network Advisor')).toBeInTheDocument()
+      expect(screen.getByText('Reassign')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByText('Reassign Chair / Network Advisor'))
+    fireEvent.click(screen.getByText('Reassign'))
 
     await waitFor(() => {
       expect(screen.getByLabelText('Chair')).toBeInTheDocument()
@@ -453,9 +453,9 @@ describe('ImportGroups', () => {
     fireEvent.click(screen.getByText('Test Group'))
 
     await waitFor(() => {
-      expect(screen.getByText('Reassign Chair / Network Advisor')).toBeInTheDocument()
+      expect(screen.getByText('Reassign')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByText('Reassign Chair / Network Advisor'))
+    fireEvent.click(screen.getByText('Reassign'))
 
     await waitFor(() => {
       expect(screen.getByLabelText('Chair')).toBeInTheDocument()
