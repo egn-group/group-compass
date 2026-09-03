@@ -16,6 +16,7 @@
     "verify:score-dna-version": "npm run build && node dist/api/scripts/verify-score-dna-version.js",
     "verify:admin-groups": "npm run build && node dist/api/scripts/verify-admin-groups.js",
     "verify:view-as": "npm run build && node dist/api/scripts/verify-view-as.js",
+    "verify:reassign-group": "npm run build && node dist/api/scripts/verify-reassign-group.js",
     "verify:chair-review": "npm run build && node dist/api/scripts/verify-chair-review.js",
     "verify:chair-chat": "npm run build && node dist/api/scripts/verify-chair-chat.js",
     "verify:get-me": "npm run build && node dist/api/scripts/verify-get-me.js"

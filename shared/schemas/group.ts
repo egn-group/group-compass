@@ -117,3 +117,18 @@ export const GroupDetailSchema = z.object({
   latestDnaVersion: DnaVersionSummarySchema.nullable(),
 })
 export type GroupDetail = z.infer<typeof GroupDetailSchema>
+
+// null unassigns — matches the CSV-import review flow's own "— unmatched —"
+// option, not a distinct "leave unchanged" sentinel (this endpoint always
+// sets both fields explicitly, same as putGroups does today).
+export const ReassignGroupRequestSchema = z.object({
+  groupId: z.string().min(1),
+  chairEmail: z.string().email().nullable(),
+  networkAdvisorEmail: z.string().email().nullable(),
+})
+export const ReassignGroupResponseSchema = z.object({
+  groupId: z.string(),
+  chairEmail: z.string().nullable(),
+  networkAdvisorEmail: z.string().nullable(),
+})
+export type ReassignGroupResponse = z.infer<typeof ReassignGroupResponseSchema>
