@@ -184,6 +184,20 @@ input::placeholder, textarea::placeholder {
 .field { margin-bottom: 24px; }
 .req { color: var(--egn-navy); margin-left: 4px; }
 
+/* Shared page-width container: max-width + horizontal gutter, used by both
+   the sticky header and the page body so their content aligns. The gutter
+   shrinks on narrow viewports instead of eating a disproportionate share of
+   a phone-width screen. */
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left: 32px;
+  padding-right: 32px;
+}
+@media (max-width: 640px) {
+  .page-container { padding-left: 16px; padding-right: 16px; }
+}
+
 /* Shared card primitive */
 .card {
   background: var(--surface);

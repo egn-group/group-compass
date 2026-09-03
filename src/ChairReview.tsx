@@ -331,40 +331,42 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
             </button>
           ))}
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--egn-sand)' }}>
-              <th style={cellStyle}>Group</th>
-              <th style={cellStyle}>Network Advisor</th>
-              <th style={cellStyle}>Status</th>
-              <th style={cellStyle}>Last updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleGroups.length === 0 && (
-              <tr>
-                <td colSpan={4} style={{ ...cellStyle, color: 'var(--text-muted)', textAlign: 'center' }}>
-                  No groups match this view.
-                </td>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--egn-sand)' }}>
+                <th style={cellStyle}>Group</th>
+                <th style={cellStyle}>Network Advisor</th>
+                <th style={cellStyle}>Status</th>
+                <th style={cellStyle}>Last updated</th>
               </tr>
-            )}
-            {visibleGroups.map((g) => (
-              <tr
-                key={g.id}
-                style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                onClick={() => openGroup(g.id)}
-              >
-                <td style={cellStyle}>{g.name}</td>
-                <td style={cellStyle}>{g.networkAdvisorName ?? '—'}</td>
-                <td style={cellStyle}>
-                  {STATUS_LABEL[g.lifecycleStatus] ?? g.lifecycleStatus}
-                  {g.pendingReapproval && ' (edited since approval)'}
-                </td>
-                <td style={cellStyle}>{new Date(g.updatedAt).toLocaleString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visibleGroups.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ ...cellStyle, color: 'var(--text-muted)', textAlign: 'center' }}>
+                    No groups match this view.
+                  </td>
+                </tr>
+              )}
+              {visibleGroups.map((g) => (
+                <tr
+                  key={g.id}
+                  style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                  onClick={() => openGroup(g.id)}
+                >
+                  <td style={cellStyle}>{g.name}</td>
+                  <td style={cellStyle}>{g.networkAdvisorName ?? '—'}</td>
+                  <td style={cellStyle}>
+                    {STATUS_LABEL[g.lifecycleStatus] ?? g.lifecycleStatus}
+                    {g.pendingReapproval && ' (edited since approval)'}
+                  </td>
+                  <td style={cellStyle}>{new Date(g.updatedAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     )
   }

@@ -96,7 +96,7 @@ function App() {
     <>
       <Header email={me?.email ?? null} name={me?.name ?? null} initials={me?.initials ?? null} isAdmin={isAdmin} onOpenViewAs={() => void openViewAsPicker()} />
 
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px' }}>
+      <main className="page-container" style={{ paddingTop: 32, paddingBottom: 32 }}>
         {meError && (
           <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
             {meError}

@@ -812,143 +812,152 @@ function ImportGroups() {
               {error}
             </p>
           )}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
-            <thead>
-              <tr style={{ background: 'var(--egn-sand)' }}>
-                <th style={cellStyle}>Group</th>
-                <th style={cellStyle}>Status</th>
-                <th style={cellStyle}>Chair</th>
-                <th style={cellStyle}>NA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {review.map((r, i) => (
-                <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={cellStyle}>{r.check.row.egnGroupName || r.check.row.egnGroupId}</td>
-                  <td style={cellStyle}>
-                    {r.check.status === 'unchanged' ? (
-                      'Unchanged — skipped'
-                    ) : r.check.status === 'changed' ? (
-                      <label>
-                        Changed —{' '}
-                        <select
-                          aria-label={`Action for ${r.check.row.egnGroupName || r.check.row.egnGroupId}`}
-                          value={r.action}
-                          onChange={(e) => updateReviewRow(i, { action: e.target.value as ReviewRow['action'] })}
-                          style={{ width: 'auto' }}
-                        >
-                          <option value="create">Create new record</option>
-                          <option value="overwrite">Overwrite existing (discards its review progress)</option>
-                        </select>
-                      </label>
-                    ) : (
-                      'New'
-                    )}
-                  </td>
-                  <td style={cellStyle}>
-                    <select
-                      aria-label={`Chair for ${r.check.row.egnGroupName || r.check.row.egnGroupId}`}
-                      value={r.chairEmail}
-                      onChange={(e) => updateReviewRow(i, { chairEmail: e.target.value })}
-                      disabled={r.check.status === 'unchanged'}
-                      style={{ width: 'auto' }}
-                    >
-                      <option value="">— unmatched —</option>
-                      {chairs.map((c) => (
-                        <option key={c.email} value={c.email}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={cellStyle}>
-                    <select
-                      aria-label={`Network Advisor for ${r.check.row.egnGroupName || r.check.row.egnGroupId}`}
-                      value={r.networkAdvisorEmail}
-                      onChange={(e) => updateReviewRow(i, { networkAdvisorEmail: e.target.value })}
-                      disabled={r.check.status === 'unchanged'}
-                      style={{ width: 'auto' }}
-                    >
-                      <option value="">— unmatched —</option>
-                      {advisors.map((a) => (
-                        <option key={a.email} value={a.email}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+          <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--egn-sand)' }}>
+                  <th style={cellStyle}>Group</th>
+                  <th style={cellStyle}>Status</th>
+                  <th style={cellStyle}>Chair</th>
+                  <th style={cellStyle}>NA</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {review.map((r, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={cellStyle}>{r.check.row.egnGroupName || r.check.row.egnGroupId}</td>
+                    <td style={cellStyle}>
+                      {r.check.status === 'unchanged' ? (
+                        'Unchanged — skipped'
+                      ) : r.check.status === 'changed' ? (
+                        <label>
+                          Changed —{' '}
+                          <select
+                            aria-label={`Action for ${r.check.row.egnGroupName || r.check.row.egnGroupId}`}
+                            value={r.action}
+                            onChange={(e) => updateReviewRow(i, { action: e.target.value as ReviewRow['action'] })}
+                            style={{ width: 'auto' }}
+                          >
+                            <option value="create">Create new record</option>
+                            <option value="overwrite">Overwrite existing (discards its review progress)</option>
+                          </select>
+                        </label>
+                      ) : (
+                        'New'
+                      )}
+                    </td>
+                    <td style={cellStyle}>
+                      <select
+                        aria-label={`Chair for ${r.check.row.egnGroupName || r.check.row.egnGroupId}`}
+                        value={r.chairEmail}
+                        onChange={(e) => updateReviewRow(i, { chairEmail: e.target.value })}
+                        disabled={r.check.status === 'unchanged'}
+                        style={{ width: 'auto' }}
+                      >
+                        <option value="">— unmatched —</option>
+                        {chairs.map((c) => (
+                          <option key={c.email} value={c.email}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={cellStyle}>
+                      <select
+                        aria-label={`Network Advisor for ${r.check.row.egnGroupName || r.check.row.egnGroupId}`}
+                        value={r.networkAdvisorEmail}
+                        onChange={(e) => updateReviewRow(i, { networkAdvisorEmail: e.target.value })}
+                        disabled={r.check.status === 'unchanged'}
+                        style={{ width: 'auto' }}
+                      >
+                        <option value="">— unmatched —</option>
+                        {advisors.map((a) => (
+                          <option key={a.email} value={a.email}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <button type="button" className="btn btn-primary" disabled={importing} onClick={() => void confirmImport()}>
             {importing ? 'Importing…' : 'Confirm import'}
           </button>
         </Modal>
       )}
 
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ background: 'var(--egn-sand)' }}>
-            <th style={cellStyle}>Group</th>
-            <th style={cellStyle}>Status</th>
-            <th style={cellStyle}>Country</th>
-            <th style={cellStyle}>Score</th>
-            <th style={cellStyle}>Updated</th>
-            <th style={cellStyle}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((g) => {
-            const chips = qualityChips(g)
-            const pill = STATUS_PILL[g.lifecycleStatus] ?? { label: g.lifecycleStatus, bg: 'var(--egn-sand)', color: 'var(--text-muted)' }
-            return (
-              <tr key={g.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={cellStyle}>
-                  <button type="button" className="btn" style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }} onClick={() => openGroup(g.id)}>
-                    {g.name}
-                  </button>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.mmsGroupCode || '—'}</div>
-                </td>
-                <td style={cellStyle}>
-                  <span className="badge" style={{ background: pill.bg, color: pill.color }}>
-                    {pill.label}
-                  </span>
-                  {chips.length > 0 && (
-                    <span
-                      title={chips.join(', ')}
-                      style={{
-                        display: 'inline-block',
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: 'var(--status-warning)',
-                        marginLeft: 6,
-                        verticalAlign: 'middle',
-                      }}
-                    />
-                  )}
-                  {actionError[g.id] && (
-                    <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 4, fontSize: 12 }}>
-                      {actionError[g.id]}
-                    </p>
-                  )}
-                </td>
-                <td style={cellStyle}>{g.country || '—'}</td>
-                <td style={cellStyle}>{g.latestDnaVersionScore !== null ? `${g.latestDnaVersionScore}/5` : '—'}</td>
-                <td style={cellStyle}>
-                  {/* Pinned to en-GB, not the browser's default locale — this UI's chrome is
-                      all English, and day-first with an English month name ("12 May 2026")
-                      is what was agreed on, not whatever a US-locale browser would show
-                      ("May 12, 2026") or Danish month names mixed into English chrome. */}
-                  {new Date(g.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </td>
-                <td style={cellStyle}>{actionButtons(g, true)}</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: 'var(--egn-sand)' }}>
+              <th style={cellStyle}>Group</th>
+              <th style={cellStyle}>Status</th>
+              <th style={cellStyle}>Country</th>
+              <th style={cellStyle}>Score</th>
+              <th style={cellStyle}>Updated</th>
+              <th style={cellStyle}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) => {
+              const chips = qualityChips(g)
+              const pill = STATUS_PILL[g.lifecycleStatus] ?? { label: g.lifecycleStatus, bg: 'var(--egn-sand)', color: 'var(--text-muted)' }
+              return (
+                <tr key={g.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={cellStyle}>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }}
+                      onClick={() => openGroup(g.id)}
+                    >
+                      {g.name}
+                    </button>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.mmsGroupCode || '—'}</div>
+                  </td>
+                  <td style={cellStyle}>
+                    <span className="badge" style={{ background: pill.bg, color: pill.color }}>
+                      {pill.label}
+                    </span>
+                    {chips.length > 0 && (
+                      <span
+                        title={chips.join(', ')}
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: 'var(--status-warning)',
+                          marginLeft: 6,
+                          verticalAlign: 'middle',
+                        }}
+                      />
+                    )}
+                    {actionError[g.id] && (
+                      <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 4, fontSize: 12 }}>
+                        {actionError[g.id]}
+                      </p>
+                    )}
+                  </td>
+                  <td style={cellStyle}>{g.country || '—'}</td>
+                  <td style={cellStyle}>{g.latestDnaVersionScore !== null ? `${g.latestDnaVersionScore}/5` : '—'}</td>
+                  <td style={cellStyle}>
+                    {/* Pinned to en-GB, not the browser's default locale — this UI's chrome is
+                        all English, and day-first with an English month name ("12 May 2026")
+                        is what was agreed on, not whatever a US-locale browser would show
+                        ("May 12, 2026") or Danish month names mixed into English chrome. */}
+                    {new Date(g.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td style={cellStyle}>{actionButtons(g, true)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }

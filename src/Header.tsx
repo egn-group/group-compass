@@ -18,7 +18,10 @@ function Header({ email, name, initials, isAdmin, onOpenViewAs }: HeaderProps) {
 
   return (
     <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 68 }}>
+      <div
+        className="page-container"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 8, paddingTop: 10, paddingBottom: 10, minHeight: 68 }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div
             style={{

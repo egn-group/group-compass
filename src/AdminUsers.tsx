@@ -351,26 +351,28 @@ function AdminUsers() {
           )}
           {csvRows.length > 0 && (
             <div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
-                <thead>
-                  <tr style={{ background: 'var(--egn-sand)' }}>
-                    <th style={cellStyle}>Email</th>
-                    <th style={cellStyle}>Name</th>
-                    <th style={cellStyle}>Initials</th>
-                    <th style={cellStyle}>Roles</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {csvRows.map((r) => (
-                    <tr key={r.email} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={cellStyle}>{r.email}</td>
-                      <td style={cellStyle}>{r.name}</td>
-                      <td style={cellStyle}>{r.initials}</td>
-                      <td style={cellStyle}>{r.roles.join(', ')}</td>
+              <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--egn-sand)' }}>
+                      <th style={cellStyle}>Email</th>
+                      <th style={cellStyle}>Name</th>
+                      <th style={cellStyle}>Initials</th>
+                      <th style={cellStyle}>Roles</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {csvRows.map((r) => (
+                      <tr key={r.email} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={cellStyle}>{r.email}</td>
+                        <td style={cellStyle}>{r.name}</td>
+                        <td style={cellStyle}>{r.initials}</td>
+                        <td style={cellStyle}>{r.roles.join(', ')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <button type="button" className="btn btn-primary" disabled={importing} onClick={() => void confirmUsersImport()}>
                 {importing ? 'Importing…' : `Confirm import (${csvRows.length})`}
               </button>
@@ -379,32 +381,34 @@ function AdminUsers() {
         </Modal>
       )}
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 32 }}>
-        <thead>
-          <tr style={{ background: 'var(--egn-sand)' }}>
-            <th style={cellStyle}>Email</th>
-            <th style={cellStyle}>Name</th>
-            <th style={cellStyle}>Initials</th>
-            <th style={cellStyle}>Roles</th>
-            <th style={cellStyle}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.email} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={cellStyle}>{u.email}</td>
-              <td style={cellStyle}>{u.name}</td>
-              <td style={cellStyle}>{u.initials}</td>
-              <td style={cellStyle}>{u.roles.join(', ')}</td>
-              <td style={cellStyle}>
-                <button type="button" className="btn btn-secondary" onClick={() => editUser(u)}>
-                  Edit
-                </button>
-              </td>
+      <div style={{ overflowX: 'auto', marginBottom: 32 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: 'var(--egn-sand)' }}>
+              <th style={cellStyle}>Email</th>
+              <th style={cellStyle}>Name</th>
+              <th style={cellStyle}>Initials</th>
+              <th style={cellStyle}>Roles</th>
+              <th style={cellStyle}></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.email} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={cellStyle}>{u.email}</td>
+                <td style={cellStyle}>{u.name}</td>
+                <td style={cellStyle}>{u.initials}</td>
+                <td style={cellStyle}>{u.roles.join(', ')}</td>
+                <td style={cellStyle}>
+                  <button type="button" className="btn btn-secondary" onClick={() => editUser(u)}>
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }
