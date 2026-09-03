@@ -4,6 +4,23 @@ import Modal from './Modal'
 import type { GroupDetail, GroupDto, ImportCheckResult, RawImportRow } from '../shared/schemas/group'
 import type { UserDto } from '../shared/schemas/user'
 
+// Colored by urgency, not by value: amber means "waiting on you" (Admin),
+// blue means "waiting on someone else" (NA/Chair), green means done, gray
+// means no action pending either way. Mirrors the prototype's own
+// status-pill pattern (prototypes/group-dna-live-prototype/public/
+// chair-groups-live.html), re-pointed at brand tokens instead of its
+// bespoke hex values.
+const STATUS_PILL: Record<string, { label: string; bg: string; color: string }> = {
+  Imported: { label: 'Imported', bg: 'var(--egn-sand)', color: 'var(--text-muted)' },
+  DraftGenerated: { label: 'Draft generated', bg: '#fffbeb', color: 'var(--status-warning)' },
+  Launched: { label: 'Launched', bg: 'var(--egn-light-blue)', color: 'var(--status-info)' },
+  ChairReview: { label: 'Chair review', bg: 'var(--egn-light-blue)', color: 'var(--status-info)' },
+  Approved: { label: 'Approved', bg: '#ecfdf5', color: 'var(--status-success)' },
+  Closed: { label: 'Closed', bg: 'var(--egn-sand)', color: 'var(--text-muted)' },
+}
+
+const smallBtnStyle = { padding: '6px 12px', fontSize: 13 }
+
 const REQUIRED_COLS = [
   'EGN Group Name',
   'EGN Group Id',
@@ -460,29 +477,26 @@ function ImportGroups() {
     }
   }
 
-  // The score has its own column — this just says whether there's a
-  // generated draft still waiting to be pushed live via Launch.
-  function dnaStatus(g: Pick<GroupDto, 'latestDnaVersionId' | 'hasPendingAiDraft'>) {
-    if (!g.latestDnaVersionId) return 'No DNA version yet'
-    return g.hasPendingAiDraft ? 'Draft ready to launch' : 'No pending draft'
-  }
-
-  function actionButtons(g: Pick<GroupDto, 'id' | 'latestDnaVersionId' | 'hasPendingAiDraft'>) {
+  // Compact on the list (space-constrained row, 3 buttons on one line) —
+  // full-size in the detail view, which has room to spare.
+  function actionButtons(g: Pick<GroupDto, 'id' | 'latestDnaVersionId' | 'hasPendingAiDraft'>, small = false) {
     const busy = actionBusy[g.id]
+    const btnStyle = small ? smallBtnStyle : undefined
     return (
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="btn" disabled={!!busy} onClick={() => void generateDna(g.id)}>
+        <button type="button" className="btn" style={btnStyle} disabled={!!busy} onClick={() => void generateDna(g.id)}>
           {busy === 'generate' ? 'Generating…' : g.latestDnaVersionId ? 'Regenerate' : 'Generate'}
         </button>
         <button
           type="button"
           className="btn"
+          style={btnStyle}
           disabled={!!busy || !g.latestDnaVersionId}
           onClick={() => g.latestDnaVersionId && void scoreLatest(g.id, g.latestDnaVersionId)}
         >
           {busy === 'score' ? 'Scoring…' : 'Score'}
         </button>
-        <button type="button" className="btn btn-primary" disabled={!!busy || !g.hasPendingAiDraft} onClick={() => void launch(g.id)}>
+        <button type="button" className="btn btn-primary" style={btnStyle} disabled={!!busy || !g.hasPendingAiDraft} onClick={() => void launch(g.id)}>
           {busy === 'launch' ? 'Launching…' : 'Launch'}
         </button>
       </div>
@@ -557,7 +571,7 @@ function ImportGroups() {
     <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
       <h2 style={{ marginBottom: 16 }}>Groups</h2>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
         <button type="button" className={openPanel === 'csv' ? 'btn btn-primary' : 'btn'} onClick={toggleCsvPanel}>
           Import CSV
         </button>
@@ -769,57 +783,64 @@ function ImportGroups() {
         </Modal>
       )}
 
-      <h3 style={{ marginBottom: 12 }}>Imported groups ({groups.length})</h3>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: 'var(--egn-sand)' }}>
             <th style={cellStyle}>Group</th>
-            <th style={cellStyle}>Group Id</th>
-            <th style={cellStyle}>Country</th>
             <th style={cellStyle}>Status</th>
-            <th style={cellStyle}>Quality</th>
-            <th style={cellStyle}>DNA</th>
+            <th style={cellStyle}>Country</th>
             <th style={cellStyle}>Score</th>
+            <th style={cellStyle}>Updated</th>
             <th style={cellStyle}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {groups.map((g) => {
             const chips = qualityChips(g)
+            const pill = STATUS_PILL[g.lifecycleStatus] ?? { label: g.lifecycleStatus, bg: 'var(--egn-sand)', color: 'var(--text-muted)' }
             return (
-            <tr key={g.id} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={cellStyle}>
-                <button type="button" className="btn" style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }} onClick={() => openGroup(g.id)}>
-                  {g.name}
-                </button>
-              </td>
-              <td style={cellStyle}>{g.egnGroupId}</td>
-              <td style={cellStyle}>{g.country || '—'}</td>
-              <td style={cellStyle}>{g.lifecycleStatus}</td>
-              <td style={cellStyle}>
-                {chips.length === 0 ? (
-                  <span className="badge" style={{ background: '#ecfdf5', color: 'var(--status-success)' }}>
-                    OK
+              <tr key={g.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={cellStyle}>
+                  <button type="button" className="btn" style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }} onClick={() => openGroup(g.id)}>
+                    {g.name}
+                  </button>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.mmsGroupCode || '—'}</div>
+                </td>
+                <td style={cellStyle}>
+                  <span className="badge" style={{ background: pill.bg, color: pill.color }}>
+                    {pill.label}
                   </span>
-                ) : (
-                  chips.map((chip) => (
-                    <span key={chip} className="badge" style={{ background: '#fef2f2', color: 'var(--status-danger)', marginRight: 4 }}>
-                      {chip}
-                    </span>
-                  ))
-                )}
-              </td>
-              <td style={cellStyle}>
-                {dnaStatus(g)}
-                {actionError[g.id] && (
-                  <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 4, fontSize: 12 }}>
-                    {actionError[g.id]}
-                  </p>
-                )}
-              </td>
-              <td style={cellStyle}>{g.latestDnaVersionScore !== null ? `${g.latestDnaVersionScore}/5` : '—'}</td>
-              <td style={cellStyle}>{actionButtons(g)}</td>
-            </tr>
+                  {chips.length > 0 && (
+                    <span
+                      title={chips.join(', ')}
+                      style={{
+                        display: 'inline-block',
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: 'var(--status-warning)',
+                        marginLeft: 6,
+                        verticalAlign: 'middle',
+                      }}
+                    />
+                  )}
+                  {actionError[g.id] && (
+                    <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 4, fontSize: 12 }}>
+                      {actionError[g.id]}
+                    </p>
+                  )}
+                </td>
+                <td style={cellStyle}>{g.country || '—'}</td>
+                <td style={cellStyle}>{g.latestDnaVersionScore !== null ? `${g.latestDnaVersionScore}/5` : '—'}</td>
+                <td style={cellStyle}>
+                  {/* Pinned to en-GB, not the browser's default locale — this UI's chrome is
+                      all English, and day-first with an English month name ("12 May 2026")
+                      is what was agreed on, not whatever a US-locale browser would show
+                      ("May 12, 2026") or Danish month names mixed into English chrome. */}
+                  {new Date(g.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </td>
+                <td style={cellStyle}>{actionButtons(g, true)}</td>
+              </tr>
             )
           })}
         </tbody>

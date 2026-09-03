@@ -52,6 +52,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
         lifecycleStatus: g.lifecycleStatus,
         noSourceDna: g.noSourceDna,
         emptySectionCount: emptySectionCount(g),
+        updatedAt: g.updatedAt.toISOString(),
         latestDnaVersionId: latest?.id ?? null,
         latestDnaVersionScore: latest?.score ?? null,
         hasPendingAiDraft: latest?.author === 'Ai',

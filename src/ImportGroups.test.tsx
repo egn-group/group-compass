@@ -17,6 +17,7 @@ const group = {
   lifecycleStatus: 'Imported',
   noSourceDna: false,
   emptySectionCount: 1,
+  updatedAt: '2026-05-12T10:00:00.000Z',
   latestDnaVersionId: null,
   latestDnaVersionScore: null,
   hasPendingAiDraft: false,
@@ -99,16 +100,17 @@ describe('ImportGroups', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders imported groups with quality chips', async () => {
+  it('renders the group with its status pill, quality warning, code subtitle, and updated date', async () => {
     vi.stubGlobal('fetch', mockFetch({ getGroups: [group] }))
     render(<ImportGroups />)
 
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
-    expect(screen.getByText('1 empty section(s)')).toBeInTheDocument()
-    expect(screen.getByText('no Chair')).toBeInTheDocument()
-    expect(screen.getByText('no NA')).toBeInTheDocument()
+    expect(screen.getByText('Imported')).toBeInTheDocument()
+    expect(screen.getByText('02092-EGDK')).toBeInTheDocument()
+    expect(screen.getByText('12 May 2026')).toBeInTheDocument()
+    expect(screen.getByTitle('1 empty section(s), no Chair, no NA')).toBeInTheDocument()
   })
 
   it('shows the groups list by default, with Import CSV / Add group hidden behind buttons', async () => {
@@ -262,7 +264,6 @@ describe('ImportGroups', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
-    expect(screen.getByText('No DNA version yet')).toBeInTheDocument()
     expect(screen.getByText('—')).toBeInTheDocument()
     const scoreButtons = screen.getAllByRole('button', { name: 'Score' })
     const launchButtons = screen.getAllByRole('button', { name: 'Launch' })
@@ -299,7 +300,6 @@ describe('ImportGroups', () => {
       )
     })
     await waitFor(() => {
-      expect(screen.getByText('Draft ready to launch')).toBeInTheDocument()
       expect(screen.getByText('4/5')).toBeInTheDocument()
     })
   })
