@@ -121,7 +121,7 @@ function App() {
         ) : (
           <>
             {sections.length > 0 && (
-              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
+              <div style={{ display: 'flex', gap: 28, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
                 {sections.map((s) => (
                   <button
                     key={s.key}
