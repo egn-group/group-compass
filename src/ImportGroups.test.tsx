@@ -404,15 +404,54 @@ describe('ImportGroups', () => {
     fireEvent.click(screen.getByText('Test Group'))
 
     await waitFor(() => {
-      expect(screen.getByText('Latest DNA version (v2, Ai)')).toBeInTheDocument()
+      expect(screen.getByText('v2, Ai')).toBeInTheDocument()
     })
     expect(screen.getByText('draft group profile')).toBeInTheDocument()
-    expect(screen.getByText('Score 4/5')).toBeInTheDocument()
+    expect(screen.getByText('4/5')).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('← Back to groups'))
     await waitFor(() => {
       expect(screen.getByText('Groups')).toBeInTheDocument()
     })
+  })
+
+  it('renders the left-rail metadata and splits a templated profile into labelled fields', async () => {
+    const templatedDetail = {
+      ...groupDetail,
+      chairEmail: chair.email,
+      networkAdvisorEmail: advisor.email,
+      latestDnaVersion: {
+        ...groupDetail.latestDnaVersion,
+        content: {
+          groupProfile: 'GRUPPEPROFIL\n**Hvem er gruppen for**\nLedere med ansvar.\n\n**Udviklingsfokus**\n(ikke eksplicit defineret)',
+          memberProfile: 'draft member profile',
+          companiesProfile: 'draft companies profile',
+        },
+      },
+    }
+    vi.stubGlobal('fetch', mockFetch({ getGroups: [group], getUsers: [chair, advisor], getGroup: templatedDetail }))
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Hvem er gruppen for')).toBeInTheDocument()
+    })
+    // The section header line ("GRUPPEPROFIL") is dropped — only the two labelled fields render.
+    expect(screen.queryByText('GRUPPEPROFIL', { exact: false })).not.toBeInTheDocument()
+    expect(screen.getByText('Ledere med ansvar.')).toBeInTheDocument()
+    expect(screen.getByText('Udviklingsfokus')).toBeInTheDocument()
+    expect(screen.getByText('(ikke eksplicit defineret)')).toBeInTheDocument()
+
+    // Left rail: identity, status, IDs, Chair/NA.
+    expect(screen.getByText('Draft generated')).toBeInTheDocument()
+    expect(screen.getByText('38494')).toBeInTheDocument()
+    expect(screen.getByText('02092-EGDK')).toBeInTheDocument()
+    expect(screen.getByText(chair.name)).toBeInTheDocument()
+    expect(screen.getByText(advisor.name)).toBeInTheDocument()
   })
 
   it('pre-fills the Chair/NA assignment selects from the group detail, offering every Chair/NA as options', async () => {

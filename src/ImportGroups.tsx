@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { apiGet } from './lib/api'
 import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
+import { parseDnaFields } from './lib/dnaFields'
 import Modal from './Modal'
 import type { GroupDetail, GroupDto, ImportCheckResult, RawImportRow } from '../shared/schemas/group'
 import type { UserDto } from '../shared/schemas/user'
@@ -22,6 +23,10 @@ const STATUS_PILL: Record<string, { label: string; bg: string; color: string }> 
 }
 
 const smallBtnStyle = { padding: '6px 12px', fontSize: 13 }
+// The detail view's Launch/Regenerate/Score row: three equal-width buttons
+// in a grid, smaller than .btn's default (10px 20px / 16px / 600).
+const detailActionBtnStyle = { padding: '12px 0', fontSize: 14, fontWeight: 500 }
+const UNSET_DNA_VALUE = '(ikke eksplicit defineret)'
 
 const REQUIRED_COLS = [
   'EGN Group Name',
@@ -541,11 +546,16 @@ function ImportGroups() {
   if (selectedGroupId) {
     const latest = detail?.latestDnaVersion ?? null
     const pill = detail ? (STATUS_PILL[detail.lifecycleStatus] ?? { label: detail.lifecycleStatus, bg: 'var(--egn-sand)', color: 'var(--text-muted)' }) : null
+    const chairName = detail ? (chairs.find((c) => c.email === detail.chairEmail)?.name ?? detail.chairEmail) : null
+    const naName = detail ? (advisors.find((a) => a.email === detail.networkAdvisorEmail)?.name ?? detail.networkAdvisorEmail) : null
+    const busy = detail ? actionBusy[detail.id] : undefined
     return (
-      <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
-        <button type="button" className="btn" style={{ marginBottom: 16 }} onClick={backToList}>
-          ← Back to groups
-        </button>
+      <>
+        <div style={{ marginBottom: 16 }}>
+          <button type="button" className="linkText" style={{ textDecoration: 'none' }} onClick={backToList}>
+            ← Back to groups
+          </button>
+        </div>
         {detailError && (
           <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
             {detailError}
@@ -553,126 +563,211 @@ function ImportGroups() {
         )}
         {!detail && !detailError && <p>Loading…</p>}
         {detail && pill && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-              <h2 style={{ margin: 0 }}>{detail.name}</h2>
-              <span className="badge" style={{ background: pill.bg, color: pill.color, flexShrink: 0 }}>
-                {pill.label}
-              </span>
-            </div>
-            <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
-              EGN Group ID: {detail.egnGroupId} · MMS ID: {detail.mmsGroupCode || '—'}
-            </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '360px minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="card" style={{ padding: '22px 22px 24px' }}>
+                <h3 style={{ fontSize: 23 }}>{detail.name}</h3>
+                <div style={{ marginTop: 10 }}>
+                  <span className="badge" style={{ background: pill.bg, color: pill.color }}>
+                    {pill.label}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+                  <div className="metaRow">
+                    <span className="metaLabel">EGN Group ID</span>
+                    <span className="metaValue">{detail.egnGroupId}</span>
+                  </div>
+                  <div className="metaRow">
+                    <span className="metaLabel">MMS ID</span>
+                    <span className="metaValue">{detail.mmsGroupCode || '—'}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+                  <div className="metaRow">
+                    <span className="metaLabel">Chair</span>
+                    <span className="metaValue">{chairName ?? '— unassigned —'}</span>
+                  </div>
+                  <div className="metaRow">
+                    <span className="metaLabel">Network Advisor</span>
+                    <span style={{ textAlign: 'right' }}>
+                      <span className="metaValue">{naName ?? '— unassigned —'}</span>
+                      <br />
+                      <button type="button" className="linkText" style={{ fontSize: 13 }} onClick={() => setShowReassign(true)}>
+                        Reassign
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-            <p style={{ marginBottom: 24, display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
-              <span>
-                Chair: <strong>{chairs.find((c) => c.email === detail.chairEmail)?.name ?? detail.chairEmail ?? '— unassigned —'}</strong>
-                {' · '}
-                Network Advisor:{' '}
-                <strong>{advisors.find((a) => a.email === detail.networkAdvisorEmail)?.name ?? detail.networkAdvisorEmail ?? '— unassigned —'}</strong>
-              </span>
+              <div className="card" style={{ padding: 22 }}>
+                <div className="metaLabel" style={{ marginBottom: 12 }}>
+                  Latest DNA version.
+                </div>
+                {latest ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <div style={{ fontFamily: "'Miguer Sans', sans-serif", fontWeight: 600, fontSize: 22, color: 'var(--egn-navy)' }}>
+                        v{latest.versionNumber}, {latest.author ?? 'Imported'}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+                        {new Date(latest.createdAt).toLocaleString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    </div>
+                    {latest.score !== null ? (
+                      <span className="scorePill">{latest.score}/5</span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Not yet scored</span>
+                    )}
+                  </div>
+                ) : (
+                  <p style={{ color: 'var(--text-muted)' }}>No DNA version yet</p>
+                )}
+                {actionError[detail.id] && (
+                  <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 12 }}>
+                    {actionError[detail.id]}
+                  </p>
+                )}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: 8,
+                    marginTop: 18,
+                    paddingTop: 18,
+                    borderTop: '1px solid var(--border)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={detailActionBtnStyle}
+                    disabled={!!busy || latest?.author !== 'Ai'}
+                    onClick={() => void launch(detail.id)}
+                  >
+                    {busy === 'launch' ? 'Launching…' : 'Launch'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={detailActionBtnStyle}
+                    disabled={!!busy}
+                    onClick={() => void generateDna(detail.id)}
+                  >
+                    {busy === 'generate' ? 'Generating…' : latest ? 'Regenerate' : 'Generate'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={detailActionBtnStyle}
+                    disabled={!!busy || !latest}
+                    onClick={() => latest && void scoreLatest(detail.id, latest.id)}
+                  >
+                    {busy === 'score' ? 'Scoring…' : 'Score'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {(
+                [
+                  ['groupProfile', 'Group Profile.'],
+                  ['memberProfile', 'Member Profile.'],
+                  ['companiesProfile', 'Companies Profile.'],
+                ] as const
+              ).map(([key, label]) => {
+                const text = (latest ? latest.content[key] : detail[key]) || ''
+                const fields = parseDnaFields(text)
+                return (
+                  <div key={key} className="card" style={{ padding: '26px 30px' }}>
+                    <h4 style={{ fontSize: 19, marginBottom: 16 }}>{label}</h4>
+                    {fields.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {fields.map((f) => (
+                          <div key={f.label}>
+                            <div style={{ fontWeight: 500, color: 'var(--text-muted)', marginBottom: 3, fontSize: 15 }}>{f.label}</div>
+                            <p
+                              style={{
+                                fontSize: 15,
+                                lineHeight: 1.6,
+                                whiteSpace: 'pre-wrap',
+                                color: f.value === UNSET_DNA_VALUE ? 'var(--text-muted)' : 'var(--egn-navy)',
+                              }}
+                            >
+                              {f.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 15, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: text ? 'var(--egn-navy)' : 'var(--text-muted)' }}>
+                        {text || '(indhold ikke leveret — placeholder)'}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {showReassign && (
+          <Modal title="Reassign Chair / Network Advisor" onClose={() => setShowReassign(false)}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 8 }}>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label className="lbl" htmlFor="assign-chair">
+                  Chair
+                </label>
+                <select id="assign-chair" value={assignChairEmail} onChange={(e) => setAssignChairEmail(e.target.value)} style={{ width: 'auto' }}>
+                  <option value="">— unassigned —</option>
+                  {chairs.map((c) => (
+                    <option key={c.email} value={c.email}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label className="lbl" htmlFor="assign-na">
+                  Network Advisor
+                </label>
+                <select id="assign-na" value={assignNaEmail} onChange={(e) => setAssignNaEmail(e.target.value)} style={{ width: 'auto' }}>
+                  <option value="">— unassigned —</option>
+                  {advisors.map((a) => (
+                    <option key={a.email} value={a.email}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button
                 type="button"
                 className="btn"
-                style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline', color: 'var(--status-info)' }}
-                onClick={() => setShowReassign(true)}
+                disabled={assignSaving}
+                onClick={() =>
+                  void saveAssignment().then((ok) => {
+                    if (ok) setShowReassign(false)
+                  })
+                }
               >
-                Reassign
+                {assignSaving ? 'Saving…' : 'Save assignment'}
               </button>
-            </p>
-            {showReassign && (
-              <Modal title="Reassign Chair / Network Advisor" onClose={() => setShowReassign(false)}>
-                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 8 }}>
-                  <div className="field" style={{ marginBottom: 0 }}>
-                    <label className="lbl" htmlFor="assign-chair">
-                      Chair
-                    </label>
-                    <select id="assign-chair" value={assignChairEmail} onChange={(e) => setAssignChairEmail(e.target.value)} style={{ width: 'auto' }}>
-                      <option value="">— unassigned —</option>
-                      {chairs.map((c) => (
-                        <option key={c.email} value={c.email}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="field" style={{ marginBottom: 0 }}>
-                    <label className="lbl" htmlFor="assign-na">
-                      Network Advisor
-                    </label>
-                    <select id="assign-na" value={assignNaEmail} onChange={(e) => setAssignNaEmail(e.target.value)} style={{ width: 'auto' }}>
-                      <option value="">— unassigned —</option>
-                      {advisors.map((a) => (
-                        <option key={a.email} value={a.email}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={assignSaving}
-                    onClick={() =>
-                      void saveAssignment().then((ok) => {
-                        if (ok) setShowReassign(false)
-                      })
-                    }
-                  >
-                    {assignSaving ? 'Saving…' : 'Save assignment'}
-                  </button>
-                </div>
-                {assignError && (
-                  <p role="alert" style={{ color: 'var(--status-danger)' }}>
-                    {assignError}
-                  </p>
-                )}
-              </Modal>
-            )}
-
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24 }}>
-              {actionError[detail.id] && (
-                <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
-                  {actionError[detail.id]}
-                </p>
-              )}
-              <h3 style={{ marginBottom: 8 }}>
-                {latest ? `Latest DNA version (v${latest.versionNumber}, ${latest.author ?? 'Imported'})` : 'No DNA version yet'}
-              </h3>
-              {latest && (
-                <>
-                  <p style={{ marginBottom: 4 }}>
-                    {latest.score !== null ? (
-                      <span style={{ fontWeight: 700, fontSize: 20, color: 'var(--egn-navy)' }}>Score {latest.score}/5</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>Not yet scored</span>
-                    )}
-                  </p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 16 }}>
-                    {new Date(latest.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </>
-              )}
-              <div style={{ marginBottom: 24 }}>
-                {actionButtons({ id: detail.id, latestDnaVersionId: latest?.id ?? null, hasPendingAiDraft: latest?.author === 'Ai' })}
-              </div>
-
-              {(
-                [
-                  ['groupProfile', 'Group Profile'],
-                  ['memberProfile', 'Member Profile'],
-                  ['companiesProfile', 'Companies Profile'],
-                ] as const
-              ).map(([key, label]) => (
-                <div key={key} className="card" style={{ padding: 16, marginBottom: 16 }}>
-                  <h4 style={{ marginBottom: 8 }}>{label}</h4>
-                  <p style={{ whiteSpace: 'pre-wrap' }}>{(latest ? latest.content[key] : detail[key]) || '—'}</p>
-                </div>
-              ))}
             </div>
-          </>
+            {assignError && (
+              <p role="alert" style={{ color: 'var(--status-danger)' }}>
+                {assignError}
+              </p>
+            )}
+          </Modal>
         )}
-      </section>
+      </>
     )
   }
 
