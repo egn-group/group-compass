@@ -60,6 +60,23 @@ const COL_TO_FIELD: Record<(typeof REQUIRED_COLS)[number], keyof RawImportRow> =
   'Responsible Sales Email': 'responsibleSalesEmail',
 }
 
+// Shown under each manual-add field so an Admin typing in real Salesforce
+// values (not just testing) has a concrete shape to match — sourced from
+// prototypes/DK-Groups-export-UTF8-sample.csv where that group exists.
+const FIELD_EXAMPLES: Record<keyof RawImportRow, string> = {
+  egnGroupName: 'e.g. Digital Strategy & Change Management - DK 1 (02092-EGDK)',
+  egnGroupId: 'e.g. 38494',
+  mmsGroupCode: 'e.g. 02092-EGDK',
+  partnerCode: 'e.g. EGDK',
+  groupProfile: 'e.g. Who the group is for and what it focuses on.',
+  memberProfile: 'e.g. Who typically attends: roles, seniority, company size.',
+  companiesProfile: 'e.g. The kinds of companies represented in the group.',
+  responsibleChairName: 'e.g. Chair Person',
+  responsibleChairEmail: 'e.g. chair.person@egn.com',
+  responsibleSalesName: 'e.g. NA Person',
+  responsibleSalesEmail: 'e.g. na.person@egn.com',
+}
+
 function emptyManualForm(): RawImportRow {
   return {
     egnGroupName: '',
@@ -706,6 +723,7 @@ function ImportGroups() {
                   value={manualForm[key]}
                   onChange={(e) => setManualForm((f) => ({ ...f, [key]: e.target.value }))}
                 />
+                <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>{FIELD_EXAMPLES[key]}</p>
               </div>
             ))}
             {(
@@ -724,6 +742,7 @@ function ImportGroups() {
                   value={manualForm[key]}
                   onChange={(e) => setManualForm((f) => ({ ...f, [key]: e.target.value }))}
                 />
+                <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>{FIELD_EXAMPLES[key]}</p>
               </div>
             ))}
             <button type="submit" className="btn btn-primary" disabled={checking}>
