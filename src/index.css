@@ -178,6 +178,27 @@ input::placeholder, textarea::placeholder {
 .btn-success:hover { filter: brightness(0.9); }
 .btn-success:active { transform: scale(0.98); }
 
+/* Section tabs (e.g. Admin's Groups/Users switcher) — visually distinct
+   from action buttons: an underline indicator, not a filled/bordered pill. */
+.tabBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard);
+}
+.tabBtn.on {
+  color: var(--egn-navy);
+  border-bottom-color: var(--egn-navy);
+}
+.tabBtn:hover:not(.on) {
+  color: var(--text-main);
+}
+
 /* Field Labels */
 .lbl {
   font-size: 16px;

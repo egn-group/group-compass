@@ -121,12 +121,12 @@ function App() {
         ) : (
           <>
             {sections.length > 0 && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
                 {sections.map((s) => (
                   <button
                     key={s.key}
                     type="button"
-                    className={s.key === activeSection?.key ? 'btn btn-primary' : 'btn btn-secondary'}
+                    className={`tabBtn ${s.key === activeSection?.key ? 'on' : ''}`}
                     onClick={() => setActiveKey(s.key)}
                   >
                     {s.label}
