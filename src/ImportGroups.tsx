@@ -24,8 +24,10 @@ const STATUS_PILL: Record<string, { label: string; bg: string; color: string }> 
 
 const smallBtnStyle = { padding: '6px 12px', fontSize: 13 }
 // The detail view's Launch/Regenerate/Score row: three equal-width buttons
-// in a grid, smaller than .btn's default (10px 20px / 16px / 600).
-const detailActionBtnStyle = { padding: '12px 0', fontSize: 14, fontWeight: 500 }
+// in a grid, smaller than .btn's default (10px 20px / 16px). Weight stays
+// at .btn's own 600 (not overridden here) — futura-pt's Adobe Fonts kit has
+// no 500 face, so an explicit 500 here would silently render lighter.
+const detailActionBtnStyle = { padding: '12px 0', fontSize: 14 }
 const UNSET_DNA_VALUE = '(ikke eksplicit defineret)'
 
 const REQUIRED_COLS = [
@@ -692,7 +694,8 @@ function ImportGroups() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {fields.map((f) => (
                           <div key={f.label}>
-                            <div style={{ fontWeight: 500, color: 'var(--text-muted)', marginBottom: 3, fontSize: 15 }}>{f.label}</div>
+                            {/* 600, not 500 — see index.css's .tabBtn comment: futura-pt's Adobe Fonts kit has no 500 face. */}
+                            <div style={{ fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3, fontSize: 15 }}>{f.label}</div>
                             <p
                               style={{
                                 fontSize: 15,

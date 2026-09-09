@@ -22,20 +22,6 @@
   font-style: normal;
   font-display: swap;
 }
-/* Registered at both 500 and 600: the file itself is EGN's one "Demi"
-   weight, but callers request either number (600: .btn, .lbl, predates
-   this pair; 500: .badge, .tabBtn, .metaLabel/.metaValue, .linkText, DNA
-   field labels — the design manual's own Futura PT Demi weight). Without
-   an exact 500 face, a weight-500 request has nothing to match when the
-   Typekit stylesheet fails to load and silently falls back to the 400
-   Book file — the missing boldness this fixes. */
-@font-face {
-  font-family: 'Futura PT';
-  src: url('./fonts/FuturaCyrillicDemi.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
 @font-face {
   font-family: 'Futura PT';
   src: url('./fonts/FuturaCyrillicDemi.woff2') format('woff2');
@@ -200,7 +186,14 @@ input::placeholder, textarea::placeholder {
   cursor: pointer;
   padding: 0 2px 10px;
   font-size: 15px;
-  font-weight: 500;
+  /* 600, not the design manual's nominal 500 — EGN's actual Adobe Fonts
+     kit for 'futura-pt' only ships weights 400 and 600 (confirmed from
+     the kit's own served CSS), no 500 face at all. A weight:500 request
+     doesn't fall back to another family (futura-pt itself loaded fine) —
+     it does in-family matching and resolves to the lighter 400, silently
+     losing the intended emphasis. Every "Demi" weight in this stylesheet
+     must ask for 600 for that reason. */
+  font-weight: 600;
   color: var(--text-muted);
   border-bottom: 3px solid transparent;
   transition: color 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard), opacity 0.2s var(--ease-standard);
@@ -252,7 +245,7 @@ input::placeholder, textarea::placeholder {
   align-items: center;
   gap: 5px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600; /* see .tabBtn's comment — futura-pt has no 500 face */
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 5px 13px;
@@ -283,7 +276,7 @@ input::placeholder, textarea::placeholder {
 }
 .metaLabel {
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600; /* see .tabBtn's comment — futura-pt has no 500 face */
   letter-spacing: 0.11em;
   text-transform: uppercase;
   /* Full navy, not --text-muted — at 10px an alpha-muted label falls under
@@ -292,7 +285,7 @@ input::placeholder, textarea::placeholder {
 }
 .metaValue {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600; /* see .tabBtn's comment — futura-pt has no 500 face */
   color: var(--egn-navy);
 }
 
@@ -304,7 +297,7 @@ input::placeholder, textarea::placeholder {
   padding: 0;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600; /* see .tabBtn's comment — futura-pt has no 500 face */
   color: var(--egn-navy);
   text-decoration: underline;
   transition: opacity 0.2s var(--ease-standard);
