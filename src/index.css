@@ -121,6 +121,16 @@ input, textarea, select {
   transition: border-color 0.2s var(--ease-standard);
 }
 
+/* <button> doesn't inherit font-family from the page by default (browser
+   UA stylesheets give it their own system font) — .btn already sets its
+   own explicit stack, but a bare button styled only via a class that
+   doesn't (.tabBtn, .linkText, Modal's close button, ...) would silently
+   render in the browser's default font. Reset once here instead of
+   repeating the font stack in every such class. */
+button {
+  font-family: inherit;
+}
+
 input:focus, textarea:focus, select:focus {
   outline: none;
   border: 2px solid var(--egn-navy);
