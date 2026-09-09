@@ -263,6 +263,51 @@ describe('ImportGroups', () => {
     })
   })
 
+  it('rejects a CSV missing required columns, naming which ones', async () => {
+    vi.stubGlobal('fetch', mockFetch({}))
+    render(<ImportGroups />)
+
+    fireEvent.click(screen.getByText('Import CSV'))
+    // Mirrors the real Salesforce export sample (prototypes/DK-Groups-export-UTF8-sample.csv),
+    // which predates the email-matching columns added in commit bf9ef7a — missing both.
+    const csv = [
+      'EGN Group Name,EGN Group Id,MMSGroup: Name,Partner Code,Group Profile,Member Profile,Companies Profile,Responsible Chair,Responsible Sales',
+      'Some Group,38494,02092-EGDK,EGDK,group text,member text,companies text,Chair Person,NA Person',
+    ].join('\n')
+    const file = new File([csv], 'groups.csv', { type: 'text/csv' })
+    const input = screen.getByLabelText('CSV file')
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Missing required columns')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Responsible Chair Email')).toBeInTheDocument()
+    expect(screen.getByText('Responsible Sales Email')).toBeInTheDocument()
+    expect(screen.queryByText(/Check \d+ row/)).not.toBeInTheDocument()
+  })
+
+  it('rejects individual CSV rows missing required metadata, keeping the valid rows checkable', async () => {
+    vi.stubGlobal('fetch', mockFetch({}))
+    render(<ImportGroups />)
+
+    fireEvent.click(screen.getByText('Import CSV'))
+    const csv = [
+      'EGN Group Name,EGN Group Id,MMSGroup: Name,Partner Code,Group Profile,Member Profile,Companies Profile,Responsible Chair,Responsible Chair Email,Responsible Sales,Responsible Sales Email',
+      'Good Group,38494,02092-EGDK,EGDK,group text,member text,companies text,Chair Person,chair@example.com,NA Person,na@example.com',
+      'Bad Group,38495,02093-EGDK,EGDK,group text,member text,companies text,Chair Person,,NA Person,na@example.com',
+    ].join('\n')
+    const file = new File([csv], 'groups.csv', { type: 'text/csv' })
+    const input = screen.getByLabelText('CSV file')
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Rows that will be rejected (missing required fields)')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/Row 3 \(Bad Group\): missing Responsible Chair Email/)).toBeInTheDocument()
+    // The good row survives and is still offered for checking.
+    expect(screen.getByText('Check 1 row(s)')).toBeInTheDocument()
+  })
+
   it('disables Score and Launch until a DNA version exists / an AI draft is pending', async () => {
     vi.stubGlobal('fetch', mockFetch({ getGroups: [group] }))
     render(<ImportGroups />)
