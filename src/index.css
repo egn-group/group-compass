@@ -22,6 +22,20 @@
   font-style: normal;
   font-display: swap;
 }
+/* Registered at both 500 and 600: the file itself is EGN's one "Demi"
+   weight, but callers request either number (600: .btn, .lbl, predates
+   this pair; 500: .badge, .tabBtn, .metaLabel/.metaValue, .linkText, DNA
+   field labels — the design manual's own Futura PT Demi weight). Without
+   an exact 500 face, a weight-500 request has nothing to match when the
+   Typekit stylesheet fails to load and silently falls back to the 400
+   Book file — the missing boldness this fixes. */
+@font-face {
+  font-family: 'Futura PT';
+  src: url('./fonts/FuturaCyrillicDemi.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
 @font-face {
   font-family: 'Futura PT';
   src: url('./fonts/FuturaCyrillicDemi.woff2') format('woff2');
