@@ -1,7 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { ChairChatRequestSchema, type ChairChatResponse } from '../../shared/schemas/chairReview'
 import { callAi } from '../shared/ai/client'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveActingAs } from '../shared/auth'
 import { chairChatPrompt } from '../shared/chairReview/prompts'
 import { CHAIR_REVIEW_MODEL } from '../shared/chairReview/models'
 import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
@@ -36,14 +36,17 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireChair(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminActingAs } = resolveActingAs(req, principal, caller)
+    if (!isAdminActingAs) {
+      const roleFailure = requireChair(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
     const { groupId, field, message } = parsed.data
-    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: principal.email } })
+    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: effectiveEmail } })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
       return
@@ -58,7 +61,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const unresolvedComment = await prisma.comment.findFirst({ where: { groupId, field, resolved: false }, orderBy: { createdAt: 'desc' } })
 
     await prisma.aiConversationTurn.create({
-      data: { groupId, field, chairEmail: principal.email, role: 'Chair', messageText: message, outcome: 'None' },
+      data: { groupId, field, chairEmail: effectiveEmail, role: 'Chair', messageText: message, outcome: 'None' },
     })
 
     const parts = [`Feltnavn: ${DNA_FIELD_LABEL[field]}`, `Nuværende tekst:\n${currentText}`]
@@ -78,7 +81,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       data: {
         groupId,
         field,
-        chairEmail: principal.email,
+        chairEmail: effectiveEmail,
         role: 'Ai',
         messageText: parsedReply.clarifyingQuestion ?? parsedReply.note,
         proposedText: parsedReply.proposedText,

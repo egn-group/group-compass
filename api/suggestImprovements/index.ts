@@ -2,7 +2,7 @@ import type { Context, HttpRequest } from '@azure/functions'
 import type { DnaFieldValue } from '../../shared/schemas/dna'
 import { SuggestImprovementsRequestSchema, type SuggestImprovementsResponse } from '../../shared/schemas/chairReview'
 import { callAi } from '../shared/ai/client'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveActingAs } from '../shared/auth'
 import { CHAIR_REVIEW_MODEL } from '../shared/chairReview/models'
 import { parseSuggestions } from '../shared/chairReview/parseChat'
 import { suggestImprovementsPrompt } from '../shared/chairReview/prompts'
@@ -33,14 +33,17 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireChair(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminActingAs } = resolveActingAs(req, principal, caller)
+    if (!isAdminActingAs) {
+      const roleFailure = requireChair(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
     const { groupId } = parsed.data
-    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: principal.email } })
+    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: effectiveEmail } })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
       return

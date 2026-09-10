@@ -111,6 +111,30 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('Groups', { selector: 'h2' })).toBeInTheDocument())
   })
 
+  it('lets an Admin flip "View as" into a write-capable "Acting as" session, and back to read-only', async () => {
+    const users = [{ email: 'chair@example.com', name: 'Chair Person', initials: 'CP', roles: ['Chair'] }]
+    vi.stubGlobal('fetch', mockFetch(['Admin'], { getUsers: users }))
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Groups', { selector: 'h2' })).toBeInTheDocument())
+    fireEvent.click(screen.getByText('View as…'))
+    await waitFor(() => expect(screen.getByText('Chair Person — chair@example.com')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Chair Person — chair@example.com'))
+
+    // Starts read-only, same as before — "Enable actions" is a second,
+    // deliberate opt-in, never the default.
+    await waitFor(() => expect(screen.getByText(/Viewing as/)).toBeInTheDocument())
+    expect(screen.getByText('Enable actions (testing)')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Enable actions (testing)'))
+    await waitFor(() => expect(screen.getByText(/Acting as/)).toBeInTheDocument())
+    expect(screen.getByText('Disable actions')).toBeInTheDocument()
+    expect(screen.queryByText(/Viewing as/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Disable actions'))
+    await waitFor(() => expect(screen.getByText(/Viewing as/)).toBeInTheDocument())
+  })
+
   it('shows an error when the identity call fails', async () => {
     vi.stubGlobal(
       'fetch',

@@ -1,13 +1,13 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { GetChairFieldConversationRequestSchema, type ConversationTurnDto } from '../../shared/schemas/chairReview'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveViewAs } from '../shared/auth'
 import { errorResponse, serverError } from '../shared/errors'
 
-// A Chair's own live chat for one field — never another Chair's, and
-// never exposed as a generic Admin transcript-browsing feature here (that's
-// a separate, not-yet-designed feature per HANDOFF.md's open decisions,
-// out of scope for this ticket). Ownership re-checked via the group, not
-// just trusting a client-sent groupId.
+// A Chair's own live chat for one field — never another Chair's, unless an
+// Admin's "View as" preview is active (resolveViewAs — read-only; needed
+// so the AI-assistant sidebar can load a field's history while an Admin is
+// acting as that Chair, per api/chairChat's own resolveActingAs). Ownership
+// re-checked via the group, not just trusting a client-sent groupId.
 const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {
   const authFailure = requireAuth(req)
   if (authFailure) {
@@ -24,14 +24,17 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireChair(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminViewingAs } = resolveViewAs(req, principal, caller)
+    if (!isAdminViewingAs) {
+      const roleFailure = requireChair(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
     const { groupId, field } = parsed.data
-    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: principal.email } })
+    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: effectiveEmail } })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
       return

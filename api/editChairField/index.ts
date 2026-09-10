@@ -1,7 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { EditChairFieldRequestSchema, type EditChairFieldResponse } from '../../shared/schemas/chairReview'
 import { callAi } from '../shared/ai/client'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveActingAs } from '../shared/auth'
 import { editFeedbackPrompt } from '../shared/chairReview/prompts'
 import { CHAIR_REVIEW_MODEL } from '../shared/chairReview/models'
 import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
@@ -31,14 +31,17 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireChair(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminActingAs } = resolveActingAs(req, principal, caller)
+    if (!isAdminActingAs) {
+      const roleFailure = requireChair(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
     const { groupId, field, text } = parsed.data
-    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: principal.email } })
+    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: effectiveEmail } })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
       return
@@ -50,7 +53,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     }
 
     const oldText = group[DNA_FIELD_KEY[field]]
-    const saved = await saveChairFieldEdit(group, field, text, principal.email)
+    const saved = await saveChairFieldEdit(group, field, text, effectiveEmail)
     if (!saved.ok) {
       context.res = errorResponse(500, saved.reason === 'no-dna-version' ? 'Group has no DNA version to edit.' : 'The latest DNA version has malformed content.')
       return
@@ -72,7 +75,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       })
       aiFeedback = result.text.trim()
       await prisma.aiConversationTurn.create({
-        data: { groupId, field, chairEmail: principal.email, role: 'Ai', messageText: aiFeedback, outcome: 'None' },
+        data: { groupId, field, chairEmail: effectiveEmail, role: 'Ai', messageText: aiFeedback, outcome: 'None' },
       })
     } catch (err) {
       // Never blocks the save, which has already committed by this point —

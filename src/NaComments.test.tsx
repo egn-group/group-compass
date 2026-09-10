@@ -154,4 +154,30 @@ describe('NaComments', () => {
       expect(textarea).toBeDisabled()
     }
   })
+
+  it('lets an Admin actually send a comment as the NA when viewAsCanEdit is set, attributed via the header', async () => {
+    const fetchMock = mockFetch({ getNaGroups: { groups: [group], showGuidance: false } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<NaComments viewAsEmail="na@example.com" viewAsCanEdit />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    // Enabled, not read-only, once the Admin has opted into "Enable actions".
+    const textareas = screen.getAllByLabelText('Comment for the Chair (optional)')
+    for (const textarea of textareas) expect(textarea).not.toBeDisabled()
+    fireEvent.change(textareas[0], { target: { value: 'commenting as the NA, via Admin acting-as' } })
+    fireEvent.click(screen.getByText('Send to Chair'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/putNaComments',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'x-view-as-email': 'na@example.com' }),
+          body: JSON.stringify({ groupId: 'group-1', comments: [{ field: 'GroupProfile', text: 'commenting as the NA, via Admin acting-as' }] }),
+        }),
+      )
+    })
+  })
 })

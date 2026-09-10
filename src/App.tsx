@@ -20,6 +20,11 @@ interface ViewAsTarget {
   email: string
   name: string
   role: 'Chair' | 'NetworkAdvisor'
+  // Starts false (read-only preview) every time a new target is picked —
+  // "Enable actions" is a deliberate second opt-in on top of View as
+  // itself, not the default, since real writes here land in the same
+  // database real Chairs/NAs use (api/shared/auth.ts's resolveActingAs).
+  canEdit: boolean
 }
 
 function App() {
@@ -77,7 +82,7 @@ function App() {
   }
 
   function selectViewAs(user: UserDto, role: 'Chair' | 'NetworkAdvisor') {
-    setViewAs({ email: user.email, name: user.name, role })
+    setViewAs({ email: user.email, name: user.name, role, canEdit: false })
     setViewAsPickerOpen(false)
   }
 
@@ -100,23 +105,38 @@ function App() {
             <div
               className="card"
               style={{
-                background: 'var(--egn-light-blue)',
+                // Amber once actions are enabled — a real-writes session
+                // should never look identical to a plain read-only preview.
+                background: viewAs.canEdit ? '#fffbeb' : 'var(--egn-light-blue)',
                 padding: '12px 20px',
                 marginBottom: 24,
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12,
               }}
             >
               <p>
-                Viewing as <strong>{viewAs.name}</strong> ({viewAs.role === 'Chair' ? 'Chair' : 'Network Advisor'}) — read-only, no actions can be taken from
-                here.
+                {viewAs.canEdit ? 'Acting as' : 'Viewing as'} <strong>{viewAs.name}</strong> ({viewAs.role === 'Chair' ? 'Chair' : 'Network Advisor'})
+                {viewAs.canEdit
+                  ? ' — actions taken here are real and attributed to them, not to you.'
+                  : ' — read-only, no actions can be taken from here.'}
               </p>
-              <button type="button" className="btn btn-primary" onClick={() => setViewAs(null)}>
-                Exit view as
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn" onClick={() => setViewAs((v) => (v ? { ...v, canEdit: !v.canEdit } : v))}>
+                  {viewAs.canEdit ? 'Disable actions' : 'Enable actions (testing)'}
+                </button>
+                <button type="button" className="btn btn-primary" onClick={() => setViewAs(null)}>
+                  Exit view as
+                </button>
+              </div>
             </div>
-            {viewAs.role === 'Chair' ? <ChairReview viewAsEmail={viewAs.email} /> : <NaComments viewAsEmail={viewAs.email} />}
+            {viewAs.role === 'Chair' ? (
+              <ChairReview viewAsEmail={viewAs.email} viewAsCanEdit={viewAs.canEdit} />
+            ) : (
+              <NaComments viewAsEmail={viewAs.email} viewAsCanEdit={viewAs.canEdit} />
+            )}
           </>
         ) : (
           <>

@@ -12,14 +12,17 @@ const FIELDS: Array<{ field: DnaFieldValue; label: string; textKey: 'groupProfil
 
 interface NaCommentsProps {
   // Set only by App.tsx's Admin-only "View as" preview — when present, the
-  // fetch here carries x-view-as-email (honored server-side, read-only —
-  // see api/shared/auth.ts's resolveViewAs) and every mutating action in
-  // this component is hidden/disabled.
+  // fetch here carries x-view-as-email. Read-only by default (server-side:
+  // api/shared/auth.ts's resolveViewAs); App.tsx's own "Enable actions"
+  // toggle flips viewAsCanEdit on, at which point the mutating endpoints
+  // also honor the header (resolveActingAs) and this component's own
+  // mutating controls render too.
   viewAsEmail?: string
+  viewAsCanEdit?: boolean
 }
 
-function NaComments({ viewAsEmail }: NaCommentsProps = {}) {
-  const readOnly = !!viewAsEmail
+function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
+  const readOnly = !!viewAsEmail && !viewAsCanEdit
   const [dismissed, setDismissed] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, Partial<Record<DnaFieldValue, string>>>>({})
   const [sending, setSending] = useState<Record<string, boolean>>({})
@@ -47,7 +50,7 @@ function NaComments({ viewAsEmail }: NaCommentsProps = {}) {
     // Dismiss immediately — a failed server write just means the banner
     // reappears next visit, not worth blocking the UI on.
     setDismissed(true)
-    void fetch('/api/dismissNaGuidance', { method: 'POST' })
+    void fetch('/api/dismissNaGuidance', { method: 'POST', headers: viewAsHeaders })
   }
 
   function updateDraft(groupId: string, field: DnaFieldValue, text: string) {
@@ -66,7 +69,7 @@ function NaComments({ viewAsEmail }: NaCommentsProps = {}) {
     try {
       const res = await fetch('/api/putNaComments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
         body: JSON.stringify({ groupId, comments }),
       })
       if (!res.ok) {

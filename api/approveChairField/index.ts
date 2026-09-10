@@ -1,6 +1,6 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { ApproveChairFieldRequestSchema, type ApproveChairFieldResponse } from '../../shared/schemas/chairReview'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveActingAs } from '../shared/auth'
 import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
 import { errorResponse, serverError } from '../shared/errors'
 
@@ -24,14 +24,17 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireChair(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminActingAs } = resolveActingAs(req, principal, caller)
+    if (!isAdminActingAs) {
+      const roleFailure = requireChair(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
     const { groupId, field } = parsed.data
-    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: principal.email } })
+    const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: effectiveEmail } })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
       return
@@ -54,7 +57,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
         },
       }),
       prisma.comment.updateMany({ where: { groupId, field, resolved: false }, data: { resolved: true } }),
-      ...(justFullyApproved ? [prisma.event.create({ data: { groupId, type: 'Approve', actorEmail: principal.email } })] : []),
+      ...(justFullyApproved ? [prisma.event.create({ data: { groupId, type: 'Approve', actorEmail: effectiveEmail } })] : []),
     ])
 
     const body: ApproveChairFieldResponse = {
