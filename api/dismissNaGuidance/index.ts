@@ -1,5 +1,5 @@
 import type { Context, HttpRequest } from '@azure/functions'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireNetworkAdvisor } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireNetworkAdvisor, resolveActingAs } from '../shared/auth'
 import { serverError } from '../shared/errors'
 
 // Marks the caller's first-time guidance banner as seen (spec §5) so it
@@ -15,13 +15,16 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireNetworkAdvisor(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminActingAs } = resolveActingAs(req, principal, caller)
+    if (!isAdminActingAs) {
+      const roleFailure = requireNetworkAdvisor(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
-    await prisma.user.update({ where: { email: principal.email }, data: { hasSeenNaGuidance: true } })
+    await prisma.user.update({ where: { email: effectiveEmail }, data: { hasSeenNaGuidance: true } })
 
     context.res = {
       status: 200,

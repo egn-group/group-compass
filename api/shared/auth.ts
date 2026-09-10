@@ -85,13 +85,45 @@ export interface ViewAsResult {
  * Admin (per their own stored User record — never trusting the header
  * itself for identity, same as every other guard here) and sends
  * x-view-as-email, an ownership-scoped read endpoint uses that email
- * instead of the caller's own. Deliberately not honored by any endpoint
- * that writes data — callers of this helper are read-only endpoints only,
- * so an Admin viewing as someone else can never perform an action
- * attributed to them.
+ * instead of the caller's own. Only called by read endpoints — for a
+ * write endpoint that deliberately DOES let an Admin act as someone else
+ * (the client's own "Enable actions" opt-in on top of View as), use
+ * resolveActingAs below instead; the two are kept separate so which write
+ * endpoints allow impersonation stays a decision visible at each call
+ * site, not something a future read endpoint accidentally inherits.
  */
 export function resolveViewAs(req: HttpRequest, principal: Principal, caller: Pick<User, 'roles'> | null): ViewAsResult {
   const viewAsEmail = req.headers?.['x-view-as-email']
   const isAdminViewingAs = !!viewAsEmail && !!caller?.roles.includes('Admin')
   return { effectiveEmail: isAdminViewingAs ? viewAsEmail.toLowerCase() : principal.email, isAdminViewingAs }
+}
+
+export interface ActingAsResult {
+  effectiveEmail: string
+  isAdminActingAs: boolean
+}
+
+/**
+ * Admin-only impersonation for a REAL write, not just a preview: same
+ * x-view-as-email header and same Admin-only gate as resolveViewAs above,
+ * but for an endpoint that lets the Admin actually perform the action as
+ * that person — the write is attributed to them (actorEmail, DnaVersion
+ * author, conversation turns, etc. all use effectiveEmail), exactly as if
+ * they'd done it themselves. Added so an Admin can exercise the whole
+ * NA-comment → Chair-review → approve flow end-to-end without needing
+ * four other people's logins, since this pilot has no separate staging
+ * environment to test against (the wayfinder map's own decision) — every
+ * such action lands in the same database real Chairs/NAs use.
+ *
+ * Every caller of this helper is still ownership-scoped against
+ * effectiveEmail exactly like a real Chair/NA's own request would be
+ * (chairEmail/networkAdvisorEmail on the target Group) — the header alone
+ * proves nothing; it only selects whose ownership check to run. A typo'd
+ * or non-existent email simply finds no group to act on, the same 404 a
+ * real person querying their own data would get.
+ */
+export function resolveActingAs(req: HttpRequest, principal: Principal, caller: Pick<User, 'roles'> | null): ActingAsResult {
+  const viewAsEmail = req.headers?.['x-view-as-email']
+  const isAdminActingAs = !!viewAsEmail && !!caller?.roles.includes('Admin')
+  return { effectiveEmail: isAdminActingAs ? viewAsEmail.toLowerCase() : principal.email, isAdminActingAs }
 }

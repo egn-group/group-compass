@@ -1,6 +1,6 @@
 import type { HttpRequest } from '@azure/functions'
 import { describe, expect, it } from 'vitest'
-import { getPrincipal, requireAdmin, requireAdminOrChairLeader, requireAuth, requireChair, requireNetworkAdvisor, resolveViewAs } from './auth'
+import { getPrincipal, requireAdmin, requireAdminOrChairLeader, requireAuth, requireChair, requireNetworkAdvisor, resolveActingAs, resolveViewAs } from './auth'
 
 function reqWithHeader(value?: string): HttpRequest {
   return { headers: value === undefined ? {} : { 'x-ms-client-principal': value } } as unknown as HttpRequest
@@ -128,6 +128,38 @@ describe('resolveViewAs', () => {
     expect(resolveViewAs(reqWithViewAs('Chair@Example.com'), principal, { roles: ['Admin'] })).toEqual({
       effectiveEmail: 'chair@example.com',
       isAdminViewingAs: true,
+    })
+  })
+})
+
+describe('resolveActingAs', () => {
+  const principal = { userId: 'abc', email: 'admin@example.com' }
+
+  it('falls back to the caller\'s own email when no header is sent, even for a real Admin', () => {
+    expect(resolveActingAs(reqWithViewAs(), principal, { roles: ['Admin'] })).toEqual({
+      effectiveEmail: 'admin@example.com',
+      isAdminActingAs: false,
+    })
+  })
+
+  it('ignores the header when the caller has no stored User row', () => {
+    expect(resolveActingAs(reqWithViewAs('chair@example.com'), principal, null)).toEqual({
+      effectiveEmail: 'admin@example.com',
+      isAdminActingAs: false,
+    })
+  })
+
+  it('ignores the header when the real caller is not an Admin', () => {
+    expect(resolveActingAs(reqWithViewAs('chair@example.com'), principal, { roles: ['Chair'] })).toEqual({
+      effectiveEmail: 'admin@example.com',
+      isAdminActingAs: false,
+    })
+  })
+
+  it('honors the header, lowercased, when the real caller is a genuine Admin', () => {
+    expect(resolveActingAs(reqWithViewAs('Chair@Example.com'), principal, { roles: ['Admin'] })).toEqual({
+      effectiveEmail: 'chair@example.com',
+      isAdminActingAs: true,
     })
   })
 })

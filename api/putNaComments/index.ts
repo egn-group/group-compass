@@ -1,6 +1,6 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { PutNaCommentsRequestSchema } from '../../shared/schemas/naComment'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireNetworkAdvisor } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireNetworkAdvisor, resolveActingAs } from '../shared/auth'
 import { errorResponse, serverError } from '../shared/errors'
 
 // "Send to Chair" (spec §5): write the NA's per-field comments against the
@@ -24,14 +24,17 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireNetworkAdvisor(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminActingAs } = resolveActingAs(req, principal, caller)
+    if (!isAdminActingAs) {
+      const roleFailure = requireNetworkAdvisor(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
     const { groupId, comments } = parsed.data
-    const group = await prisma.group.findFirst({ where: { id: groupId, networkAdvisorEmail: principal.email } })
+    const group = await prisma.group.findFirst({ where: { id: groupId, networkAdvisorEmail: effectiveEmail } })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
       return
@@ -54,7 +57,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
         }),
       ),
       prisma.group.update({ where: { id: groupId }, data: { lifecycleStatus: 'ChairReview' } }),
-      prisma.event.create({ data: { groupId, type: 'Comment', actorEmail: principal.email } }),
+      prisma.event.create({ data: { groupId, type: 'Comment', actorEmail: effectiveEmail } }),
     ])
 
     context.res = {

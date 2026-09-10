@@ -20,15 +20,18 @@ const STATUS_LABEL: Record<string, string> = {
 type StatusFilter = 'all' | 'Launched' | 'ChairReview' | 'Approved'
 
 interface ChairReviewProps {
-  // Set only by App.tsx's Admin-only "View as" preview — when present, every
-  // fetch here carries x-view-as-email (honored server-side, read-only, only
-  // by getChairGroups/getChairGroup — see api/shared/auth.ts's
-  // resolveViewAs) and every mutating action in this component is hidden.
+  // Set only by App.tsx's Admin-only "View as" preview — when present,
+  // every fetch here carries x-view-as-email. Read-only by default
+  // (server-side: api/shared/auth.ts's resolveViewAs); App.tsx's own
+  // "Enable actions" toggle flips viewAsCanEdit on, at which point the
+  // mutating endpoints also honor the header (resolveActingAs) and this
+  // component's own mutating controls render too.
   viewAsEmail?: string
+  viewAsCanEdit?: boolean
 }
 
-function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
-  const readOnly = !!viewAsEmail
+function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
+  const readOnly = !!viewAsEmail && !viewAsCanEdit
   const queryClient = useQueryClient()
   const viewAsKey = viewAsEmail ?? null
   const [search, setSearch] = useState('')
@@ -106,7 +109,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
     try {
       const res = await fetch('/api/approveChairField', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
         body: JSON.stringify({ groupId: selectedGroupId, field }),
       })
       if (!res.ok) {
@@ -140,7 +143,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
     try {
       const res = await fetch('/api/editChairField', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
         body: JSON.stringify({ groupId: selectedGroupId, field, text: editDraft }),
       })
       if (!res.ok) {
@@ -165,7 +168,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
     try {
       const res = await fetch('/api/reapproveChairGroup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
         body: JSON.stringify({ groupId: selectedGroupId }),
       })
       if (res.ok) {
@@ -179,7 +182,12 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
 
   const chatQuery = useQuery({
     queryKey: ['chairChat', selectedGroupId, chatField],
-    queryFn: () => apiGet<{ turns: ConversationTurnDto[] }>(`/api/getChairFieldConversation?groupId=${encodeURIComponent(selectedGroupId!)}&field=${chatField}`, 'Could not load this conversation'),
+    queryFn: () =>
+      apiGet<{ turns: ConversationTurnDto[] }>(
+        `/api/getChairFieldConversation?groupId=${encodeURIComponent(selectedGroupId!)}&field=${chatField}`,
+        'Could not load this conversation',
+        viewAsHeaders,
+      ),
     enabled: selectedGroupId !== null && chatField !== null,
   })
   const chatTurns = chatQuery.data?.turns ?? []
@@ -214,7 +222,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
     try {
       const res = await fetch('/api/chairChat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
         body: JSON.stringify({ groupId: selectedGroupId, field, message }),
       })
       if (!res.ok) {
@@ -236,7 +244,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
     try {
       const res = await fetch('/api/acceptChairProposal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
         body: JSON.stringify({ turnId }),
       })
       if (!res.ok) {
@@ -261,7 +269,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
     try {
       const res = await fetch('/api/rejectChairProposal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
         body: JSON.stringify({ turnId }),
       })
       if (res.ok) await queryClient.invalidateQueries({ queryKey: ['chairChat', selectedGroupId, chatField] })
@@ -276,7 +284,7 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
     try {
       const res = await fetch('/api/suggestImprovements', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
         body: JSON.stringify({ groupId: selectedGroupId }),
       })
       if (res.ok) {

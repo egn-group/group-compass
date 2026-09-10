@@ -410,4 +410,29 @@ describe('ChairReview', () => {
     expect(screen.queryByText('Approve whole DNA')).not.toBeInTheDocument()
     expect(screen.queryByText('Check for improvement suggestions')).not.toBeInTheDocument()
   })
+
+  it('lets an Admin actually approve a field as the Chair when viewAsCanEdit is set, attributed via the header', async () => {
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview viewAsEmail="chair@example.com" viewAsCanEdit />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    // Mutating controls render once the Admin has opted into "Enable actions".
+    expect(screen.getAllByText('Read & accept')[0]).toBeInTheDocument()
+    fireEvent.click(screen.getAllByText('Read & accept')[0])
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/approveChairField',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'x-view-as-email': 'chair@example.com' }),
+          body: JSON.stringify({ groupId: 'group-1', field: 'GroupProfile' }),
+        }),
+      )
+    })
+  })
 })

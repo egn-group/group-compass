@@ -1,6 +1,6 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { ChairProposalActionRequestSchema } from '../../shared/schemas/chairReview'
-import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveActingAs } from '../shared/auth'
 import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
 import { errorResponse, serverError } from '../shared/errors'
 
@@ -20,15 +20,18 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
   try {
     const principal = getPrincipal(req)!
     const caller = await getUserByEmail(principal.email)
-    const roleFailure = requireChair(caller)
-    if (roleFailure) {
-      context.res = roleFailure
-      return
+    const { effectiveEmail, isAdminActingAs } = resolveActingAs(req, principal, caller)
+    if (!isAdminActingAs) {
+      const roleFailure = requireChair(caller)
+      if (roleFailure) {
+        context.res = roleFailure
+        return
+      }
     }
 
     const { turnId } = parsed.data
     const turn = await prisma.aiConversationTurn.findFirst({
-      where: { id: turnId, group: { chairEmail: principal.email } },
+      where: { id: turnId, group: { chairEmail: effectiveEmail } },
       include: { group: true },
     })
     if (!turn) {
