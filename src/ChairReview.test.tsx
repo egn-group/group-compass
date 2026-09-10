@@ -112,6 +112,20 @@ describe('ChairReview', () => {
     expect(screen.getByText('Please check this.')).toBeInTheDocument()
   })
 
+  it('shows Last updated in en-GB day-month-year with a 24-hour clock, not the browser default locale', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({ getChairGroups: { groups: [{ ...groupListItem, updatedAt: '2026-05-12T14:30:00.000Z' }] } }),
+    )
+    render(<ChairReview />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/12 May 2026/)).toBeInTheDocument()
+    expect(screen.queryByText(/\b(AM|PM)\b/)).not.toBeInTheDocument()
+  })
+
   it('approves a field with Read & accept', async () => {
     const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
     vi.stubGlobal('fetch', fetchMock)
@@ -301,7 +315,7 @@ describe('ChairReview', () => {
     })
   })
 
-  it('shows the waiting-on-NA message and no editing affordances while the group is still Launched', async () => {
+  it('shows the AI draft read-only, with no editing affordances, while the group is still Launched', async () => {
     const launchedDetail = { ...groupDetail, lifecycleStatus: 'Launched' }
     const fetchMock = mockFetch({
       getChairGroups: { groups: [{ ...groupListItem, lifecycleStatus: 'Launched' }] },
@@ -316,9 +330,11 @@ describe('ChairReview', () => {
     await waitFor(() => {
       expect(screen.getByText(/This group has been launched\. NA Person has been invited to comment/)).toBeInTheDocument()
     })
-    // No field content and no editing affordances at all — matches the
-    // prototype's dedicated "waiting" view, not just disabled buttons.
-    expect(screen.queryByText('GROUP TEXT')).not.toBeInTheDocument()
+    // The AI draft is visible for transparency — only the editing
+    // affordances are gated, not the content itself.
+    expect(screen.getByText('GROUP TEXT')).toBeInTheDocument()
+    expect(screen.getByText('MEMBER TEXT')).toBeInTheDocument()
+    expect(screen.getByText('COMPANIES TEXT')).toBeInTheDocument()
     expect(screen.queryByText('Edit')).not.toBeInTheDocument()
     expect(screen.queryByText('Read & accept')).not.toBeInTheDocument()
     expect(screen.queryByText('Ask AI assistant')).not.toBeInTheDocument()
