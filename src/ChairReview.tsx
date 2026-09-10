@@ -76,6 +76,12 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
   })
   const detail = detailQuery.data ?? null
   const detailError = detailQuery.isError ? detailQuery.error.message : ''
+  // Read-only whenever the Admin's "View as" preview is active, OR the group
+  // is still Launched (waiting on the NA) — the Chair can see the AI draft
+  // for transparency, but every mutating endpoint on this group rejects
+  // until it reaches ChairReview/Approved (requireChairReviewable, server-
+  // side; this is convenience only).
+  const canEdit = !readOnly && detail?.lifecycleStatus !== 'Launched'
 
   function openGroup(groupId: string) {
     setSelectedGroupId(groupId)
@@ -347,7 +353,13 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
                     {STATUS_LABEL[g.lifecycleStatus] ?? g.lifecycleStatus}
                     {g.pendingReapproval && ' (edited since approval)'}
                   </td>
-                  <td style={cellStyle}>{new Date(g.updatedAt).toLocaleString()}</td>
+                  <td style={cellStyle}>
+                    {/* Pinned to en-GB, not the browser's default locale — see
+                        ImportGroups.tsx's own DNA-version-date comment: this
+                        app's chrome is day-first with a 24-hour clock
+                        everywhere, not whatever a US-locale browser would show. */}
+                    {new Date(g.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -375,132 +387,131 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
             {detail.country} · Network Advisor: {detail.networkAdvisorName ?? '—'} · {STATUS_LABEL[detail.lifecycleStatus] ?? detail.lifecycleStatus}
           </p>
 
-          {detail.lifecycleStatus === 'Launched' ? (
-            // Waiting on the NA (spec §5/§11) — no field content, no editing
-            // affordances at all yet, matching the prototype's dedicated
-            // "waiting" view. Server-side, every mutating endpoint on this
-            // group rejects the same way (requireChairReviewable) — this is
-            // convenience, not the actual boundary.
-            <div className="card" style={{ padding: 16 }}>
+          {detail.lifecycleStatus === 'Launched' && (
+            // Waiting on the NA (spec §5/§11) — the AI draft is still shown
+            // below, read-only (canEdit is false), so the Chair can preview
+            // it; only the editing affordances are gated. Server-side,
+            // every mutating endpoint on this group rejects the same way
+            // (requireChairReviewable) — this banner is convenience, not
+            // the actual boundary.
+            <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
               <p>
                 This group has been launched. {detail.networkAdvisorName ?? 'The Network Advisor'} has been invited to comment on
-                the auto-generated DNA. You&apos;ll be notified as soon as the comments are ready for your review.
+                the auto-generated DNA below. You&apos;ll be notified as soon as the comments are ready for your review.
               </p>
             </div>
-          ) : (
-            <>
-              {justFullyApproved && (
-                <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
-                  Thank you — the DNA has been updated. It will be updated in Salesforce within five business days.
+          )}
+
+          {justFullyApproved && (
+            <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
+              Thank you — the DNA has been updated. It will be updated in Salesforce within five business days.
+            </div>
+          )}
+
+          {canEdit && detail.lifecycleStatus === 'Approved' && detail.pendingReapproval && (
+            <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
+              <p style={{ marginBottom: 8 }}>You&apos;ve edited this DNA since it was last approved.</p>
+              <button type="button" className="btn btn-primary" disabled={reapproving} onClick={() => void reapprove()}>
+                {reapproving ? 'Approving…' : 'Approve whole DNA'}
+              </button>
+            </div>
+          )}
+
+          {ALL_FIELDS.map((field) => {
+            const f = detail.fields.find((x) => x.field === field)!
+            const isEditing = editingField === field
+            const isBusy = busyField === field
+            return (
+              <div key={field} className="card" style={{ padding: 16, marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <h3>{FIELD_LABELS[field]}</h3>
+                  {f.approved && <span className="badge" style={{ background: 'var(--egn-light-blue)' }}>Approved</span>}
                 </div>
-              )}
 
-              {!readOnly && detail.lifecycleStatus === 'Approved' && detail.pendingReapproval && (
-                <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
-                  <p style={{ marginBottom: 8 }}>You&apos;ve edited this DNA since it was last approved.</p>
-                  <button type="button" className="btn btn-primary" disabled={reapproving} onClick={() => void reapprove()}>
-                    {reapproving ? 'Approving…' : 'Approve whole DNA'}
-                  </button>
-                </div>
-              )}
+                {isEditing ? (
+                  <div className="field">
+                    <textarea
+                      aria-label={`Edit ${FIELD_LABELS[field]}`}
+                      value={editDraft}
+                      onChange={(e) => setEditDraft(e.target.value)}
+                      style={{ minHeight: 160 }}
+                    />
+                  </div>
+                ) : (
+                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{f.text}</p>
+                )}
 
-              {ALL_FIELDS.map((field) => {
-                const f = detail.fields.find((x) => x.field === field)!
-                const isEditing = editingField === field
-                const isBusy = busyField === field
-                return (
-                  <div key={field} className="card" style={{ padding: 16, marginBottom: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <h3>{FIELD_LABELS[field]}</h3>
-                      {f.approved && <span className="badge" style={{ background: 'var(--egn-light-blue)' }}>Approved</span>}
-                    </div>
+                {f.unresolvedComments.map((c) => (
+                  <div key={c.id} className="card" style={{ background: '#FEF3E7', padding: 10, marginBottom: 8 }}>
+                    <strong>Network Advisor:</strong> {c.text}
+                  </div>
+                ))}
+                {fieldFeedback[field] && !isEditing && (
+                  <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, marginBottom: 8 }}>
+                    <strong>AI feedback:</strong> {fieldFeedback[field]}
+                  </div>
+                )}
+                {fieldErrors[field] && (
+                  <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
+                    {fieldErrors[field]}
+                  </p>
+                )}
 
+                {canEdit && (
+                  <div style={{ display: 'flex', gap: 8 }}>
                     {isEditing ? (
-                      <div className="field">
-                        <textarea
-                          aria-label={`Edit ${FIELD_LABELS[field]}`}
-                          value={editDraft}
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          style={{ minHeight: 160 }}
-                        />
-                      </div>
+                      <>
+                        <button type="button" className="btn btn-primary" disabled={isBusy} onClick={() => void saveEdit(field)}>
+                          {isBusy ? 'Saving…' : 'Save'}
+                        </button>
+                        <button type="button" className="btn" onClick={cancelEdit}>
+                          Cancel
+                        </button>
+                      </>
                     ) : (
-                      <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{f.text}</p>
-                    )}
-
-                    {f.unresolvedComments.map((c) => (
-                      <div key={c.id} className="card" style={{ background: '#FEF3E7', padding: 10, marginBottom: 8 }}>
-                        <strong>Network Advisor:</strong> {c.text}
-                      </div>
-                    ))}
-                    {fieldFeedback[field] && !isEditing && (
-                      <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, marginBottom: 8 }}>
-                        <strong>AI feedback:</strong> {fieldFeedback[field]}
-                      </div>
-                    )}
-                    {fieldErrors[field] && (
-                      <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
-                        {fieldErrors[field]}
-                      </p>
-                    )}
-
-                    {!readOnly && (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {isEditing ? (
-                          <>
-                            <button type="button" className="btn btn-primary" disabled={isBusy} onClick={() => void saveEdit(field)}>
-                              {isBusy ? 'Saving…' : 'Save'}
-                            </button>
-                            <button type="button" className="btn" onClick={cancelEdit}>
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button type="button" className="btn" onClick={() => startEdit(field, f.text)}>
-                              Edit
-                            </button>
-                            <button type="button" className="btn" onClick={() => (chatField === field ? closeChat() : openChat(field))}>
-                              {chatField === field ? 'Close AI assistant' : 'Ask AI assistant'}
-                            </button>
-                            {!f.approved && (
-                              <button
-                                type="button"
-                                className="btn btn-primary"
-                                disabled={isBusy}
-                                onClick={() => void approveField(field)}
-                              >
-                                {isBusy ? 'Approving…' : 'Read & accept'}
-                              </button>
-                            )}
-                          </>
+                      <>
+                        <button type="button" className="btn" onClick={() => startEdit(field, f.text)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn" onClick={() => (chatField === field ? closeChat() : openChat(field))}>
+                          {chatField === field ? 'Close AI assistant' : 'Ask AI assistant'}
+                        </button>
+                        {!f.approved && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={isBusy}
+                            onClick={() => void approveField(field)}
+                          >
+                            {isBusy ? 'Approving…' : 'Read & accept'}
+                          </button>
                         )}
-                      </div>
+                      </>
                     )}
                   </div>
-                )
-              })}
+                )}
+              </div>
+            )
+          })}
 
-              {!readOnly && detail.lifecycleStatus === 'Approved' && (
-                <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-                  <button type="button" className="btn" disabled={suggestionsLoading} onClick={() => void checkSuggestions()}>
-                    {suggestionsLoading ? 'Checking…' : 'Check for improvement suggestions'}
-                  </button>
-                  {suggestions && suggestions.length === 0 && (
-                    <p style={{ color: 'var(--text-muted)', marginTop: 8 }}>No specific improvements to suggest right now.</p>
-                  )}
-                  {suggestions && suggestions.length > 0 && (
-                    <ul style={{ marginTop: 8, paddingLeft: 18 }}>
-                      {suggestions.map((s, i) => (
-                        <li key={i}>
-                          <strong>{FIELD_LABELS[s.field]}:</strong> {s.suggestion}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+          {canEdit && detail.lifecycleStatus === 'Approved' && (
+            <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+              <button type="button" className="btn" disabled={suggestionsLoading} onClick={() => void checkSuggestions()}>
+                {suggestionsLoading ? 'Checking…' : 'Check for improvement suggestions'}
+              </button>
+              {suggestions && suggestions.length === 0 && (
+                <p style={{ color: 'var(--text-muted)', marginTop: 8 }}>No specific improvements to suggest right now.</p>
               )}
-            </>
+              {suggestions && suggestions.length > 0 && (
+                <ul style={{ marginTop: 8, paddingLeft: 18 }}>
+                  {suggestions.map((s, i) => (
+                    <li key={i}>
+                      <strong>{FIELD_LABELS[s.field]}:</strong> {s.suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </>
       )}
