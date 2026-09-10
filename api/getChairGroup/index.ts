@@ -1,7 +1,6 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { GetChairGroupRequestSchema, type ChairGroupDetail } from '../../shared/schemas/chairReview'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveViewAs } from '../shared/auth'
-import { SHORT_PRIVATE_CACHE } from '../shared/cacheHeaders'
 import { ALL_DNA_FIELDS, DNA_FIELD_KEY } from '../shared/dna/fieldKeys'
 import { errorResponse, serverError } from '../shared/errors'
 
@@ -64,7 +63,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
     context.res = {
       status: 200,
-      headers: { 'Content-Type': 'application/json', ...SHORT_PRIVATE_CACHE },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }
   } catch (err) {

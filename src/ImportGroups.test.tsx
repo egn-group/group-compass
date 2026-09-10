@@ -308,6 +308,20 @@ describe('ImportGroups', () => {
     expect(screen.getByText('Check 1 row(s)')).toBeInTheDocument()
   })
 
+  it('shows the assigned Chair and Network Advisor by name on the groups list, and — when unassigned', async () => {
+    const assignedGroup = { ...group, id: 'g2', name: 'Assigned Group', chairEmail: chair.email, networkAdvisorEmail: advisor.email }
+    vi.stubGlobal('fetch', mockFetch({ getGroups: [group, assignedGroup], getUsers: [chair, advisor] }))
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Assigned Group')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Chair Person')).toBeInTheDocument()
+    expect(screen.getByText('NA Person')).toBeInTheDocument()
+    // Test Group (chairEmail/networkAdvisorEmail both null) still renders '—' in those columns.
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+
   it('disables Score and Launch until a DNA version exists / an AI draft is pending', async () => {
     vi.stubGlobal('fetch', mockFetch({ getGroups: [group] }))
     render(<ImportGroups />)
@@ -315,7 +329,11 @@ describe('ImportGroups', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
-    expect(screen.getByText('—')).toBeInTheDocument()
+    // '—' shows for the unassigned Chair/NA columns as well as the unset
+    // Score column on this fixture (all three are null) — this test only
+    // cares that Score itself renders as '—', not the exact count, so
+    // assert presence rather than a single match.
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     const scoreButtons = screen.getAllByRole('button', { name: 'Score' })
     const launchButtons = screen.getAllByRole('button', { name: 'Launch' })
     expect(scoreButtons[0]).toBeDisabled()

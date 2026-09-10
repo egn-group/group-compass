@@ -545,6 +545,14 @@ function ImportGroups() {
     return chips
   }
 
+  // Resolves an assignment email to the person's name for display — falls
+  // back to the raw email if the user list hasn't loaded yet or the
+  // assignee's User row is gone (e.g. removed since being assigned).
+  function assigneeName(email: string | null): string {
+    if (!email) return '—'
+    return users.find((u) => u.email === email)?.name ?? email
+  }
+
   if (selectedGroupId) {
     const latest = detail?.latestDnaVersion ?? null
     const pill = detail ? (STATUS_PILL[detail.lifecycleStatus] ?? { label: detail.lifecycleStatus, bg: 'var(--egn-sand)', color: 'var(--text-muted)' }) : null
@@ -1000,6 +1008,8 @@ function ImportGroups() {
             <tr style={{ background: 'var(--egn-sand)' }}>
               <th style={cellStyle}>Group</th>
               <th style={cellStyle}>Status</th>
+              <th style={cellStyle}>Chair</th>
+              <th style={cellStyle}>Network Advisor</th>
               <th style={cellStyle}>Country</th>
               <th style={cellStyle}>Score</th>
               <th style={cellStyle}>Updated</th>
@@ -1047,6 +1057,8 @@ function ImportGroups() {
                       </p>
                     )}
                   </td>
+                  <td style={cellStyle}>{assigneeName(g.chairEmail)}</td>
+                  <td style={cellStyle}>{assigneeName(g.networkAdvisorEmail)}</td>
                   <td style={cellStyle}>{g.country || '—'}</td>
                   <td style={cellStyle}>{g.latestDnaVersionScore !== null ? `${g.latestDnaVersionScore}/5` : '—'}</td>
                   <td style={cellStyle}>
