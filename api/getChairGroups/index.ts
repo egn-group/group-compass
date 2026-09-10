@@ -1,7 +1,6 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import type { ChairGroupListItem } from '../../shared/schemas/chairReview'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveViewAs } from '../shared/auth'
-import { SHORT_PRIVATE_CACHE } from '../shared/cacheHeaders'
 import { serverError } from '../shared/errors'
 
 // Chair-only: a caller's own groups (scoped server-side to chairEmail ===
@@ -58,7 +57,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
     context.res = {
       status: 200,
-      headers: { 'Content-Type': 'application/json', ...SHORT_PRIVATE_CACHE },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ groups: body }),
     }
   } catch (err) {
