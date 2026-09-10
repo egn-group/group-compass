@@ -1,11 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiGet } from './lib/api'
 import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
 import { parseDnaFields } from './lib/dnaFields'
 import Modal from './Modal'
 import type { GroupDetail, GroupDto, ImportCheckResult, RawImportRow } from '../shared/schemas/group'
 import type { UserDto } from '../shared/schemas/user'
+
+// Every Groups-list column except Actions (there's nothing to sort an
+// Actions cell by).
+type SortKey = 'group' | 'status' | 'chair' | 'na' | 'country' | 'score' | 'updated'
 
 // Colored by urgency, not by value: amber means "waiting on you" (Admin),
 // blue means "waiting on someone else" (NA/Chair), green means done, gray
@@ -20,6 +24,23 @@ const STATUS_PILL: Record<string, { label: string; bg: string; color: string }> 
   ChairReview: { label: 'Chair review', bg: 'var(--egn-light-blue)', color: 'var(--status-info)' },
   Approved: { label: 'Approved', bg: '#ecfdf5', color: 'var(--status-success)' },
   Closed: { label: 'Closed', bg: 'var(--egn-sand)', color: 'var(--text-muted)' },
+}
+
+// Wider-rollout markets beyond this pilot's Denmark-only scope (a6903a8
+// dropped the country line from the detail view for that reason) — shown
+// as a 2-letter code on the list to keep the column narrow. Falls back to
+// the raw value for anything not yet in this table, matching
+// partnerCodeCountry.ts's own "extend as more real partner codes are
+// seen" approach rather than guessing a pattern from one data point.
+const COUNTRY_CODE: Record<string, string> = {
+  Denmark: 'DK',
+  Sweden: 'SE',
+  Finland: 'FI',
+  Belgium: 'BE',
+  Netherlands: 'NL',
+}
+function countryCode(country: string): string {
+  return COUNTRY_CODE[country] ?? country
 }
 
 const smallBtnStyle = { padding: '6px 12px', fontSize: 13 }
@@ -150,6 +171,41 @@ function ImportGroups() {
   // affect any other row, whether triggered from the list or the detail view.
   const [actionBusy, setActionBusy] = useState<Record<string, 'generate' | 'score' | 'launch' | undefined>>({})
   const [actionError, setActionError] = useState<Record<string, string | undefined>>({})
+
+  // List-row Generate/Score/Launch fold under one "Actions" button (to save
+  // space now the list also carries Chair/NA/Country columns) instead of
+  // three buttons per row — only one row's menu open at a time. Closes on
+  // an outside click or Escape, same affordances as Modal.
+  const [openActionsFor, setOpenActionsFor] = useState<string | null>(null)
+  useEffect(() => {
+    if (openActionsFor === null) return
+    function onPointerDown(e: MouseEvent) {
+      if (!(e.target as HTMLElement).closest('[data-actions-menu]')) setOpenActionsFor(null)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpenActionsFor(null)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [openActionsFor])
+
+  // Groups list column sort — click a header to sort ascending, click again
+  // to flip direction; unsorted (null) keeps the API's own row order, which
+  // several tests below rely on for row-index assumptions. Chair/NA sort by
+  // the resolved display name (not the raw email), matching what's shown.
+  const [sortKey, setSortKey] = useState<SortKey | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
 
   // Chair/NA reassignment — draft select values, synced from `detail`
   // whenever the viewed group changes (but not on every re-fetch of the
@@ -512,26 +568,72 @@ function ImportGroups() {
 
   // Compact on the list (space-constrained row, 3 buttons on one line) —
   // full-size in the detail view, which has room to spare.
-  function actionButtons(g: Pick<GroupDto, 'id' | 'latestDnaVersionId' | 'hasPendingAiDraft'>, small = false) {
+  // Folds Generate/Score/Launch under one "Actions" button on the list —
+  // see openActionsFor's own comment above. The detail view keeps its own
+  // full-size versions of these three buttons in its left rail, rendered
+  // separately below since it has the room to show them all at once.
+  function actionsMenu(g: Pick<GroupDto, 'id' | 'latestDnaVersionId' | 'hasPendingAiDraft'>) {
     const busy = actionBusy[g.id]
-    const btnStyle = small ? smallBtnStyle : undefined
+    const open = openActionsFor === g.id
+    function runAndClose(action: () => void) {
+      setOpenActionsFor(null)
+      action()
+    }
     return (
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="btn" style={btnStyle} disabled={!!busy} onClick={() => void generateDna(g.id)}>
-          {busy === 'generate' ? 'Generating…' : g.latestDnaVersionId ? 'Regenerate' : 'Generate'}
-        </button>
+      <div data-actions-menu style={{ position: 'relative', display: 'inline-block' }}>
         <button
           type="button"
           className="btn"
-          style={btnStyle}
-          disabled={!!busy || !g.latestDnaVersionId}
-          onClick={() => g.latestDnaVersionId && void scoreLatest(g.id, g.latestDnaVersionId)}
+          style={smallBtnStyle}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpenActionsFor(open ? null : g.id)}
         >
-          {busy === 'score' ? 'Scoring…' : 'Score'}
+          Actions <span aria-hidden="true">{open ? '▴' : '▾'}</span>
         </button>
-        <button type="button" className="btn btn-primary" style={btnStyle} disabled={!!busy || !g.hasPendingAiDraft} onClick={() => void launch(g.id)}>
-          {busy === 'launch' ? 'Launching…' : 'Launch'}
-        </button>
+        {open && (
+          <div
+            role="menu"
+            style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              marginTop: 4,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.14)',
+              padding: 6,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              zIndex: 20,
+              minWidth: 140,
+            }}
+          >
+            <button type="button" className="btn" style={smallBtnStyle} disabled={!!busy} onClick={() => runAndClose(() => void generateDna(g.id))}>
+              {busy === 'generate' ? 'Generating…' : g.latestDnaVersionId ? 'Regenerate' : 'Generate'}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={smallBtnStyle}
+              disabled={!!busy || !g.latestDnaVersionId}
+              onClick={() => g.latestDnaVersionId && runAndClose(() => void scoreLatest(g.id, g.latestDnaVersionId!))}
+            >
+              {busy === 'score' ? 'Scoring…' : 'Score'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={smallBtnStyle}
+              disabled={!!busy || !g.hasPendingAiDraft}
+              onClick={() => runAndClose(() => void launch(g.id))}
+            >
+              {busy === 'launch' ? 'Launching…' : 'Launch'}
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -551,6 +653,59 @@ function ImportGroups() {
   function assigneeName(email: string | null): string {
     if (!email) return '—'
     return users.find((u) => u.email === email)?.name ?? email
+  }
+
+  // Sorted by the same value shown on screen (e.g. Chair/NA sort by the
+  // resolved name, Country by its code, Status by its pill label) rather
+  // than the underlying raw field, so ordering matches what's visible.
+  // Unassigned/empty values always sort last regardless of direction —
+  // reads better than "no Chair" jumping to the top on a descending sort.
+  const sortedGroups = useMemo(() => {
+    if (!sortKey) return groups
+    const key = sortKey // a local, narrowed to SortKey (not SortKey | null) for the switch below
+    function value(g: GroupDto): string | number | null {
+      switch (key) {
+        case 'group':
+          return g.name.toLowerCase()
+        case 'status':
+          return (STATUS_PILL[g.lifecycleStatus]?.label ?? g.lifecycleStatus).toLowerCase()
+        case 'chair':
+          return g.chairEmail ? assigneeName(g.chairEmail).toLowerCase() : null
+        case 'na':
+          return g.networkAdvisorEmail ? assigneeName(g.networkAdvisorEmail).toLowerCase() : null
+        case 'country':
+          return g.country ? countryCode(g.country).toLowerCase() : null
+        case 'score':
+          return g.latestDnaVersionScore
+        case 'updated':
+          return g.updatedAt // ISO 8601 — a plain string comparison sorts it correctly
+      }
+    }
+    return [...groups].sort((a, b) => {
+      const av = value(a)
+      const bv = value(b)
+      if (av === null && bv === null) return 0
+      if (av === null) return 1
+      if (bv === null) return -1
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [groups, sortKey, sortDir, users])
+
+  function sortableHeader(label: string, key: SortKey) {
+    const active = sortKey === key
+    return (
+      <th style={cellStyle}>
+        <button type="button" className="colSort" onClick={() => toggleSort(key)}>
+          {label}
+          {active && (
+            <span aria-hidden="true" style={{ fontSize: 10 }}>
+              {sortDir === 'asc' ? '▲' : '▼'}
+            </span>
+          )}
+        </button>
+      </th>
+    )
   }
 
   if (selectedGroupId) {
@@ -1006,18 +1161,18 @@ function ImportGroups() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--egn-sand)' }}>
-              <th style={cellStyle}>Group</th>
-              <th style={cellStyle}>Status</th>
-              <th style={cellStyle}>Chair</th>
-              <th style={cellStyle}>Network Advisor</th>
-              <th style={cellStyle}>Country</th>
-              <th style={cellStyle}>Score</th>
-              <th style={cellStyle}>Updated</th>
+              {sortableHeader('Group', 'group')}
+              {sortableHeader('Status', 'status')}
+              {sortableHeader('Chair', 'chair')}
+              {sortableHeader('Network Advisor', 'na')}
+              {sortableHeader('Country', 'country')}
+              {sortableHeader('Score', 'score')}
+              {sortableHeader('Updated', 'updated')}
               <th style={cellStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {groups.map((g) => {
+            {sortedGroups.map((g) => {
               const chips = qualityChips(g)
               const pill = STATUS_PILL[g.lifecycleStatus] ?? { label: g.lifecycleStatus, bg: 'var(--egn-sand)', color: 'var(--text-muted)' }
               return (
@@ -1026,7 +1181,7 @@ function ImportGroups() {
                     <button
                       type="button"
                       className="btn"
-                      style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline' }}
+                      style={{ padding: 0, border: 'none', background: 'none', textDecoration: 'underline', justifyContent: 'flex-start' }}
                       onClick={() => openGroup(g.id)}
                     >
                       {g.name}
@@ -1059,7 +1214,7 @@ function ImportGroups() {
                   </td>
                   <td style={cellStyle}>{assigneeName(g.chairEmail)}</td>
                   <td style={cellStyle}>{assigneeName(g.networkAdvisorEmail)}</td>
-                  <td style={cellStyle}>{g.country || '—'}</td>
+                  <td style={cellStyle}>{g.country ? countryCode(g.country) : '—'}</td>
                   <td style={cellStyle}>{g.latestDnaVersionScore !== null ? `${g.latestDnaVersionScore}/5` : '—'}</td>
                   <td style={cellStyle}>
                     {/* Pinned to en-GB, not the browser's default locale — this UI's chrome is
@@ -1068,7 +1223,7 @@ function ImportGroups() {
                         ("May 12, 2026") or Danish month names mixed into English chrome. */}
                     {new Date(g.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </td>
-                  <td style={cellStyle}>{actionButtons(g, true)}</td>
+                  <td style={cellStyle}>{actionsMenu(g)}</td>
                 </tr>
               )
             })}
