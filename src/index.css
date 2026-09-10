@@ -314,6 +314,24 @@ input::placeholder, textarea::placeholder {
 }
 .linkText:hover { opacity: 0.7; }
 
+/* Groups-list column header made clickable for sorting — bold like a
+   plain <th>, no underline (it's a heading, not inline body text, so
+   .linkText's permanent underline would read wrong here). */
+.colSort {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 600; /* see .tabBtn's comment — futura-pt has no 500 face */
+  color: var(--egn-navy);
+  transition: opacity 0.2s var(--ease-standard);
+}
+.colSort:hover { opacity: 0.7; }
+
 /* Animations */
 @keyframes spin {
   from { transform: rotate(0deg); }

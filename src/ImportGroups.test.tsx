@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from './test-utils'
+import { render, screen, fireEvent, waitFor, within } from './test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import ImportGroups from './ImportGroups'
 
@@ -334,10 +334,13 @@ describe('ImportGroups', () => {
     // cares that Score itself renders as '—', not the exact count, so
     // assert presence rather than a single match.
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
-    const scoreButtons = screen.getAllByRole('button', { name: 'Score' })
-    const launchButtons = screen.getAllByRole('button', { name: 'Launch' })
-    expect(scoreButtons[0]).toBeDisabled()
-    expect(launchButtons[0]).toBeDisabled()
+    // Generate/Score/Launch are folded under one "Actions" button per row —
+    // open it to reach the individual buttons. Scoped with `within` since
+    // the Score *column* is also a sortable header button named "Score".
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByRole('button', { name: 'Score' })).toBeDisabled()
+    expect(within(menu).getByRole('button', { name: 'Launch' })).toBeDisabled()
   })
 
   it('runs the full Generate pipeline from the list row and refreshes the group afterwards', async () => {
@@ -357,6 +360,7 @@ describe('ImportGroups', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }))
     fireEvent.click(screen.getByText('Generate'))
 
     await waitFor(() => {
@@ -389,6 +393,7 @@ describe('ImportGroups', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }))
     fireEvent.click(screen.getByText('Generate'))
 
     await waitFor(() => {
@@ -405,6 +410,7 @@ describe('ImportGroups', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }))
     fireEvent.click(screen.getByText('Launch'))
 
     await waitFor(() => {
