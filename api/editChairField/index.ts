@@ -4,6 +4,7 @@ import { callAi } from '../shared/ai/client'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
 import { editFeedbackPrompt } from '../shared/chairReview/prompts'
 import { CHAIR_REVIEW_MODEL } from '../shared/chairReview/models'
+import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
 import { saveChairFieldEdit } from '../shared/chairReview/saveField'
 import { DNA_FIELD_KEY, DNA_FIELD_LABEL } from '../shared/dna/fieldKeys'
 import { errorResponse, serverError } from '../shared/errors'
@@ -40,6 +41,11 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: principal.email } })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
+      return
+    }
+    const reviewableFailure = requireChairReviewable(group)
+    if (reviewableFailure) {
+      context.res = reviewableFailure
       return
     }
 

@@ -301,6 +301,73 @@ describe('ChairReview', () => {
     })
   })
 
+  it('shows the waiting-on-NA message and no editing affordances while the group is still Launched', async () => {
+    const launchedDetail = { ...groupDetail, lifecycleStatus: 'Launched' }
+    const fetchMock = mockFetch({
+      getChairGroups: { groups: [{ ...groupListItem, lifecycleStatus: 'Launched' }] },
+      getChairGroup: launchedDetail,
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/This group has been launched\. NA Person has been invited to comment/)).toBeInTheDocument()
+    })
+    // No field content and no editing affordances at all — matches the
+    // prototype's dedicated "waiting" view, not just disabled buttons.
+    expect(screen.queryByText('GROUP TEXT')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
+    expect(screen.queryByText('Read & accept')).not.toBeInTheDocument()
+    expect(screen.queryByText('Ask AI assistant')).not.toBeInTheDocument()
+  })
+
+  it('AI assistant sidebar switches conversations when a different field is opened, without closing first', async () => {
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText('Ask AI assistant')[0]) // Group Profile
+    await waitFor(() => {
+      expect(screen.getByText('AI assistant — Group Profile')).toBeInTheDocument()
+    })
+    expect(screen.getByLabelText('Message the AI assistant about Group Profile')).toBeInTheDocument()
+
+    // Group Profile's own button now reads "Close AI assistant", so the
+    // remaining "Ask AI assistant" buttons are [Member Profile, Companies
+    // Profile] — index 0 is Member Profile.
+    fireEvent.click(screen.getAllByText('Ask AI assistant')[0]) // Member Profile — sidebar swaps, not a second panel
+    await waitFor(() => {
+      expect(screen.getByText('AI assistant — Member Profile')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('AI assistant — Group Profile')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Message the AI assistant about Member Profile')).toBeInTheDocument()
+  })
+
+  it('closes the AI assistant sidebar on Escape', async () => {
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText('Ask AI assistant')[0])
+    await waitFor(() => expect(screen.getByText('AI assistant — Group Profile')).toBeInTheDocument())
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByText('AI assistant — Group Profile')).not.toBeInTheDocument()
+    })
+  })
+
   it('sends x-view-as-email and hides every mutating action when viewAsEmail is set (Admin "View as" preview)', async () => {
     const approvedDetail = { ...groupDetail, lifecycleStatus: 'Approved', pendingReapproval: true }
     const fetchMock = mockFetch({

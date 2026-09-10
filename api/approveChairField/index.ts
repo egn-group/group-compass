@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { ApproveChairFieldRequestSchema, type ApproveChairFieldResponse } from '../../shared/schemas/chairReview'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
 import { errorResponse, serverError } from '../shared/errors'
 
 // "Read & accept" (spec §11) — approve a field as-is, no text change.
@@ -33,6 +34,11 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const group = await prisma.group.findFirst({ where: { id: groupId, chairEmail: principal.email } })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
+      return
+    }
+    const reviewableFailure = requireChairReviewable(group)
+    if (reviewableFailure) {
+      context.res = reviewableFailure
       return
     }
 

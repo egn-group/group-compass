@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { ChairProposalActionRequestSchema, type AcceptChairProposalResponse } from '../../shared/schemas/chairReview'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
 import { saveChairFieldEdit } from '../shared/chairReview/saveField'
 import { errorResponse, serverError } from '../shared/errors'
 
@@ -43,6 +44,11 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     }
     if (turn.role !== 'Ai' || turn.proposedText === null || turn.outcome !== 'None') {
       context.res = errorResponse(400, 'This is not a pending proposal.')
+      return
+    }
+    const reviewableFailure = requireChairReviewable(turn.group)
+    if (reviewableFailure) {
+      context.res = reviewableFailure
       return
     }
 

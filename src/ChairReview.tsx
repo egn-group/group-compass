@@ -189,6 +189,14 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
     setChatField(null)
     setChatInput('')
   }
+  useEffect(() => {
+    if (chatField === null) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeChat()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [chatField])
 
   async function sendChatMessage() {
     if (!selectedGroupId || !chatField || !chatInput.trim()) return
@@ -367,181 +375,195 @@ function ChairReview({ viewAsEmail }: ChairReviewProps = {}) {
             {detail.country} · Network Advisor: {detail.networkAdvisorName ?? '—'} · {STATUS_LABEL[detail.lifecycleStatus] ?? detail.lifecycleStatus}
           </p>
 
-          {justFullyApproved && (
-            <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
-              Thank you — the DNA has been updated. It will be updated in Salesforce within five business days.
+          {detail.lifecycleStatus === 'Launched' ? (
+            // Waiting on the NA (spec §5/§11) — no field content, no editing
+            // affordances at all yet, matching the prototype's dedicated
+            // "waiting" view. Server-side, every mutating endpoint on this
+            // group rejects the same way (requireChairReviewable) — this is
+            // convenience, not the actual boundary.
+            <div className="card" style={{ padding: 16 }}>
+              <p>
+                This group has been launched. {detail.networkAdvisorName ?? 'The Network Advisor'} has been invited to comment on
+                the auto-generated DNA. You&apos;ll be notified as soon as the comments are ready for your review.
+              </p>
             </div>
-          )}
-
-          {!readOnly && detail.lifecycleStatus === 'Approved' && detail.pendingReapproval && (
-            <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
-              <p style={{ marginBottom: 8 }}>You&apos;ve edited this DNA since it was last approved.</p>
-              <button type="button" className="btn btn-primary" disabled={reapproving} onClick={() => void reapprove()}>
-                {reapproving ? 'Approving…' : 'Approve whole DNA'}
-              </button>
-            </div>
-          )}
-
-          {ALL_FIELDS.map((field) => {
-            const f = detail.fields.find((x) => x.field === field)!
-            const isEditing = editingField === field
-            const isBusy = busyField === field
-            return (
-              <div key={field} className="card" style={{ padding: 16, marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <h3>{FIELD_LABELS[field]}</h3>
-                  {f.approved && <span className="badge" style={{ background: 'var(--egn-light-blue)' }}>Approved</span>}
+          ) : (
+            <>
+              {justFullyApproved && (
+                <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
+                  Thank you — the DNA has been updated. It will be updated in Salesforce within five business days.
                 </div>
+              )}
 
-                {isEditing ? (
-                  <div className="field">
-                    <textarea
-                      aria-label={`Edit ${FIELD_LABELS[field]}`}
-                      value={editDraft}
-                      onChange={(e) => setEditDraft(e.target.value)}
-                      style={{ minHeight: 160 }}
-                    />
-                  </div>
-                ) : (
-                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{f.text}</p>
-                )}
+              {!readOnly && detail.lifecycleStatus === 'Approved' && detail.pendingReapproval && (
+                <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
+                  <p style={{ marginBottom: 8 }}>You&apos;ve edited this DNA since it was last approved.</p>
+                  <button type="button" className="btn btn-primary" disabled={reapproving} onClick={() => void reapprove()}>
+                    {reapproving ? 'Approving…' : 'Approve whole DNA'}
+                  </button>
+                </div>
+              )}
 
-                {f.unresolvedComments.map((c) => (
-                  <div key={c.id} className="card" style={{ background: '#FEF3E7', padding: 10, marginBottom: 8 }}>
-                    <strong>Network Advisor:</strong> {c.text}
-                  </div>
-                ))}
-                {fieldFeedback[field] && !isEditing && (
-                  <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, marginBottom: 8 }}>
-                    <strong>AI feedback:</strong> {fieldFeedback[field]}
-                  </div>
-                )}
-                {fieldErrors[field] && (
-                  <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
-                    {fieldErrors[field]}
-                  </p>
-                )}
-
-                {!readOnly && (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {isEditing ? (
-                      <>
-                        <button type="button" className="btn btn-primary" disabled={isBusy} onClick={() => void saveEdit(field)}>
-                          {isBusy ? 'Saving…' : 'Save'}
-                        </button>
-                        <button type="button" className="btn" onClick={cancelEdit}>
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button type="button" className="btn" onClick={() => startEdit(field, f.text)}>
-                          Edit
-                        </button>
-                        <button type="button" className="btn" onClick={() => (chatField === field ? closeChat() : openChat(field))}>
-                          {chatField === field ? 'Close AI assistant' : 'Ask AI assistant'}
-                        </button>
-                        {!f.approved && (
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            disabled={isBusy}
-                            onClick={() => void approveField(field)}
-                          >
-                            {isBusy ? 'Approving…' : 'Read & accept'}
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {chatField === field && (
-                  <div className="card" style={{ background: 'var(--egn-sand)', padding: 12, marginTop: 12 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
-                      {chatTurns.map((t) => (
-                        <div key={t.id}>
-                          {t.messageText && (
-                            <p
-                              style={{
-                                whiteSpace: 'pre-wrap',
-                                fontWeight: t.role === 'Chair' ? 600 : 400,
-                                marginBottom: t.proposedText ? 4 : 0,
-                              }}
-                            >
-                              {t.role === 'Chair' ? 'You: ' : 'Assistant: '}
-                              {t.messageText}
-                            </p>
-                          )}
-                          {t.proposedText && (
-                            <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10 }}>
-                              <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{t.proposedText}</p>
-                              {t.outcome === 'None' ? (
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  <button type="button" className="btn btn-primary" disabled={chatBusy} onClick={() => void acceptProposal(t.id)}>
-                                    Accept
-                                  </button>
-                                  <button type="button" className="btn" disabled={chatBusy} onClick={() => void rejectProposal(t.id)}>
-                                    Reject
-                                  </button>
-                                </div>
-                              ) : (
-                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.outcome}</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+              {ALL_FIELDS.map((field) => {
+                const f = detail.fields.find((x) => x.field === field)!
+                const isEditing = editingField === field
+                const isBusy = busyField === field
+                return (
+                  <div key={field} className="card" style={{ padding: 16, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <h3>{FIELD_LABELS[field]}</h3>
+                      {f.approved && <span className="badge" style={{ background: 'var(--egn-light-blue)' }}>Approved</span>}
                     </div>
-                    {(chatError || chatLoadError) && (
+
+                    {isEditing ? (
+                      <div className="field">
+                        <textarea
+                          aria-label={`Edit ${FIELD_LABELS[field]}`}
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          style={{ minHeight: 160 }}
+                        />
+                      </div>
+                    ) : (
+                      <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{f.text}</p>
+                    )}
+
+                    {f.unresolvedComments.map((c) => (
+                      <div key={c.id} className="card" style={{ background: '#FEF3E7', padding: 10, marginBottom: 8 }}>
+                        <strong>Network Advisor:</strong> {c.text}
+                      </div>
+                    ))}
+                    {fieldFeedback[field] && !isEditing && (
+                      <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, marginBottom: 8 }}>
+                        <strong>AI feedback:</strong> {fieldFeedback[field]}
+                      </div>
+                    )}
+                    {fieldErrors[field] && (
                       <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
-                        {chatError || chatLoadError}
+                        {fieldErrors[field]}
                       </p>
                     )}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <input
-                        aria-label={`Message the AI assistant about ${FIELD_LABELS[field]}`}
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault()
-                            void sendChatMessage()
-                          }
-                        }}
-                        placeholder="e.g. incorporate the Network Advisor's comment"
-                      />
-                      <button type="button" className="btn btn-primary" disabled={chatBusy || !chatInput.trim()} onClick={() => void sendChatMessage()}>
-                        {chatBusy ? 'Sending…' : 'Send'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
 
-          {!readOnly && detail.lifecycleStatus === 'Approved' && (
-            <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-              <button type="button" className="btn" disabled={suggestionsLoading} onClick={() => void checkSuggestions()}>
-                {suggestionsLoading ? 'Checking…' : 'Check for improvement suggestions'}
-              </button>
-              {suggestions && suggestions.length === 0 && (
-                <p style={{ color: 'var(--text-muted)', marginTop: 8 }}>No specific improvements to suggest right now.</p>
+                    {!readOnly && (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {isEditing ? (
+                          <>
+                            <button type="button" className="btn btn-primary" disabled={isBusy} onClick={() => void saveEdit(field)}>
+                              {isBusy ? 'Saving…' : 'Save'}
+                            </button>
+                            <button type="button" className="btn" onClick={cancelEdit}>
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button type="button" className="btn" onClick={() => startEdit(field, f.text)}>
+                              Edit
+                            </button>
+                            <button type="button" className="btn" onClick={() => (chatField === field ? closeChat() : openChat(field))}>
+                              {chatField === field ? 'Close AI assistant' : 'Ask AI assistant'}
+                            </button>
+                            {!f.approved && (
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={isBusy}
+                                onClick={() => void approveField(field)}
+                              >
+                                {isBusy ? 'Approving…' : 'Read & accept'}
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {!readOnly && detail.lifecycleStatus === 'Approved' && (
+                <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+                  <button type="button" className="btn" disabled={suggestionsLoading} onClick={() => void checkSuggestions()}>
+                    {suggestionsLoading ? 'Checking…' : 'Check for improvement suggestions'}
+                  </button>
+                  {suggestions && suggestions.length === 0 && (
+                    <p style={{ color: 'var(--text-muted)', marginTop: 8 }}>No specific improvements to suggest right now.</p>
+                  )}
+                  {suggestions && suggestions.length > 0 && (
+                    <ul style={{ marginTop: 8, paddingLeft: 18 }}>
+                      {suggestions.map((s, i) => (
+                        <li key={i}>
+                          <strong>{FIELD_LABELS[s.field]}:</strong> {s.suggestion}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
-              {suggestions && suggestions.length > 0 && (
-                <ul style={{ marginTop: 8, paddingLeft: 18 }}>
-                  {suggestions.map((s, i) => (
-                    <li key={i}>
-                      <strong>{FIELD_LABELS[s.field]}:</strong> {s.suggestion}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            </>
           )}
         </>
       )}
+
+      {/* AI assistant — a persistent slide-in sidebar, not a blocking modal
+          (the rest of the screen stays usable while it's open), one
+          conversation per field: switching fields swaps chatQuery's data,
+          it never mixes turns from different fields into one thread. */}
+      <div className={`chatPanel${chatField !== null ? ' open' : ''}`} aria-hidden={chatField === null}>
+        <div className="chatPanelHead">
+          <span>AI assistant{chatField ? ` — ${FIELD_LABELS[chatField]}` : ''}</span>
+          <button type="button" aria-label="Close AI assistant" onClick={closeChat}>
+            ✕
+          </button>
+        </div>
+        <div className="chatMessages">
+          {chatTurns.map((t) => (
+            <div key={t.id} style={{ display: 'flex', flexDirection: 'column', alignItems: t.role === 'Chair' ? 'flex-end' : 'flex-start' }}>
+              {t.messageText && <p className={`chatBubble ${t.role === 'Chair' ? 'chair' : 'ai'}`}>{t.messageText}</p>}
+              {t.proposedText && (
+                <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, maxWidth: '88%' }}>
+                  <p style={{ fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Proposed update</p>
+                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8, fontSize: 14 }}>{t.proposedText}</p>
+                  {t.outcome === 'None' ? (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 13 }} disabled={chatBusy} onClick={() => void acceptProposal(t.id)}>
+                        Accept
+                      </button>
+                      <button type="button" className="btn" style={{ padding: '6px 12px', fontSize: 13 }} disabled={chatBusy} onClick={() => void rejectProposal(t.id)}>
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.outcome}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {(chatError || chatLoadError) && (
+          <p role="alert" style={{ color: 'var(--status-danger)', padding: '0 16px 8px' }}>
+            {chatError || chatLoadError}
+          </p>
+        )}
+        <div className="chatInputRow">
+          <input
+            aria-label={chatField ? `Message the AI assistant about ${FIELD_LABELS[chatField]}` : 'Message the AI assistant'}
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                void sendChatMessage()
+              }
+            }}
+            placeholder="e.g. incorporate the Network Advisor's comment"
+          />
+          <button type="button" className="btn btn-primary" disabled={chatBusy || !chatInput.trim()} onClick={() => void sendChatMessage()}>
+            {chatBusy ? 'Sending…' : 'Send'}
+          </button>
+        </div>
+      </div>
     </section>
   )
 }

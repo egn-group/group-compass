@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { ChairProposalActionRequestSchema } from '../../shared/schemas/chairReview'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair } from '../shared/auth'
+import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
 import { errorResponse, serverError } from '../shared/errors'
 
 const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {
@@ -26,13 +27,21 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     }
 
     const { turnId } = parsed.data
-    const turn = await prisma.aiConversationTurn.findFirst({ where: { id: turnId, group: { chairEmail: principal.email } } })
+    const turn = await prisma.aiConversationTurn.findFirst({
+      where: { id: turnId, group: { chairEmail: principal.email } },
+      include: { group: true },
+    })
     if (!turn) {
       context.res = errorResponse(404, `Proposal ${turnId} not found.`)
       return
     }
     if (turn.role !== 'Ai' || turn.proposedText === null || turn.outcome !== 'None') {
       context.res = errorResponse(400, 'This is not a pending proposal.')
+      return
+    }
+    const reviewableFailure = requireChairReviewable(turn.group)
+    if (reviewableFailure) {
+      context.res = reviewableFailure
       return
     }
 
