@@ -44,6 +44,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       id: group.id,
       egnGroupId: group.egnGroupId,
       mmsGroupCode: group.mmsGroupCode,
+      partnerCode: group.partnerCode,
       name: group.name,
       country: group.country,
       chairEmail: group.chairEmail,

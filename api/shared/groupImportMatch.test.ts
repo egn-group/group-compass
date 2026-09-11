@@ -13,8 +13,15 @@ describe('resolveImportMatch', () => {
     })
   })
 
-  it('treats an unknown but well-formed email as unmatched, never falling back to name', () => {
+  it('falls back to a name match when a given email matches no known user', () => {
     expect(resolveImportMatch('not-a-user-yet@example.com', 'Chair Person', 'Chair', users)).toEqual({
+      email: 'chair@example.com',
+      matchedByName: true,
+    })
+  })
+
+  it('returns unmatched when a given email matches no user and the name matches none either', () => {
+    expect(resolveImportMatch('not-a-user-yet@example.com', 'Someone Unknown', 'Chair', users)).toEqual({
       email: null,
       matchedByName: false,
     })
