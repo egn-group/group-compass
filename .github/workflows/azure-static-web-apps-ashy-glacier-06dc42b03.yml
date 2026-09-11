@@ -22,6 +22,11 @@ jobs:
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
+        env:
+          # Surfaced in the running app (a small commit marker, bottom-right)
+          # so it's obvious at a glance whether a given push has actually
+          # deployed yet, without checking Actions/Azure directly.
+          VITE_COMMIT_SHA: ${{ github.sha }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ASHY_GLACIER_06DC42B03 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)

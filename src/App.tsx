@@ -10,6 +10,10 @@ import { apiGet } from './lib/api'
 import Modal from './Modal'
 import NaComments from './NaComments'
 
+// Set by the deploy workflow to github.sha — undefined in local dev, where
+// there's nothing to verify a push against.
+const commitSha = import.meta.env.VITE_COMMIT_SHA
+
 interface Section {
   key: string
   label: string
@@ -189,6 +193,26 @@ function App() {
             ))}
           </div>
         </Modal>
+      )}
+
+      {commitSha && (
+        <p
+          title={`Deployed commit ${commitSha}`}
+          style={{
+            position: 'fixed',
+            right: 8,
+            bottom: 8,
+            margin: 0,
+            fontFamily: 'monospace',
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            opacity: 0.6,
+            pointerEvents: 'none',
+            zIndex: 50,
+          }}
+        >
+          {commitSha.slice(0, 7)}
+        </p>
       )}
     </>
   )
