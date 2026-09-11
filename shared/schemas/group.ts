@@ -12,16 +12,17 @@ export const RawImportRowSchema = z.object({
   groupProfile: z.string(),
   memberProfile: z.string(),
   companiesProfile: z.string(),
-  // Names are kept for a human reading the raw export — not the matching
-  // key. Email is: checkGroupImport looks it up directly against existing
-  // Users (never auto-creates one), surfacing an unmatched email the same
-  // way an unmatched name used to show — the Chair/NA must already exist
-  // (via the Users CSV import or the Add user form) before their group can
-  // resolve to them.
+  // Email is the matching key whenever the row has one: checkGroupImport
+  // looks it up directly against existing Users (never auto-creates one),
+  // surfacing an unmatched email rather than guessing. The name column may
+  // be used as a fallback match when the email cell is blank — real
+  // Salesforce exports don't always carry both — but the Chair/NA must
+  // already exist (via the Users CSV import or the Add user form) either
+  // way before their group can resolve to them.
   responsibleChairName: z.string().min(1),
-  responsibleChairEmail: z.string().email(),
+  responsibleChairEmail: z.string().email().or(z.literal('')),
   responsibleSalesName: z.string().min(1),
-  responsibleSalesEmail: z.string().email(),
+  responsibleSalesEmail: z.string().email().or(z.literal('')),
 })
 export type RawImportRow = z.infer<typeof RawImportRowSchema>
 
@@ -37,7 +38,13 @@ export const ImportCheckResultSchema = z.object({
   status: ImportRowStatusSchema,
   existingGroupId: z.string().nullable(),
   suggestedChairEmail: z.string().nullable(),
+  // True when suggestedChairEmail/suggestedNetworkAdvisorEmail came from a
+  // name fallback (the row's email cell was blank) rather than the email
+  // itself — the review screen flags these for a closer look, since a name
+  // match is a weaker signal than an exact email match.
+  chairMatchedByName: z.boolean(),
   suggestedNetworkAdvisorEmail: z.string().nullable(),
+  networkAdvisorMatchedByName: z.boolean(),
 })
 export type ImportCheckResult = z.infer<typeof ImportCheckResultSchema>
 

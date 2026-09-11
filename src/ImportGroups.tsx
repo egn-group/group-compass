@@ -60,21 +60,23 @@ const REQUIRED_COLS = [
   'Member Profile',
   'Companies Profile',
   'Responsible Chair',
-  'Responsible Chair Email',
   'Responsible Sales',
-  'Responsible Sales Email',
 ] as const
+// May be blank, or the column absent entirely — real Salesforce exports
+// don't always carry it. checkGroupImport falls back to matching the
+// Responsible Chair/Sales *name* against an existing User when the email
+// is missing, so these stay optional rather than blocking the import.
+const OPTIONAL_COLS = ['Responsible Chair Email', 'Responsible Sales Email'] as const
+const ALL_COLS = [...REQUIRED_COLS, ...OPTIONAL_COLS] as const
 const REQUIRED_METADATA_COLS = [
   'EGN Group Name',
   'EGN Group Id',
   'MMSGroup: Name',
   'Partner Code',
   'Responsible Chair',
-  'Responsible Chair Email',
   'Responsible Sales',
-  'Responsible Sales Email',
 ] as const
-const COL_TO_FIELD: Record<(typeof REQUIRED_COLS)[number], keyof RawImportRow> = {
+const COL_TO_FIELD: Record<(typeof ALL_COLS)[number], keyof RawImportRow> = {
   'EGN Group Name': 'egnGroupName',
   'EGN Group Id': 'egnGroupId',
   'MMSGroup: Name': 'mmsGroupCode',
@@ -473,7 +475,8 @@ function ImportGroups() {
       aoa.slice(1).forEach((row, i) => {
         const ln = i + 2
         const obj = emptyManualForm()
-        for (const col of REQUIRED_COLS) {
+        for (const col of ALL_COLS) {
+          if (idx[col] === undefined) continue // an optional column absent from this export
           obj[COL_TO_FIELD[col]] = String(row[idx[col]] ?? '').trim()
         }
         const missingMeta = REQUIRED_METADATA_COLS.filter((c) => !obj[COL_TO_FIELD[c]])
@@ -1022,6 +1025,8 @@ function ImportGroups() {
           )}
           <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
             Required columns: {REQUIRED_COLS.join(', ')}. Must be UTF-8; delimiter auto-detected.
+            <br />
+            {OPTIONAL_COLS.join(' and ')} may be blank or omitted — matched by name against existing users when missing.
           </p>
           <input
             ref={csvFileInputRef}
@@ -1129,6 +1134,9 @@ function ImportGroups() {
                           </option>
                         ))}
                       </select>
+                      {r.check.chairMatchedByName && (
+                        <p style={{ color: 'var(--status-warning)', fontSize: 12, marginTop: 4 }}>Matched by name — verify</p>
+                      )}
                     </td>
                     <td style={cellStyle}>
                       <select
@@ -1145,6 +1153,9 @@ function ImportGroups() {
                           </option>
                         ))}
                       </select>
+                      {r.check.networkAdvisorMatchedByName && (
+                        <p style={{ color: 'var(--status-warning)', fontSize: 12, marginTop: 4 }}>Matched by name — verify</p>
+                      )}
                     </td>
                   </tr>
                 ))}
