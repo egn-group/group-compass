@@ -47,4 +47,12 @@ describe('resolveImportMatch', () => {
       matchedByName: false,
     })
   })
+
+  it('returns unmatched, not a guess, when two Users in the same role share a name', () => {
+    const secondChair = { email: 'chair2@example.com', name: 'Chair Person', roles: ['Chair'] }
+    expect(resolveImportMatch('', 'Chair Person', 'Chair', [...users, secondChair])).toEqual({
+      email: null,
+      matchedByName: false,
+    })
+  })
 })

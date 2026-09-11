@@ -23,6 +23,9 @@ export function resolveImportMatch(rawEmail: string, rawName: string, role: stri
     return { email: known ? email : null, matchedByName: false }
   }
   const name = rawName.trim().toLowerCase()
-  const match = users.find((u) => u.roles.includes(role) && u.name.trim().toLowerCase() === name)
-  return { email: match?.email ?? null, matchedByName: match !== undefined }
+  const matches = users.filter((u) => u.roles.includes(role) && u.name.trim().toLowerCase() === name)
+  // Two Users in the same role sharing a name is a real possibility (a
+  // small pool of common names) — surface as unmatched rather than
+  // silently picking one of them.
+  return matches.length === 1 ? { email: matches[0].email, matchedByName: true } : { email: null, matchedByName: false }
 }
