@@ -84,11 +84,10 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
           ? 'unchanged'
           : 'changed'
 
-      // Email is the definitive match whenever the row has one — an email
-      // nobody's created yet surfaces as unmatched rather than being trusted
-      // blindly or auto-created. Only a blank email cell falls back to
-      // matching the row's Chair/Sales name against an existing User in the
-      // right role — real Salesforce exports don't always carry both.
+      // An exact email match wins; otherwise (blank, or no matching User)
+      // falls back to matching the row's Chair/Sales name against an
+      // existing User in the right role — never auto-creating one either
+      // way. See resolveImportMatch for the full reasoning.
       const chairMatch = resolveImportMatch(row.responsibleChairEmail, row.responsibleChairName, 'Chair', users)
       const naMatch = resolveImportMatch(row.responsibleSalesEmail, row.responsibleSalesName, 'NetworkAdvisor', users)
       return {

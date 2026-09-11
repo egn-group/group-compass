@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { apiGet } from './lib/api'
 import { decodeUtf8Strict, headerIndex, parseCsv, sniffDelimiter } from './lib/csv'
 import { parseDnaFields } from './lib/dnaFields'
@@ -177,8 +178,15 @@ function ImportGroups() {
   // List-row Generate/Score/Launch fold under one "Actions" button (to save
   // space now the list also carries Chair/NA/Country columns) instead of
   // three buttons per row — only one row's menu open at a time. Closes on
-  // an outside click or Escape, same affordances as Modal.
+  // an outside click or Escape, same affordances as Modal. The open menu
+  // itself renders through a portal at a fixed position derived from the
+  // trigger button's own rect (below), not as a normal absolutely-positioned
+  // child — the list's table wrapper needs its own horizontal scrolling on
+  // narrow screens, and an ordinary absolute child gets silently clipped by
+  // that ancestor's overflow whenever a row sits near its edge, leaving no
+  // visible room for the menu to open into.
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null)
+  const [actionsMenuAnchor, setActionsMenuAnchor] = useState<{ top: number; right: number } | null>(null)
   useEffect(() => {
     if (openActionsFor === null) return
     function onPointerDown(e: MouseEvent) {
@@ -187,11 +195,21 @@ function ImportGroups() {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpenActionsFor(null)
     }
+    // A scroll or resize would leave the portaled menu's fixed position
+    // stale (it's no longer anchored to the trigger's current rect) —
+    // simplest correct fix is to close it, same as clicking away.
+    function onScrollOrResize() {
+      setOpenActionsFor(null)
+    }
     document.addEventListener('mousedown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
+    window.addEventListener('scroll', onScrollOrResize, true)
+    window.addEventListener('resize', onScrollOrResize)
     return () => {
       document.removeEventListener('mousedown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('scroll', onScrollOrResize, true)
+      window.removeEventListener('resize', onScrollOrResize)
     }
   }, [openActionsFor])
 
@@ -227,6 +245,25 @@ function ImportGroups() {
     }
     // Only detail.id — see the comment above.
   }, [detail?.id])
+
+  // Admin edit of a group's own imported metadata/profile text — separate
+  // from Chair/NA assignment above — and outright delete of a mis-imported
+  // row. editGroupForm doubles as the modal's open flag (non-null = open),
+  // populated from `detail` at the moment Edit is clicked.
+  const [editGroupForm, setEditGroupForm] = useState<{
+    egnGroupName: string
+    mmsGroupCode: string
+    partnerCode: string
+    groupProfile: string
+    memberProfile: string
+    companiesProfile: string
+  } | null>(null)
+  const [editGroupSaving, setEditGroupSaving] = useState(false)
+  const [editGroupError, setEditGroupError] = useState('')
+
+  const [showDeleteGroup, setShowDeleteGroup] = useState(false)
+  const [deleteGroupBusy, setDeleteGroupBusy] = useState(false)
+  const [deleteGroupError, setDeleteGroupError] = useState('')
 
   // Guards the check/import workflow as a whole (csvBanner, csvRows, review):
   // selecting a file, running a check, and confirming an import are all
@@ -271,6 +308,64 @@ function ImportGroups() {
       return true
     } finally {
       setAssignSaving(false)
+    }
+  }
+
+  function openEditGroup() {
+    if (!detail) return
+    setEditGroupForm({
+      egnGroupName: detail.name,
+      mmsGroupCode: detail.mmsGroupCode ?? '',
+      partnerCode: detail.partnerCode,
+      groupProfile: detail.groupProfile,
+      memberProfile: detail.memberProfile,
+      companiesProfile: detail.companiesProfile,
+    })
+    setEditGroupError('')
+  }
+
+  async function saveEditGroup() {
+    if (!detail || !editGroupForm) return
+    setEditGroupError('')
+    setEditGroupSaving(true)
+    try {
+      const res = await fetch('/api/editGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: detail.id, ...editGroupForm }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setEditGroupError(body?.error ?? `Save failed (${res.status}).`)
+        return
+      }
+      await refreshAfterAction(detail.id)
+      setEditGroupForm(null)
+    } finally {
+      setEditGroupSaving(false)
+    }
+  }
+
+  async function deleteGroupNow() {
+    if (!detail) return
+    setDeleteGroupError('')
+    setDeleteGroupBusy(true)
+    try {
+      const res = await fetch('/api/deleteGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: detail.id }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setDeleteGroupError(body?.error ?? `Delete failed (${res.status}).`)
+        return
+      }
+      await queryClient.invalidateQueries({ queryKey: ['groups'] })
+      setShowDeleteGroup(false)
+      backToList()
+    } finally {
+      setDeleteGroupBusy(false)
     }
   }
 
@@ -582,61 +677,66 @@ function ImportGroups() {
       setOpenActionsFor(null)
       action()
     }
+    function toggle(e: ReactMouseEvent<HTMLButtonElement>) {
+      if (open) {
+        setOpenActionsFor(null)
+        return
+      }
+      const rect = e.currentTarget.getBoundingClientRect()
+      setActionsMenuAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+      setOpenActionsFor(g.id)
+    }
     return (
-      <div data-actions-menu style={{ position: 'relative', display: 'inline-block' }}>
-        <button
-          type="button"
-          className="btn"
-          style={smallBtnStyle}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={() => setOpenActionsFor(open ? null : g.id)}
-        >
+      <div data-actions-menu style={{ display: 'inline-block' }}>
+        <button type="button" className="btn" style={smallBtnStyle} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>
           Actions <span aria-hidden="true">{open ? '▴' : '▾'}</span>
         </button>
-        {open && (
-          <div
-            role="menu"
-            style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              marginTop: 4,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.14)',
-              padding: 6,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-              zIndex: 20,
-              minWidth: 140,
-            }}
-          >
-            <button type="button" className="btn" style={smallBtnStyle} disabled={!!busy} onClick={() => runAndClose(() => void generateDna(g.id))}>
-              {busy === 'generate' ? 'Generating…' : g.latestDnaVersionId ? 'Regenerate' : 'Generate'}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              style={smallBtnStyle}
-              disabled={!!busy || !g.latestDnaVersionId}
-              onClick={() => g.latestDnaVersionId && runAndClose(() => void scoreLatest(g.id, g.latestDnaVersionId!))}
+        {open &&
+          actionsMenuAnchor &&
+          createPortal(
+            <div
+              data-actions-menu
+              role="menu"
+              style={{
+                position: 'fixed',
+                top: actionsMenuAnchor.top,
+                right: actionsMenuAnchor.right,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.14)',
+                padding: 6,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                zIndex: 120,
+                minWidth: 140,
+              }}
             >
-              {busy === 'score' ? 'Scoring…' : 'Score'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={smallBtnStyle}
-              disabled={!!busy || !g.hasPendingAiDraft}
-              onClick={() => runAndClose(() => void launch(g.id))}
-            >
-              {busy === 'launch' ? 'Launching…' : 'Launch'}
-            </button>
-          </div>
-        )}
+              <button type="button" className="btn" style={smallBtnStyle} disabled={!!busy} onClick={() => runAndClose(() => void generateDna(g.id))}>
+                {busy === 'generate' ? 'Generating…' : g.latestDnaVersionId ? 'Regenerate' : 'Generate'}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={smallBtnStyle}
+                disabled={!!busy || !g.latestDnaVersionId}
+                onClick={() => g.latestDnaVersionId && runAndClose(() => void scoreLatest(g.id, g.latestDnaVersionId!))}
+              >
+                {busy === 'score' ? 'Scoring…' : 'Score'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={smallBtnStyle}
+                disabled={!!busy || !g.hasPendingAiDraft}
+                onClick={() => runAndClose(() => void launch(g.id))}
+              >
+                {busy === 'launch' ? 'Launching…' : 'Launch'}
+              </button>
+            </div>,
+            document.body,
+          )}
       </div>
     )
   }
@@ -735,10 +835,24 @@ function ImportGroups() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div className="card" style={{ padding: '22px 22px 24px' }}>
                 <h3 style={{ fontSize: 23 }}>{detail.name}</h3>
-                <div style={{ marginTop: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
                   <span className="badge" style={{ background: pill.bg, color: pill.color }}>
                     {pill.label}
                   </span>
+                  <button type="button" className="linkText" style={{ fontSize: 13 }} onClick={openEditGroup}>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="linkText"
+                    style={{ fontSize: 13, color: 'var(--status-danger)' }}
+                    onClick={() => {
+                      setDeleteGroupError('')
+                      setShowDeleteGroup(true)
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
                   <div className="metaRow">
@@ -936,6 +1050,84 @@ function ImportGroups() {
             )}
           </Modal>
         )}
+
+        {editGroupForm && (
+          <Modal title="Edit group" onClose={() => setEditGroupForm(null)}>
+            {editGroupError && (
+              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+                {editGroupError}
+              </p>
+            )}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                void saveEditGroup()
+              }}
+            >
+              {(
+                [
+                  ['egnGroupName', 'EGN Group Name'],
+                  ['mmsGroupCode', 'MMSGroup: Name'],
+                  ['partnerCode', 'Partner Code'],
+                ] as const
+              ).map(([key, label]) => (
+                <div className="field" key={key}>
+                  <label className="lbl" htmlFor={`edit-${key}`}>
+                    {label}
+                  </label>
+                  <input
+                    id={`edit-${key}`}
+                    value={editGroupForm[key]}
+                    onChange={(e) => setEditGroupForm((f) => (f ? { ...f, [key]: e.target.value } : f))}
+                  />
+                </div>
+              ))}
+              {(
+                [
+                  ['groupProfile', 'Group Profile'],
+                  ['memberProfile', 'Member Profile'],
+                  ['companiesProfile', 'Companies Profile'],
+                ] as const
+              ).map(([key, label]) => (
+                <div className="field" key={key}>
+                  <label className="lbl" htmlFor={`edit-${key}`}>
+                    {label}
+                  </label>
+                  <textarea
+                    id={`edit-${key}`}
+                    value={editGroupForm[key]}
+                    onChange={(e) => setEditGroupForm((f) => (f ? { ...f, [key]: e.target.value } : f))}
+                  />
+                </div>
+              ))}
+              <button type="submit" className="btn btn-primary" disabled={editGroupSaving}>
+                {editGroupSaving ? 'Saving…' : 'Save changes'}
+              </button>
+            </form>
+          </Modal>
+        )}
+
+        {showDeleteGroup && detail && (
+          <Modal title="Delete group" onClose={() => setShowDeleteGroup(false)}>
+            {deleteGroupError && (
+              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+                {deleteGroupError}
+              </p>
+            )}
+            <p style={{ marginBottom: 16 }}>
+              Delete <strong>{detail.name}</strong>? This cannot be undone, and only works if the group has no DNA versions, comments, or activity
+              history yet — otherwise close it instead of deleting it.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn" disabled={deleteGroupBusy} onClick={() => setShowDeleteGroup(false)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-danger" disabled={deleteGroupBusy} onClick={() => void deleteGroupNow()}>
+                {deleteGroupBusy ? 'Deleting…' : 'Delete group'}
+              </button>
+            </div>
+          </Modal>
+        )}
       </>
     )
   }
@@ -1026,7 +1218,7 @@ function ImportGroups() {
           <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
             Required columns: {REQUIRED_COLS.join(', ')}. Must be UTF-8; delimiter auto-detected.
             <br />
-            {OPTIONAL_COLS.join(' and ')} may be blank or omitted — matched by name against existing users when missing.
+            {OPTIONAL_COLS.join(' and ')} may be blank or omitted — matched by name against existing users when missing or unrecognized.
           </p>
           <input
             ref={csvFileInputRef}
