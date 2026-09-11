@@ -62,4 +62,20 @@ describe('resolveImportMatch', () => {
       matchedByName: false,
     })
   })
+
+  it('matches a CSV name carrying a Salesforce record-code prefix (e.g. "SUS - Susanne Svejgaard")', () => {
+    const susanne = { email: 'susanne@example.com', name: 'Susanne Svejgaard', roles: ['Chair'] }
+    expect(resolveImportMatch('', 'SUS - Susanne Svejgaard', 'Chair', [...users, susanne])).toEqual({
+      email: 'susanne@example.com',
+      matchedByName: true,
+    })
+  })
+
+  it('does not mistake a genuinely hyphenated name for a code prefix', () => {
+    const marie = { email: 'marie@example.com', name: 'Marie Nielsen', roles: ['Chair'] }
+    expect(resolveImportMatch('', 'Anne-Marie Nielsen', 'Chair', [...users, marie])).toEqual({
+      email: null,
+      matchedByName: false,
+    })
+  })
 })
