@@ -1075,6 +1075,7 @@ function ImportGroups() {
       {openPanel === 'review' && review && (
         <Modal
           title="Review before import"
+          maxWidth="none"
           onClose={() => {
             setReview(null)
             setOpenPanel(null)

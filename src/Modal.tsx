@@ -4,11 +4,17 @@ interface ModalProps {
   title: string
   onClose: () => void
   children: ReactNode
+  // Most panels are simple forms that read best at a fixed, narrow width.
+  // A content-heavy panel (e.g. the multi-column import review table) can
+  // pass 'none' to grow to whatever width its content needs — still capped
+  // by the overlay's own side padding below, so it never exceeds the
+  // viewport.
+  maxWidth?: number | 'none'
 }
 
 // A simple overlay dialog — used for the Import CSV / Add group / Add user
 // panels so they float above the list rather than expanding the page.
-function Modal({ title, onClose, children }: ModalProps) {
+function Modal({ title, onClose, children, maxWidth = 720 }: ModalProps) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -39,7 +45,14 @@ function Modal({ title, onClose, children }: ModalProps) {
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
         className="card"
-        style={{ padding: '28px 32px', maxWidth: 720, width: '100%', marginBottom: 48 }}
+        style={
+          maxWidth === 'none'
+            // Shrinks to its content's natural width (e.g. a short review
+            // table stays narrow) but never past the overlay's own side
+            // padding — the viewport is still the hard cap either way.
+            ? { padding: '28px 32px', width: 'fit-content', maxWidth: 'calc(100vw - 32px)', marginBottom: 48 }
+            : { padding: '28px 32px', maxWidth, width: '100%', marginBottom: 48 }
+        }
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ margin: 0 }}>{title}</h3>
