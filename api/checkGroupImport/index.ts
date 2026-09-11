@@ -3,6 +3,7 @@ import { CheckGroupImportRequestSchema, type ImportCheckResult } from '../../sha
 import { DnaContentSchema } from '../../shared/schemas/dna'
 import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from '../shared/auth'
 import { errorResponse, serverError } from '../shared/errors'
+import { resolveImportMatch } from '../shared/groupImportMatch'
 import { textEqualsIgnoringWhitespace } from '../shared/textCompare'
 
 // Dry-run preview for the group-import review screen: for each raw row,
@@ -37,7 +38,6 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const { rows } = parsed.data
 
     const users = await prisma.user.findMany()
-    const knownEmails = new Set(users.map((u) => u.email))
 
     const egnGroupIds = [...new Set(rows.map((r) => r.egnGroupId))]
     const existingGroups = await prisma.group.findMany({
@@ -84,18 +84,21 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
           ? 'unchanged'
           : 'changed'
 
-      const chairEmail = row.responsibleChairEmail.trim().toLowerCase()
-      const naEmail = row.responsibleSalesEmail.trim().toLowerCase()
+      // Email is the definitive match whenever the row has one — an email
+      // nobody's created yet surfaces as unmatched rather than being trusted
+      // blindly or auto-created. Only a blank email cell falls back to
+      // matching the row's Chair/Sales name against an existing User in the
+      // right role — real Salesforce exports don't always carry both.
+      const chairMatch = resolveImportMatch(row.responsibleChairEmail, row.responsibleChairName, 'Chair', users)
+      const naMatch = resolveImportMatch(row.responsibleSalesEmail, row.responsibleSalesName, 'NetworkAdvisor', users)
       return {
         row,
         status,
         existingGroupId: existing?.id ?? null,
-        // Email is the definitive match now (not a fuzzy name guess) — but
-        // it must already be a real User; an email nobody's created yet
-        // surfaces as unmatched, same as before, rather than being trusted
-        // blindly or auto-creating someone.
-        suggestedChairEmail: knownEmails.has(chairEmail) ? chairEmail : null,
-        suggestedNetworkAdvisorEmail: knownEmails.has(naEmail) ? naEmail : null,
+        suggestedChairEmail: chairMatch.email,
+        chairMatchedByName: chairMatch.matchedByName,
+        suggestedNetworkAdvisorEmail: naMatch.email,
+        networkAdvisorMatchedByName: naMatch.matchedByName,
       }
     })
 
