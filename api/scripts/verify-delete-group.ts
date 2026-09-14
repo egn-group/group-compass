@@ -101,6 +101,39 @@ async function main() {
   assert(gone === null, 'the fresh group with no activity was actually deleted')
   console.log('  4. Admin deletes a freshly-imported group ok — actually gone from the database')
 
+  // --- 5. A group created through the real /api/putGroups import path (which
+  // writes its own Import event) must still be deletable — that Import event
+  // is provenance, not activity, and shouldn't count against it.
+  res = await call('/api/putGroups', {
+    method: 'POST',
+    email: adminEmail,
+    body: {
+      rows: [
+        {
+          egnGroupName: 'Really Freshly Imported',
+          egnGroupId: 'verify-delete-group-via-putGroups',
+          mmsGroupCode: 'MMS-1',
+          partnerCode: 'EGDK',
+          groupProfile: 'TEXT',
+          memberProfile: 'TEXT',
+          companiesProfile: 'TEXT',
+          chairEmail: null,
+          networkAdvisorEmail: null,
+          action: { type: 'create' },
+        },
+      ],
+    },
+  })
+  assert(res.status === 200, `expected 200 from putGroups, got ${res.status}: ${JSON.stringify(res.json)}`)
+  const importedGroupId = (res.json as { created: string[] }).created[0]
+  const importEvents = await prisma.event.count({ where: { groupId: importedGroupId, type: 'Import' } })
+  assert(importEvents === 1, `expected putGroups to have written 1 Import event, found ${importEvents}`)
+  res = await call('/api/deleteGroup', { method: 'POST', email: adminEmail, body: { groupId: importedGroupId } })
+  assert(res.status === 200, `expected 200 deleting a group imported via putGroups, got ${res.status}: ${JSON.stringify(res.json)}`)
+  const importedGone = await prisma.group.findUnique({ where: { id: importedGroupId } })
+  assert(importedGone === null, 'the group imported via putGroups was not actually deleted')
+  console.log('  5. A group imported via the real putGroups path is still deletable ok — its own Import event does not block it')
+
   console.log('verify-delete-group: all checks passed')
 }
 
