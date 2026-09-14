@@ -30,6 +30,17 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const overwritten: string[] = []
 
     for (const row of parsed.data.rows) {
+      // Written on every create AND overwrite — a re-import legitimately
+      // moves the "as imported" baseline forward, same as it moves the
+      // live fields (Group.importedSnapshot's own schema comment).
+      const importedSnapshot = {
+        egnGroupName: row.egnGroupName,
+        mmsGroupCode: row.mmsGroupCode,
+        partnerCode: row.partnerCode,
+        groupProfile: row.groupProfile,
+        memberProfile: row.memberProfile,
+        companiesProfile: row.companiesProfile,
+      }
       const data = {
         egnGroupId: row.egnGroupId,
         name: row.egnGroupName,
@@ -42,6 +53,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
         noSourceDna: !row.groupProfile.trim() && !row.memberProfile.trim() && !row.companiesProfile.trim(),
         chairEmail: row.chairEmail,
         networkAdvisorEmail: row.networkAdvisorEmail,
+        importedSnapshot,
       }
 
       if (row.action.type === 'create') {

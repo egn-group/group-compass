@@ -1,6 +1,6 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { DnaContentSchema } from '../../shared/schemas/dna'
-import { GetGroupRequestSchema, type GroupDetail } from '../../shared/schemas/group'
+import { GetGroupRequestSchema, ImportedSnapshotSchema, type GroupDetail } from '../../shared/schemas/group'
 import { getPrincipal, getUserByEmail, prisma, requireAdmin, requireAuth } from '../shared/auth'
 import { errorResponse, serverError } from '../shared/errors'
 
@@ -39,6 +39,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
     const latest = await prisma.dnaVersion.findFirst({ where: { groupId }, orderBy: { versionNumber: 'desc' } })
     const latestContent = latest ? DnaContentSchema.safeParse(latest.content) : null
+    const importedSnapshot = group.importedSnapshot === null ? null : ImportedSnapshotSchema.safeParse(group.importedSnapshot)
 
     const body: GroupDetail = {
       id: group.id,
@@ -65,6 +66,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
               content: latestContent.data,
             }
           : null,
+      importedSnapshot: importedSnapshot && importedSnapshot.success ? importedSnapshot.data : null,
     }
 
     context.res = {
