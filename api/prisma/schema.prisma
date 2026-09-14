@@ -79,6 +79,7 @@ enum EventType {
   Edit
   Approve
   Export
+  Reset
 }
 
 enum ConversationRole {
@@ -130,6 +131,17 @@ model Group {
   groupProfile      String
   memberProfile     String
   companiesProfile  String
+  // Snapshot of the same fields Edit can change (name/mmsGroupCode/
+  // partnerCode/the 3 profile texts — country is derived, chair/NA go
+  // through Reassign), written by putGroups on every create AND
+  // overwrite/re-import. Lets an Admin discard edits and go back to
+  // whatever the last import actually said, without a full CSV re-import.
+  // Null for a group that predates this field (nothing to reset to until
+  // it's re-imported). Not a DnaVersion: this covers the metadata fields
+  // DnaVersion doesn't, and DnaVersion's own Imported-stage version is
+  // both optional (only created once Generate first runs) and never
+  // updated by a later re-import.
+  importedSnapshot  Json?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   // Which of the 3 fields the Chair has individually approved during

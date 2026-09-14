@@ -44,6 +44,7 @@ const groupDetail = {
     createdAt: '2026-08-01T00:00:00.000Z',
     content: { groupProfile: 'draft group profile', memberProfile: 'draft member profile', companiesProfile: 'draft companies profile' },
   },
+  importedSnapshot: null,
 }
 
 function mockFetch(handlers: {
@@ -59,6 +60,9 @@ function mockFetch(handlers: {
   scoreDnaVersion?: { status: number; body: unknown }
   launchGroup?: { status: number; body: unknown }
   reassignGroup?: { status: number; body: unknown }
+  editGroup?: { status: number; body: unknown }
+  deleteGroup?: { status: number; body: unknown }
+  resetGroup?: { status: number; body: unknown }
 }) {
   return vi.fn(async (url: string) => {
     if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => handlers.getUsers ?? [] }
@@ -95,6 +99,18 @@ function mockFetch(handlers: {
     }
     if (url === '/api/reassignGroup') {
       const { status, body } = handlers.reassignGroup ?? { status: 200, body: { groupId: 'g1', chairEmail: null, networkAdvisorEmail: null } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/editGroup') {
+      const { status, body } = handlers.editGroup ?? { status: 200, body: { ...groupDetail, pendingReapproval: false } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/deleteGroup') {
+      const { status, body } = handlers.deleteGroup ?? { status: 200, body: { groupId: 'g1' } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/resetGroup') {
+      const { status, body } = handlers.resetGroup ?? { status: 200, body: { ...groupDetail, pendingReapproval: false } }
       return { ok: status < 300, status, json: async () => body }
     }
     throw new Error(`Unexpected fetch: ${url}`)
@@ -656,6 +672,149 @@ describe('ImportGroups', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('na@example.com is not a User with the NetworkAdvisor role.')
+    })
+  })
+
+  it('opens the Edit modal, pre-filled, from the list row Actions menu', async () => {
+    vi.stubGlobal('fetch', mockFetch({ getGroups: [group], getGroup: groupDetail }))
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }))
+    const menu = screen.getByRole('menu')
+    fireEvent.click(within(menu).getByRole('button', { name: 'Edit' }))
+
+    // Navigates to the detail view (same as clicking the group name) and
+    // auto-opens the same Edit modal the detail view's own Edit button uses.
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Edit group' })).toBeInTheDocument()
+    })
+    expect(screen.getByLabelText('EGN Group Name')).toHaveValue('Test Group')
+  })
+
+  it('opens the Delete confirmation from the list row Actions menu', async () => {
+    vi.stubGlobal('fetch', mockFetch({ getGroups: [group], getGroup: groupDetail }))
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }))
+    const menu = screen.getByRole('menu')
+    fireEvent.click(within(menu).getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Delete group' })).toBeInTheDocument()
+    })
+    expect(screen.getByText((_, el) => el?.tagName === 'STRONG' && el.textContent === 'Test Group')).toBeInTheDocument()
+  })
+
+  it('only shows "Reset to imported" when the group has an import snapshot, and lets an Admin discard edits back to it', async () => {
+    const withSnapshot = {
+      ...groupDetail,
+      name: 'Edited Name',
+      groupProfile: 'edited group profile',
+      importedSnapshot: {
+        egnGroupName: 'Test Group',
+        mmsGroupCode: '02092-EGDK',
+        partnerCode: 'EGDK',
+        groupProfile: 'original group profile',
+        memberProfile: 'original member profile',
+        companiesProfile: 'original companies profile',
+      },
+    }
+    const fetchMock = mockFetch({
+      getGroups: [group],
+      getGroup: withSnapshot,
+      resetGroup: {
+        status: 200,
+        body: {
+          groupId: 'g1',
+          name: 'Test Group',
+          mmsGroupCode: '02092-EGDK',
+          partnerCode: 'EGDK',
+          country: 'Denmark',
+          groupProfile: 'original group profile',
+          memberProfile: 'original member profile',
+          companiesProfile: 'original companies profile',
+          pendingReapproval: false,
+        },
+      },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Reset to imported')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Reset to imported'))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Reset to imported' })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Reset group' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/resetGroup', expect.objectContaining({ method: 'POST', body: JSON.stringify({ groupId: 'g1' }) }))
+    })
+  })
+
+  it('does not show "Reset to imported" for a group with no import snapshot', async () => {
+    vi.stubGlobal('fetch', mockFetch({ getGroups: [group], getGroup: groupDetail }))
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByText('v2, Ai')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Reset to imported')).not.toBeInTheDocument()
+  })
+
+  it('toggles the profile cards to the as-imported snapshot via the "Show original" tab', async () => {
+    const withSnapshot = {
+      ...groupDetail,
+      importedSnapshot: {
+        egnGroupName: 'Test Group',
+        mmsGroupCode: '02092-EGDK',
+        partnerCode: 'EGDK',
+        groupProfile: 'original group profile',
+        memberProfile: 'original member profile',
+        companiesProfile: 'original companies profile',
+      },
+    }
+    vi.stubGlobal('fetch', mockFetch({ getGroups: [group], getGroup: withSnapshot }))
+    render(<ImportGroups />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      // Current view shows the latest DnaVersion's draft content (same as the pre-existing behavior).
+      expect(screen.getByText('draft group profile')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Show original'))
+
+    await waitFor(() => {
+      expect(screen.getByText('original group profile')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('draft group profile')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Current'))
+    await waitFor(() => {
+      expect(screen.getByText('draft group profile')).toBeInTheDocument()
     })
   })
 })

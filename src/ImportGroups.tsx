@@ -265,6 +265,43 @@ function ImportGroups() {
   const [deleteGroupBusy, setDeleteGroupBusy] = useState(false)
   const [deleteGroupError, setDeleteGroupError] = useState('')
 
+  // Admin "reset to original imported fields" — discards edits and
+  // restores name/mmsGroupCode/partnerCode/the 3 profile texts from
+  // Group.importedSnapshot (whatever the group's last import/re-import
+  // actually said). Only available when detail.importedSnapshot exists.
+  const [showResetGroup, setShowResetGroup] = useState(false)
+  const [resetGroupBusy, setResetGroupBusy] = useState(false)
+  const [resetGroupError, setResetGroupError] = useState('')
+
+  // Toggles the 3 profile-field cards between the group's current (live)
+  // values and its as-imported snapshot — "Show original" — so an Admin
+  // can compare before deciding to Reset. Local display-only state, reset
+  // to 'current' whenever the viewed group changes.
+  const [profileView, setProfileView] = useState<'current' | 'original'>('current')
+  useEffect(() => {
+    setProfileView('current')
+  }, [selectedGroupId])
+
+  // Edit/Delete triggered from the list's row Actions menu (issue: "Delete
+  // and Edit actions in the Actions menu on the list as well") reuse the
+  // exact same modals as the detail view rather than duplicating them —
+  // they just navigate there first (openGroup) and queue which modal to
+  // open once that group's `detail` has actually loaded.
+  const [pendingRowAction, setPendingRowAction] = useState<'edit' | 'delete' | null>(null)
+  useEffect(() => {
+    if (!detail || !pendingRowAction) return
+    if (pendingRowAction === 'edit') openEditGroup()
+    else {
+      setDeleteGroupError('')
+      setShowDeleteGroup(true)
+    }
+    setPendingRowAction(null)
+    // detail.id (not the whole object) plus pendingRowAction — re-running on
+    // every `detail` refetch (e.g. after Generate) would re-open a modal the
+    // user already closed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail?.id, pendingRowAction])
+
   // Guards the check/import workflow as a whole (csvBanner, csvRows, review):
   // selecting a file, running a check, and confirming an import are all
   // async and can overlap (e.g. a slow manual-row check resolving after a
@@ -366,6 +403,28 @@ function ImportGroups() {
       backToList()
     } finally {
       setDeleteGroupBusy(false)
+    }
+  }
+
+  async function resetGroupNow() {
+    if (!detail) return
+    setResetGroupError('')
+    setResetGroupBusy(true)
+    try {
+      const res = await fetch('/api/resetGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: detail.id }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setResetGroupError(body?.error ?? `Reset failed (${res.status}).`)
+        return
+      }
+      await refreshAfterAction(detail.id)
+      setShowResetGroup(false)
+    } finally {
+      setResetGroupBusy(false)
     }
   }
 
@@ -734,6 +793,32 @@ function ImportGroups() {
               >
                 {busy === 'launch' ? 'Launching…' : 'Launch'}
               </button>
+              <button
+                type="button"
+                className="btn"
+                style={smallBtnStyle}
+                onClick={() =>
+                  runAndClose(() => {
+                    setPendingRowAction('edit')
+                    openGroup(g.id)
+                  })
+                }
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ ...smallBtnStyle, color: 'var(--status-danger)' }}
+                onClick={() =>
+                  runAndClose(() => {
+                    setPendingRowAction('delete')
+                    openGroup(g.id)
+                  })
+                }
+              >
+                Delete
+              </button>
             </div>,
             document.body,
           )}
@@ -853,6 +938,19 @@ function ImportGroups() {
                   >
                     Delete
                   </button>
+                  {detail.importedSnapshot && (
+                    <button
+                      type="button"
+                      className="linkText"
+                      style={{ fontSize: 13 }}
+                      onClick={() => {
+                        setResetGroupError('')
+                        setShowResetGroup(true)
+                      }}
+                    >
+                      Reset to imported
+                    </button>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
                   <div className="metaRow">
@@ -958,6 +1056,16 @@ function ImportGroups() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {detail.importedSnapshot && (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button type="button" className={`tabBtn ${profileView === 'current' ? 'on' : ''}`} onClick={() => setProfileView('current')}>
+                    Current
+                  </button>
+                  <button type="button" className={`tabBtn ${profileView === 'original' ? 'on' : ''}`} onClick={() => setProfileView('original')}>
+                    Show original
+                  </button>
+                </div>
+              )}
               {(
                 [
                   ['groupProfile', 'Group Profile.'],
@@ -965,7 +1073,7 @@ function ImportGroups() {
                   ['companiesProfile', 'Companies Profile.'],
                 ] as const
               ).map(([key, label]) => {
-                const text = (latest ? latest.content[key] : detail[key]) || ''
+                const text = (profileView === 'original' ? detail.importedSnapshot?.[key] : latest ? latest.content[key] : detail[key]) || ''
                 const fields = parseDnaFields(text)
                 return (
                   <div key={key} className="card" style={{ padding: '26px 30px' }}>
@@ -1124,6 +1232,29 @@ function ImportGroups() {
               </button>
               <button type="button" className="btn btn-danger" disabled={deleteGroupBusy} onClick={() => void deleteGroupNow()}>
                 {deleteGroupBusy ? 'Deleting…' : 'Delete group'}
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {showResetGroup && detail && (
+          <Modal title="Reset to imported" onClose={() => setShowResetGroup(false)}>
+            {resetGroupError && (
+              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+                {resetGroupError}
+              </p>
+            )}
+            <p style={{ marginBottom: 16 }}>
+              Reset <strong>{detail.name}</strong> to its original imported fields? This discards any edits to the name, MMS ID, Partner Code, and the
+              3 profile texts, restoring them to what the group's most recent import actually said. Chair/Network Advisor assignment, DNA versions,
+              comments, and activity history are not affected. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn" disabled={resetGroupBusy} onClick={() => setShowResetGroup(false)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-danger" disabled={resetGroupBusy} onClick={() => void resetGroupNow()}>
+                {resetGroupBusy ? 'Resetting…' : 'Reset group'}
               </button>
             </div>
           </Modal>

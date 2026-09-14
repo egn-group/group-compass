@@ -109,6 +109,19 @@ export const GetGroupRequestSchema = z.object({
   groupId: z.string().min(1),
 })
 
+// The subset of a group's fields Edit can change (country is derived from
+// partnerCode, chair/NA go through Reassign) — captured by putGroups on
+// every create/overwrite as the "as imported" baseline Reset restores.
+export const ImportedSnapshotSchema = z.object({
+  egnGroupName: z.string(),
+  mmsGroupCode: z.string(),
+  partnerCode: z.string(),
+  groupProfile: z.string(),
+  memberProfile: z.string(),
+  companiesProfile: z.string(),
+})
+export type ImportedSnapshot = z.infer<typeof ImportedSnapshotSchema>
+
 export const GroupDetailSchema = z.object({
   id: z.string(),
   egnGroupId: z.string(),
@@ -123,6 +136,9 @@ export const GroupDetailSchema = z.object({
   memberProfile: z.string(),
   companiesProfile: z.string(),
   latestDnaVersion: DnaVersionSummarySchema.nullable(),
+  // Null for a group imported before this field existed — nothing to
+  // reset to until it's re-imported.
+  importedSnapshot: ImportedSnapshotSchema.nullable(),
 })
 export type GroupDetail = z.infer<typeof GroupDetailSchema>
 
@@ -154,6 +170,16 @@ export const EditGroupResponseSchema = z.object({
   pendingReapproval: z.boolean(),
 })
 export type EditGroupResponse = z.infer<typeof EditGroupResponseSchema>
+
+// Admin-only: discard any edits and restore the same fields Edit can
+// change back to importedSnapshot — the group's own "as imported" state
+// as of its most recent import/re-import. Refuses when there's no
+// snapshot to restore (a group imported before this field existed).
+export const ResetGroupRequestSchema = z.object({
+  groupId: z.string().min(1),
+})
+export const ResetGroupResponseSchema = EditGroupResponseSchema
+export type ResetGroupResponse = z.infer<typeof ResetGroupResponseSchema>
 
 // Admin-only, and deliberately narrow: refuses whenever the group has any
 // DNA versions, comments, review events, or AI conversation history — spec
