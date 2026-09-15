@@ -147,13 +147,10 @@ function ImportGroups() {
 
   const [manualForm, setManualForm] = useState(emptyManualForm())
   // Optional roster paste (titles + companies, no names — spec §8) for the
-  // group being manually added, carried forward to that group's own Generate
-  // roster box once it's created (matched by egnGroupId below) — never sent
-  // anywhere itself, and never persisted server-side (prototype parity:
-  // ai-pipeline-test.html's own "it is not saved anywhere" note), so it's
-  // lost on refresh like the rest of this in-memory map.
+  // group being manually added — saved server-side (saveGroupRoster) once
+  // the group is actually created below, so it's there on the group's own
+  // detail page from then on, same as pasting it there directly.
   const [manualRoster, setManualRoster] = useState('')
-  const [rosterByEgnGroupId, setRosterByEgnGroupId] = useState<Record<string, string>>({})
   const [csvBanner, setCsvBanner] = useState<{ kind: 'error' | 'warning'; title: string; items: string[] } | null>(null)
   const [csvRows, setCsvRows] = useState<RawImportRow[]>([])
   const [csvFileName, setCsvFileName] = useState('')
@@ -291,15 +288,43 @@ function ImportGroups() {
   }, [selectedGroupId])
 
   // Group roster — titles + companies, optional (spec §8) — grounding
-  // context for Stage 2 only, sharpens Member/Companies profile. Pre-filled
-  // from whatever was pasted in "Add one group manually" for this same
-  // group (matched by egnGroupId), otherwise starts empty; never persisted
-  // server-side, only carried along with whichever Generate/Regenerate call
-  // is made next.
+  // context for Generate/Regenerate, sharpens Member/Companies profile.
+  // Pre-filled from the group's own persisted roster (saveGroupRoster);
+  // kept in its own draft state so typing doesn't save on every keystroke.
   const [rosterDraft, setRosterDraft] = useState('')
+  const [rosterSaving, setRosterSaving] = useState(false)
+  const [rosterSaveError, setRosterSaveError] = useState('')
+  const [rosterSaved, setRosterSaved] = useState(false)
   useEffect(() => {
-    if (detail) setRosterDraft(rosterByEgnGroupId[detail.egnGroupId] ?? '')
-  }, [detail?.egnGroupId])
+    if (detail) setRosterDraft(detail.roster ?? '')
+    setRosterSaveError('')
+    setRosterSaved(false)
+    // Only detail.id — see assignChairEmail's own comment above: an
+    // in-progress edit shouldn't be clobbered by e.g. a Generate action's
+    // own refresh of the same group.
+  }, [detail?.id])
+
+  async function saveRoster(groupId: string, roster: string): Promise<boolean> {
+    setRosterSaveError('')
+    setRosterSaved(false)
+    setRosterSaving(true)
+    try {
+      const res = await fetch('/api/saveGroupRoster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, roster }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setRosterSaveError(body?.error ?? `Save failed (${res.status}).`)
+        return false
+      }
+      setRosterSaved(true)
+      return true
+    } finally {
+      setRosterSaving(false)
+    }
+  }
 
   // Edit/Delete triggered from the list's row Actions menu (issue: "Delete
   // and Edit actions in the Actions menu on the list as well") reuse the
@@ -723,16 +748,32 @@ function ImportGroups() {
         }
         return
       }
+      const putResult = (await res.json().catch(() => null)) as { created?: string[]; overwritten?: string[] } | null
       // The import genuinely happened server-side — refresh the groups
       // table regardless of whether the admin has since moved on to a new
       // file. Only the review/csvRows/manualForm UI state — which a newer
       // action may already own — is gated on still being current.
       await queryClient.invalidateQueries({ queryKey: ['groups'] })
       if (gen === workflowGeneration.current) {
-        // Carry the manual-add form's roster forward to this exact group
-        // (matched by egnGroupId) — read before manualForm resets below.
-        if (manualRoster.trim() && rows.some((r) => r.egnGroupId === manualForm.egnGroupId)) {
-          setRosterByEgnGroupId((m) => ({ ...m, [manualForm.egnGroupId]: manualRoster.trim() }))
+        // Save the manual-add form's roster to this exact group, now that
+        // it actually has an id. Best-effort only — resolving the id or the
+        // save itself failing must never block closing the modal below, so
+        // this always runs inside its own try/catch, not the outer one.
+        if (manualRoster.trim() && putResult) {
+          try {
+            const manualRow = rows.find((r) => r.egnGroupId === manualForm.egnGroupId)
+            if (manualRow) {
+              const targetGroupId =
+                manualRow.action.type === 'overwrite'
+                  ? manualRow.action.groupId
+                  : putResult.created?.[rows.filter((r) => r.action.type === 'create').indexOf(manualRow)]
+              if (targetGroupId) void saveRoster(targetGroupId, manualRoster.trim())
+            }
+          } catch {
+            // Best-effort only — the group itself was still created/updated
+            // successfully; the admin can always paste the roster again on
+            // its own detail page.
+          }
         }
         setReview(null)
         setCsvRows([])
@@ -1058,13 +1099,27 @@ function ImportGroups() {
                   <textarea
                     id="roster-draft"
                     value={rosterDraft}
-                    onChange={(e) => setRosterDraft(e.target.value)}
+                    onChange={(e) => {
+                      setRosterDraft(e.target.value)
+                      setRosterSaved(false)
+                    }}
                     placeholder={'Paste one member per line, e.g.:\nCFO — Acme A/S\nHead of Operations — Northco ApS'}
                     style={{ minHeight: 90 }}
                   />
                   <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
-                    Optional. Used only to sharpen the Member and Companies profile on the next Generate/Regenerate — not saved anywhere.
+                    Optional. Used to sharpen the Member and Companies profile on the next Generate/Regenerate — kept here on the group's own page.
                   </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                    <button type="button" className="btn" disabled={rosterSaving} onClick={() => void saveRoster(detail.id, rosterDraft)}>
+                      {rosterSaving ? 'Saving…' : 'Save roster'}
+                    </button>
+                    {rosterSaved && <span style={{ color: 'var(--status-success)', fontSize: 13 }}>Saved</span>}
+                  </div>
+                  {rosterSaveError && (
+                    <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 8 }}>
+                      {rosterSaveError}
+                    </p>
+                  )}
                 </div>
                 <div
                   style={{
@@ -1090,7 +1145,15 @@ function ImportGroups() {
                     className="btn btn-secondary"
                     style={detailActionBtnStyle}
                     disabled={!!busy}
-                    onClick={() => void generateDna(detail.id, rosterDraft)}
+                    onClick={() =>
+                      void (async () => {
+                        // Persist whatever's currently in the box before
+                        // generating, so it's still there next time even if
+                        // the admin never separately clicked "Save roster".
+                        await saveRoster(detail.id, rosterDraft)
+                        await generateDna(detail.id, rosterDraft)
+                      })()
+                    }
                   >
                     {busy === 'generate' ? 'Generating…' : latest ? 'Regenerate' : 'Generate'}
                   </button>
@@ -1395,7 +1458,7 @@ function ImportGroups() {
                 placeholder={'Paste one member per line, e.g.:\nCFO — Acme A/S\nHead of Operations — Northco ApS'}
               />
               <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
-                Optional. Carried over to this group's own Generate/Regenerate once it's created — not saved anywhere.
+                Optional. Saved to this group's own detail page once it's created.
               </p>
             </div>
             <button type="submit" className="btn btn-primary" disabled={checking}>

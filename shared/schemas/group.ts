@@ -142,8 +142,26 @@ export const GroupDetailSchema = z.object({
   // Null for a group imported before this field existed — nothing to
   // reset to until it's re-imported.
   importedSnapshot: ImportedSnapshotSchema.nullable(),
+  // Optional grounding context for generation (spec §8) — titles +
+  // companies of existing members, no names. Null until an Admin pastes
+  // one; persisted (see saveGroupRoster) so it survives a refresh instead
+  // of being lost the moment the page changes.
+  roster: z.string().nullable(),
 })
 export type GroupDetail = z.infer<typeof GroupDetailSchema>
+
+// Admin-only: save (or clear, with an empty string) the optional roster
+// paste for a group — kept separate from editGroup since it isn't part of
+// the group's own imported content and doesn't warrant an Edit event.
+export const SaveGroupRosterRequestSchema = z.object({
+  groupId: z.string().min(1),
+  roster: z.string(),
+})
+export const SaveGroupRosterResponseSchema = z.object({
+  groupId: z.string(),
+  roster: z.string().nullable(),
+})
+export type SaveGroupRosterResponse = z.infer<typeof SaveGroupRosterResponseSchema>
 
 // Admin-only correction of a group's own imported metadata/profile text —
 // e.g. fixing a Salesforce data-entry mistake — without a full CSV

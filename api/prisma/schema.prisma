@@ -150,6 +150,15 @@ model Group {
   // so a second Undo click has nothing left to revert to until another real
   // edit happens — same "one level, then gone" semantics as the prototype.
   pendingUndo       Json?
+  // Optional grounding context for DNA generation (spec §8) — titles +
+  // companies of existing members, no names — pasted on the group detail
+  // page or "Add one group manually" and kept here so it survives a
+  // refresh/later visit instead of being lost the moment the page changes,
+  // per user feedback ("keep the group roster on the group detail page if
+  // it is added"). Deliberately its own field, not part of importedSnapshot
+  // or a DnaVersion: it isn't part of the group's own DNA content, and
+  // Reset must not discard it along with the profile texts.
+  roster            String?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   // Which of the 3 fields the Chair has individually approved during
