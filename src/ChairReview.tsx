@@ -741,19 +741,19 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
               {t.messageText && <p className={`chatBubble ${t.role === 'Chair' ? 'chair' : 'ai'}`}>{t.messageText}</p>}
               {t.proposedText && (
                 <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, maxWidth: '88%' }}>
-                  <p style={{ fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Proposed update</p>
-                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8, fontSize: 14 }}>{formatFieldText(t.proposedText)}</p>
+                  <p style={{ fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Proposed update</p>
+                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8, fontSize: 15 }}>{formatFieldText(t.proposedText)}</p>
                   {t.outcome === 'None' ? (
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 13 }} disabled={chatBusy} onClick={() => void acceptProposal(t.id)}>
+                      <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 14 }} disabled={chatBusy} onClick={() => void acceptProposal(t.id)}>
                         Accept
                       </button>
-                      <button type="button" className="btn" style={{ padding: '6px 12px', fontSize: 13 }} disabled={chatBusy} onClick={() => void rejectProposal(t.id)}>
+                      <button type="button" className="btn" style={{ padding: '6px 12px', fontSize: 14 }} disabled={chatBusy} onClick={() => void rejectProposal(t.id)}>
                         Reject
                       </button>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.outcome}</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t.outcome}</span>
                   )}
                 </div>
               )}
@@ -801,7 +801,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
             Send
           </button>
         </div>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', padding: '0 16px 10px' }}>Enter to send · Shift+Enter for a new line</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '0 16px 10px' }}>Enter to send · Shift+Enter for a new line</p>
       </div>
     </section>
   )
