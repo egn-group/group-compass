@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseChatResponse, parseSuggestions } from './parseChat'
+import { buildChatHistory, parseChatResponse, parseSuggestions } from './parseChat'
 
 describe('parseChatResponse', () => {
   it('parses a clarifying question, ignoring any TEKST/NOTE-shaped content', () => {
@@ -56,5 +56,36 @@ describe('parseSuggestions', () => {
   it('ignores lines that do not match the expected format', () => {
     const raw = 'Some preamble the model was told not to include.\nFELT: Group Profile | FORSLAG: Fix this.'
     expect(parseSuggestions(raw)).toEqual([{ fieldLabel: 'Group Profile', suggestion: 'Fix this.' }])
+  })
+})
+
+describe('buildChatHistory', () => {
+  it('maps a Chair turn to a user message', () => {
+    expect(buildChatHistory([{ role: 'Chair', messageText: 'Please shorten this.', proposedText: null }])).toEqual([
+      { role: 'user', content: 'Please shorten this.' },
+    ])
+  })
+
+  it('maps a plain-feedback or clarifying-question Ai turn (no proposedText) to its messageText', () => {
+    expect(buildChatHistory([{ role: 'Ai', messageText: 'Looks good.', proposedText: null }])).toEqual([{ role: 'assistant', content: 'Looks good.' }])
+  })
+
+  it('reconstructs a proposal Ai turn in the TEKST:/NOTE: shape the model originally produced', () => {
+    expect(buildChatHistory([{ role: 'Ai', messageText: 'Made it shorter.', proposedText: 'Ny feltekst her.' }])).toEqual([
+      { role: 'assistant', content: 'TEKST: Ny feltekst her.\nNOTE: Made it shorter.' },
+    ])
+  })
+
+  it('preserves turn order across a whole conversation', () => {
+    const history = buildChatHistory([
+      { role: 'Chair', messageText: 'I edited the Group Profile.', proposedText: null },
+      { role: 'Ai', messageText: 'Consider adding revenue range.', proposedText: null },
+      { role: 'Chair', messageText: 'Yes, please add that.', proposedText: null },
+    ])
+    expect(history).toEqual([
+      { role: 'user', content: 'I edited the Group Profile.' },
+      { role: 'assistant', content: 'Consider adding revenue range.' },
+      { role: 'user', content: 'Yes, please add that.' },
+    ])
   })
 })

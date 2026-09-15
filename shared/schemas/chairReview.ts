@@ -81,9 +81,12 @@ export const EditChairFieldRequestSchema = z.object({
 export const EditChairFieldResponseSchema = z.object({
   field: DnaFieldSchema,
   dnaVersionId: z.string(),
-  // The AI quality-check feedback (spec §11) — always present on success;
-  // never blocks the save that already happened by the time this returns.
-  aiFeedback: z.string(),
+  // The AI quality-check feedback (spec §11), posted into this field's own
+  // conversation (not returned for inline display) — never blocks the save
+  // that already happened by the time this returns. Null when the saved
+  // text is identical to what was there before (nothing for the AI to
+  // review); the client leaves the AI assistant closed in that case.
+  aiFeedback: z.string().nullable(),
 })
 export type EditChairFieldResponse = z.infer<typeof EditChairFieldResponseSchema>
 

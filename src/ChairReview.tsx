@@ -44,7 +44,6 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
   const [editingField, setEditingField] = useState<DnaFieldValue | null>(null)
   const [editDraft, setEditDraft] = useState('')
   const [busyField, setBusyField] = useState<DnaFieldValue | null>(null)
-  const [fieldFeedback, setFieldFeedback] = useState<Partial<Record<DnaFieldValue, string>>>({})
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<DnaFieldValue, string>>>({})
   const [reapproving, setReapproving] = useState(false)
 
@@ -103,7 +102,6 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
   function openGroup(groupId: string) {
     setSelectedGroupId(groupId)
     setJustFullyApproved(false)
-    setFieldFeedback({})
     setFieldErrors({})
     setEditingField(null)
     closeChat()
@@ -170,10 +168,14 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
         setFieldErrors((e) => ({ ...e, [field]: body?.error ?? `Save failed (${res.status}).` }))
         return
       }
-      const data = (await res.json()) as { aiFeedback: string }
-      setFieldFeedback((f) => ({ ...f, [field]: data.aiFeedback }))
+      const data = (await res.json()) as { aiFeedback: string | null }
       setEditingField(null)
       setEditDraft('')
+      // All AI interaction happens in the chat, not an inline card — the
+      // edit note + feedback are already posted to this field's own
+      // conversation (editChairField); opening it here just shows that.
+      // Null means the text didn't actually change — nothing to show.
+      if (data.aiFeedback !== null) openChat(field)
       await queryClient.invalidateQueries({ queryKey: ['chairGroup', selectedGroupId, viewAsKey] })
       await queryClient.invalidateQueries({ queryKey: ['chairGroups', viewAsKey] })
     } finally {
@@ -607,11 +609,6 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
                     </>
                   )
                 })()}
-                {fieldFeedback[field] && !isEditing && (
-                  <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, marginBottom: 8 }}>
-                    <strong>AI feedback:</strong> {fieldFeedback[field]}
-                  </div>
-                )}
                 {fieldErrors[field] && (
                   <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
                     {fieldErrors[field]}
@@ -694,6 +691,14 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
           </button>
         </div>
         <div className="chatMessages">
+          {chatQuery.isSuccess && chatTurns.length === 0 && (
+            // A greeting only — never persisted, so it doesn't affect what
+            // the AI sees as history if the Chair's first message here
+            // starts a real conversation.
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <p className="chatBubble ai">How can I assist you?</p>
+            </div>
+          )}
           {chatTurns.map((t) => (
             <div key={t.id} style={{ display: 'flex', flexDirection: 'column', alignItems: t.role === 'Chair' ? 'flex-end' : 'flex-start' }}>
               {t.messageText && <p className={`chatBubble ${t.role === 'Chair' ? 'chair' : 'ai'}`}>{t.messageText}</p>}

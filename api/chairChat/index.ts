@@ -5,7 +5,7 @@ import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolv
 import { chairChatPrompt } from '../shared/chairReview/prompts'
 import { CHAIR_REVIEW_MODEL } from '../shared/chairReview/models'
 import { requireChairReviewable } from '../shared/chairReview/requireReviewable'
-import { parseChatResponse } from '../shared/chairReview/parseChat'
+import { buildChatHistory, parseChatResponse } from '../shared/chairReview/parseChat'
 import { DNA_FIELD_KEY, DNA_FIELD_LABEL } from '../shared/dna/fieldKeys'
 import { errorResponse, serverError } from '../shared/errors'
 
@@ -60,6 +60,14 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const currentText = group[DNA_FIELD_KEY[field]]
     const unresolvedComment = await prisma.comment.findFirst({ where: { groupId, field, resolved: false }, orderBy: { createdAt: 'desc' } })
 
+    // Everything said so far in THIS field's own conversation — including a
+    // manual edit's "I edited the X" note and AI feedback turn (editChairField),
+    // not just prior chat messages — so a reply like "ok, implement your
+    // suggestions" has the actual suggestion in context, not just the
+    // newest message.
+    const priorTurns = await prisma.aiConversationTurn.findMany({ where: { groupId, field }, orderBy: { createdAt: 'asc' } })
+    const history = buildChatHistory(priorTurns)
+
     await prisma.aiConversationTurn.create({
       data: { groupId, field, chairEmail: effectiveEmail, role: 'Chair', messageText: message, outcome: 'None' },
     })
@@ -70,7 +78,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
     const result = await callAi({
       promptVersion: chairChatPrompt,
-      messages: [{ role: 'user', content: parts.join('\n\n') }],
+      messages: [...history, { role: 'user', content: parts.join('\n\n') }],
       model: CHAIR_REVIEW_MODEL,
       maxTokens: 800,
       log: (entry) => context.log(entry),
