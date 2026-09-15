@@ -142,6 +142,14 @@ model Group {
   // both optional (only created once Generate first runs) and never
   // updated by a later re-import.
   importedSnapshot  Json?
+  // Single-level "Undo last change" per field (prototype parity, HANDOFF.md
+  // §1 "chair-groups-live.html's ... previousText"). A partial map of
+  // DnaField -> the field's text immediately before its most recent change
+  // (saveChairFieldEdit overwrites the entry for whichever field just
+  // changed); undoChairField consumes and clears the entry for that field,
+  // so a second Undo click has nothing left to revert to until another real
+  // edit happens — same "one level, then gone" semantics as the prototype.
+  pendingUndo       Json?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   // Which of the 3 fields the Chair has individually approved during

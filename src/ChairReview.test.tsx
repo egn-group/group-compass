@@ -20,9 +20,15 @@ const groupDetail = {
   lifecycleStatus: 'ChairReview',
   pendingReapproval: false,
   fields: [
-    { field: 'GroupProfile', text: 'GROUP TEXT', approved: false, unresolvedComments: [{ id: 'c1', text: 'Please check this.', createdAt: new Date().toISOString() }] },
-    { field: 'MemberProfile', text: 'MEMBER TEXT', approved: false, unresolvedComments: [] },
-    { field: 'CompaniesProfile', text: 'COMPANIES TEXT', approved: false, unresolvedComments: [] },
+    {
+      field: 'GroupProfile',
+      text: 'GROUP TEXT',
+      approved: false,
+      comments: [{ id: 'c1', text: 'Please check this.', resolved: false, createdAt: new Date().toISOString() }],
+      canUndo: false,
+    },
+    { field: 'MemberProfile', text: 'MEMBER TEXT', approved: false, comments: [], canUndo: false },
+    { field: 'CompaniesProfile', text: 'COMPANIES TEXT', approved: false, comments: [], canUndo: false },
   ],
 }
 
@@ -37,6 +43,9 @@ function mockFetch(handlers: {
   acceptChairProposal?: { status: number; body: unknown }
   rejectChairProposal?: { status: number; body: unknown }
   suggestImprovements?: { status: number; body: unknown }
+  includeChairComment?: { status: number; body: unknown }
+  disregardChairComment?: { status: number; body: unknown }
+  undoChairField?: { status: number; body: unknown }
 }) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/getChairGroups') {
@@ -77,6 +86,18 @@ function mockFetch(handlers: {
     }
     if (url === '/api/suggestImprovements') {
       const { status, body } = handlers.suggestImprovements ?? { status: 200, body: { suggestions: [] } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/includeChairComment') {
+      const { status, body } = handlers.includeChairComment ?? { status: 200, body: { field: 'GroupProfile', text: 'INCLUDED TEXT', dnaVersionId: 'v-include' } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/disregardChairComment') {
+      const { status, body } = handlers.disregardChairComment ?? { status: 200, body: { commentId: 'c1' } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/undoChairField') {
+      const { status, body } = handlers.undoChairField ?? { status: 200, body: { field: 'GroupProfile', text: 'UNDONE TEXT', dnaVersionId: 'v-undo' } }
       return { ok: status < 300, status, json: async () => body }
     }
     throw new Error(`Unexpected fetch: ${url} ${init?.method}`)
@@ -289,7 +310,7 @@ describe('ChairReview', () => {
   })
 
   it('offers improvement suggestions once the group is Approved, and shows what it finds', async () => {
-    const approvedDetail = { ...groupDetail, lifecycleStatus: 'Approved', fields: groupDetail.fields.map((f) => ({ ...f, approved: true, unresolvedComments: [] })) }
+    const approvedDetail = { ...groupDetail, lifecycleStatus: 'Approved', fields: groupDetail.fields.map((f) => ({ ...f, approved: true, comments: [] })) }
     const fetchMock = mockFetch({
       getChairGroups: { groups: [{ ...groupListItem, lifecycleStatus: 'Approved' }] },
       getChairGroup: approvedDetail,
@@ -338,6 +359,128 @@ describe('ChairReview', () => {
     expect(screen.queryByText('Edit')).not.toBeInTheDocument()
     expect(screen.queryByText('Read & accept')).not.toBeInTheDocument()
     expect(screen.queryByText('Ask AI assistant')).not.toBeInTheDocument()
+    // The NA comment itself is still visible (transparency), but its
+    // actions are mutating controls, gated the same as everything else.
+    expect(screen.getByText('Please check this.')).toBeInTheDocument()
+    expect(screen.queryByText('Accept/Include')).not.toBeInTheDocument()
+    expect(screen.queryByText('Disregard')).not.toBeInTheDocument()
+  })
+
+  it('renders bold DNA field headlines in read mode, but raw markdown while editing', async () => {
+    const markdownDetail = {
+      ...groupDetail,
+      fields: groupDetail.fields.map((f) => (f.field === 'GroupProfile' ? { ...f, text: '**Hvem er gruppen for**\nCEOs only.' } : f)),
+    }
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] }, getChairGroup: markdownDetail })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Hvem er gruppen for')).toBeInTheDocument()
+    })
+    // No literal asterisks leak into the read-mode display.
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByText('Edit')[0])
+    expect((screen.getByLabelText('Edit Group Profile') as HTMLTextAreaElement).value).toBe('**Hvem er gruppen for**\nCEOs only.')
+  })
+
+  it('includes an NA comment via Accept/Include', async () => {
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Please check this.')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Accept/Include'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/includeChairComment',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ groupId: 'group-1', commentId: 'c1' }) }),
+      )
+    })
+  })
+
+  it('disregards an NA comment with no text change', async () => {
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Please check this.')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Disregard'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/disregardChairComment',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ groupId: 'group-1', commentId: 'c1' }) }),
+      )
+    })
+  })
+
+  it('copies an NA comment to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Please check this.')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Copy'))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Please check this.'))
+    await waitFor(() => expect(screen.getByText('Copied')).toBeInTheDocument())
+  })
+
+  it('keeps a resolved comment hidden behind a toggle', async () => {
+    const resolvedDetail = {
+      ...groupDetail,
+      fields: groupDetail.fields.map((f) =>
+        f.field === 'GroupProfile' ? { ...f, comments: [{ id: 'c1', text: 'Already dealt with.', resolved: true, createdAt: new Date().toISOString() }] } : f,
+      ),
+    }
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] }, getChairGroup: resolvedDetail })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText(/See network advisor comments/)).toBeInTheDocument())
+
+    expect(screen.queryByText('Already dealt with.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText(/See network advisor comments/))
+    expect(screen.getByText('Already dealt with.')).toBeInTheDocument()
+  })
+
+  it('shows an Undo control when canUndo is set, and calls undoChairField', async () => {
+    const undoableDetail = { ...groupDetail, fields: groupDetail.fields.map((f) => (f.field === 'MemberProfile' ? { ...f, canUndo: true } : f)) }
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] }, getChairGroup: undoableDetail })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Undo last change')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Undo last change'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/undoChairField',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ groupId: 'group-1', field: 'MemberProfile' }) }),
+      )
+    })
   })
 
   it('AI assistant sidebar switches conversations when a different field is opened, without closing first', async () => {

@@ -19,6 +19,19 @@ const STATUS_LABEL: Record<string, string> = {
 
 type StatusFilter = 'all' | 'Launched' | 'ChairReview' | 'Approved'
 
+// Read-mode formatting for DNA field text (prototype parity, HANDOFF.md §1's
+// formatFieldText) — bold `**headline**` markers, everything else as plain
+// text. Line breaks are handled by the caller's `white-space: pre-wrap`, not
+// here. Edit mode shows the same text completely raw (the textarea's value)
+// so the Chair edits exactly what's stored, asterisks included.
+function formatFieldText(raw: string) {
+  const parts = raw.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) => {
+    const match = /^\*\*([^*]+)\*\*$/.exec(part)
+    return match ? <strong key={i}>{match[1]}</strong> : <span key={i}>{part}</span>
+  })
+}
+
 interface ChairReviewProps {
   // Set only by App.tsx's Admin-only "View as" preview — when present,
   // every fetch here carries x-view-as-email. Read-only by default
@@ -55,6 +68,19 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
   const [chatError, setChatError] = useState('')
   const [suggestions, setSuggestions] = useState<Array<{ field: DnaFieldValue; suggestion: string }> | null>(null)
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+
+  // NA comment actions (Accept/Include, Disregard, Copy — prototype parity,
+  // HANDOFF.md §1's renderNaArea) — keyed by commentId since several
+  // comments (on different fields) could be busy/erroring independently.
+  const [commentBusy, setCommentBusy] = useState<Record<string, boolean>>({})
+  const [commentErrors, setCommentErrors] = useState<Record<string, string>>({})
+  const [copiedCommentId, setCopiedCommentId] = useState<string | null>(null)
+  // Resolved comments stay out of sight by default, one toggle per field
+  // (prototype parity, HANDOFF.md §1's naToggle).
+  const [expandedResolvedComments, setExpandedResolvedComments] = useState<Partial<Record<DnaFieldValue, boolean>>>({})
+  // Single-level "Undo last change" per field (prototype parity,
+  // HANDOFF.md §1's previousText/undoField).
+  const [undoingField, setUndoingField] = useState<DnaFieldValue | null>(null)
 
   const viewAsHeaders: HeadersInit | undefined = viewAsEmail ? { 'x-view-as-email': viewAsEmail } : undefined
 
@@ -94,6 +120,11 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
     setEditingField(null)
     closeChat()
     setSuggestions(null)
+    setCommentBusy({})
+    setCommentErrors({})
+    setCopiedCommentId(null)
+    setExpandedResolvedComments({})
+    setUndoingField(null)
   }
 
   function backToList() {
@@ -177,6 +208,87 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
       }
     } finally {
       setReapproving(false)
+    }
+  }
+
+  async function refreshAfterCommentAction() {
+    await queryClient.invalidateQueries({ queryKey: ['chairGroup', selectedGroupId, viewAsKey] })
+    await queryClient.invalidateQueries({ queryKey: ['chairGroups', viewAsKey] })
+  }
+
+  async function includeComment(commentId: string) {
+    if (!selectedGroupId) return
+    setCommentErrors((e) => ({ ...e, [commentId]: '' }))
+    setCommentBusy((b) => ({ ...b, [commentId]: true }))
+    try {
+      const res = await fetch('/api/includeChairComment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
+        body: JSON.stringify({ groupId: selectedGroupId, commentId }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setCommentErrors((e) => ({ ...e, [commentId]: body?.error ?? `Include failed (${res.status}).` }))
+        return
+      }
+      await refreshAfterCommentAction()
+    } finally {
+      setCommentBusy((b) => ({ ...b, [commentId]: false }))
+    }
+  }
+
+  async function disregardComment(commentId: string) {
+    if (!selectedGroupId) return
+    setCommentErrors((e) => ({ ...e, [commentId]: '' }))
+    setCommentBusy((b) => ({ ...b, [commentId]: true }))
+    try {
+      const res = await fetch('/api/disregardChairComment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
+        body: JSON.stringify({ groupId: selectedGroupId, commentId }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setCommentErrors((e) => ({ ...e, [commentId]: body?.error ?? `Disregard failed (${res.status}).` }))
+        return
+      }
+      await refreshAfterCommentAction()
+    } finally {
+      setCommentBusy((b) => ({ ...b, [commentId]: false }))
+    }
+  }
+
+  async function copyComment(commentId: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // Clipboard access can fail (permissions, insecure context) — the
+      // "Copied" confirmation just won't appear; not worth surfacing an error.
+      return
+    }
+    setCopiedCommentId(commentId)
+    setTimeout(() => setCopiedCommentId((id) => (id === commentId ? null : id)), 1500)
+  }
+
+  async function undoField(field: DnaFieldValue) {
+    if (!selectedGroupId) return
+    setFieldErrors((e) => ({ ...e, [field]: '' }))
+    setUndoingField(field)
+    try {
+      const res = await fetch('/api/undoChairField', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...viewAsHeaders },
+        body: JSON.stringify({ groupId: selectedGroupId, field }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        setFieldErrors((e) => ({ ...e, [field]: body?.error ?? `Undo failed (${res.status}).` }))
+        return
+      }
+      await queryClient.invalidateQueries({ queryKey: ['chairGroup', selectedGroupId, viewAsKey] })
+      await queryClient.invalidateQueries({ queryKey: ['chairGroups', viewAsKey] })
+    } finally {
+      setUndoingField(null)
     }
   }
 
@@ -446,14 +558,67 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
                     />
                   </div>
                 ) : (
-                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{f.text}</p>
+                  // Bold headline markers only, in read mode — the raw
+                  // markdown (asterisks and all) is what the textarea above
+                  // shows in edit mode (prototype parity, HANDOFF.md §1's
+                  // formatFieldText).
+                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{formatFieldText(f.text)}</p>
                 )}
 
-                {f.unresolvedComments.map((c) => (
-                  <div key={c.id} className="card" style={{ background: '#FEF3E7', padding: 10, marginBottom: 8 }}>
-                    <strong>Network Advisor:</strong> {c.text}
-                  </div>
-                ))}
+                {(() => {
+                  const unresolvedComments = f.comments.filter((c) => !c.resolved)
+                  const resolvedComments = f.comments.filter((c) => c.resolved)
+                  const commentsExpanded = !!expandedResolvedComments[field]
+                  return (
+                    <>
+                      {unresolvedComments.map((c) => (
+                        <div key={c.id} className="card" style={{ background: '#FEF3E7', padding: 10, marginBottom: 8 }}>
+                          <p style={{ marginBottom: canEdit ? 8 : 0 }}>
+                            <strong>Network Advisor:</strong> {c.text}
+                          </p>
+                          {canEdit && (
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <button type="button" className="btn btn-small" disabled={!!commentBusy[c.id]} onClick={() => void includeComment(c.id)}>
+                                {commentBusy[c.id] ? 'Thinking…' : 'Accept/Include'}
+                              </button>
+                              <button type="button" className="btn btn-small" disabled={!!commentBusy[c.id]} onClick={() => void disregardComment(c.id)}>
+                                Disregard
+                              </button>
+                              <button type="button" className="btn btn-small" onClick={() => openChat(field)}>
+                                Edit with AI
+                              </button>
+                              <button type="button" className="linkText" onClick={() => void copyComment(c.id, c.text)}>
+                                {copiedCommentId === c.id ? 'Copied' : 'Copy'}
+                              </button>
+                            </div>
+                          )}
+                          {commentErrors[c.id] && (
+                            <p role="alert" style={{ color: 'var(--status-danger)', marginTop: 8 }}>
+                              {commentErrors[c.id]}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                      {resolvedComments.length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                          <button
+                            type="button"
+                            className="linkText"
+                            onClick={() => setExpandedResolvedComments((s) => ({ ...s, [field]: !s[field] }))}
+                          >
+                            {commentsExpanded ? '▾' : '▸'} See network advisor comments ({resolvedComments.length})
+                          </button>
+                          {commentsExpanded &&
+                            resolvedComments.map((c) => (
+                              <div key={c.id} className="card" style={{ background: '#FEF3E7', padding: 10, marginTop: 8 }}>
+                                <strong>Network Advisor:</strong> {c.text}
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
                 {fieldFeedback[field] && !isEditing && (
                   <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, marginBottom: 8 }}>
                     <strong>AI feedback:</strong> {fieldFeedback[field]}
@@ -478,6 +643,11 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
                       </>
                     ) : (
                       <>
+                        {f.canUndo && (
+                          <button type="button" className="btn" disabled={undoingField === field} onClick={() => void undoField(field)}>
+                            {undoingField === field ? 'Undoing…' : 'Undo last change'}
+                          </button>
+                        )}
                         <button type="button" className="btn" onClick={() => startEdit(field, f.text)}>
                           Edit
                         </button>
@@ -542,7 +712,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
               {t.proposedText && (
                 <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 10, maxWidth: '88%' }}>
                   <p style={{ fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Proposed update</p>
-                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8, fontSize: 14 }}>{t.proposedText}</p>
+                  <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8, fontSize: 14 }}>{formatFieldText(t.proposedText)}</p>
                   {t.outcome === 'None' ? (
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 13 }} disabled={chatBusy} onClick={() => void acceptProposal(t.id)}>

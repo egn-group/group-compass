@@ -133,10 +133,11 @@ async function main() {
   // --- 4. Detail view: shows the group's fields, current text, and the unresolved NA comment. No score.
   res = await call(`/api/getChairGroup?groupId=${groupA.id}`, { method: 'GET', email: chair1 })
   assert(res.status === 200, `expected 200 for chair1's own group detail, got ${res.status}`)
-  const detail = res.json as { fields: Array<{ field: string; text: string; approved: boolean; unresolvedComments: Array<{ text: string }> }> }
+  const detail = res.json as { fields: Array<{ field: string; text: string; approved: boolean; comments: Array<{ id: string; text: string; resolved: boolean }>; canUndo: boolean }> }
   const groupProfileField = detail.fields.find((f) => f.field === 'GroupProfile')!
-  assert(groupProfileField.unresolvedComments.length === 1, 'GroupProfile field shows the unresolved NA comment')
+  assert(groupProfileField.comments.length === 1 && !groupProfileField.comments[0].resolved, 'GroupProfile field shows the unresolved NA comment')
   assert(!groupProfileField.approved, 'GroupProfile starts unapproved')
+  assert(!groupProfileField.canUndo, 'no undo available before any edit has happened')
   assert(!JSON.stringify(detail).toLowerCase().includes('score'), 'no "score" field leaks in the detail response')
   console.log('  4. Detail view ok: fields, unresolved comment, no score leak')
 
@@ -244,6 +245,94 @@ async function main() {
   const groupCUnchanged = await prisma.group.findUniqueOrThrow({ where: { id: groupC.id } })
   assert(groupCUnchanged.groupProfile === 'GROUP C TEXT' && groupCUnchanged.approvedFields.length === 0, 'neither rejected attempt actually wrote anything')
   console.log('  10. Edit/Approve rejected while a group is still Launched (waiting on the NA) ok')
+
+  // --- 11. Undo: a fresh edit on GroupProfile makes canUndo true; Undo
+  // reverts the text and does NOT re-flag pendingReapproval (it already sat
+  // at true from step 8's post-approval edit — undo must leave it alone,
+  // not clear it, since the group's other pending edit is still pending).
+  const groupProfileBeforeUndoEdit = (await prisma.group.findUniqueOrThrow({ where: { id: groupA.id } })).groupProfile
+  res = await call(`/api/getChairGroup?groupId=${groupA.id}`, { method: 'GET', email: chair1 })
+  let detailBeforeUndo = res.json as { fields: Array<{ field: string; canUndo: boolean }> }
+  assert(!detailBeforeUndo.fields.find((f) => f.field === 'GroupProfile')!.canUndo, 'no undo available for GroupProfile before its first edit')
+
+  res = await call('/api/editChairField', { method: 'POST', email: chair1, body: { groupId: groupA.id, field: 'GroupProfile', text: 'REVISED GROUP A TEXT for undo test.' } })
+  assert(res.status === 200, `expected 200 editing GroupProfile for the undo test, got ${res.status}`)
+
+  res = await call(`/api/getChairGroup?groupId=${groupA.id}`, { method: 'GET', email: chair1 })
+  detailBeforeUndo = res.json as { fields: Array<{ field: string; canUndo: boolean }> }
+  assert(detailBeforeUndo.fields.find((f) => f.field === 'GroupProfile')!.canUndo, 'canUndo is true right after an edit')
+
+  res = await call('/api/undoChairField', { method: 'POST', email: chair1, body: { groupId: groupA.id, field: 'GroupProfile' } })
+  assert(res.status === 200, `expected 200 for undoChairField, got ${res.status}: ${JSON.stringify(res.json)}`)
+  assert((res.json as { text: string }).text === groupProfileBeforeUndoEdit, 'undo reverted GroupProfile to its pre-edit text')
+  const groupAfterUndo = await prisma.group.findUniqueOrThrow({ where: { id: groupA.id } })
+  assert(groupAfterUndo.groupProfile === groupProfileBeforeUndoEdit, "group's live groupProfile matches the reverted text")
+  assert(groupAfterUndo.pendingReapproval === true, 'undo does not touch pendingReapproval either way')
+
+  res = await call(`/api/getChairGroup?groupId=${groupA.id}`, { method: 'GET', email: chair1 })
+  const detailAfterUndo = res.json as { fields: Array<{ field: string; canUndo: boolean }> }
+  assert(!detailAfterUndo.fields.find((f) => f.field === 'GroupProfile')!.canUndo, 'canUndo is consumed — false again after one use')
+
+  res = await call('/api/undoChairField', { method: 'POST', email: chair1, body: { groupId: groupA.id, field: 'GroupProfile' } })
+  assert(res.status === 400, `expected 400 undoing a field a second time with nothing pending, got ${res.status}`)
+  console.log('  11. Undo: single-level, reverts text, leaves pendingReapproval alone, cannot be repeated ok')
+
+  // --- 12. "Accept/Include": a fresh NA comment on MemberProfile, folded
+  // directly into the field text by a real AI call, saved via the same path
+  // as a manual edit — resolves the comment, versions the change, posts an
+  // Ai turn to that field's conversation.
+  const latestVersionForInclude = await prisma.dnaVersion.findFirstOrThrow({ where: { groupId: groupA.id }, orderBy: { versionNumber: 'desc' } })
+  const memberProfileBeforeInclude = (await prisma.group.findUniqueOrThrow({ where: { id: groupA.id } })).memberProfile
+  const includeComment = await prisma.comment.create({
+    data: {
+      groupId: groupA.id,
+      dnaVersionId: latestVersionForInclude.id,
+      field: 'MemberProfile',
+      author: 'NetworkAdvisor',
+      text: 'This group also expects members to have at least 5 years in the CEO role — worth stating explicitly.',
+    },
+  })
+  res = await call('/api/includeChairComment', { method: 'POST', email: chair1, body: { groupId: groupA.id, commentId: includeComment.id } })
+  assert(res.status === 200, `expected 200 for includeChairComment, got ${res.status}: ${JSON.stringify(res.json)}`)
+  const includeResult = res.json as { field: string; text: string; dnaVersionId: string }
+  assert(includeResult.field === 'MemberProfile' && includeResult.text.length > 0 && includeResult.text !== memberProfileBeforeInclude, 'includeChairComment returned a changed MemberProfile text')
+  const commentAfterInclude = await prisma.comment.findUniqueOrThrow({ where: { id: includeComment.id } })
+  assert(commentAfterInclude.resolved, 'the included comment is resolved')
+  const groupAfterInclude = await prisma.group.findUniqueOrThrow({ where: { id: groupA.id } })
+  assert(groupAfterInclude.memberProfile === includeResult.text, "group's live memberProfile matches the included text")
+  const includeAiTurns = await prisma.aiConversationTurn.findMany({ where: { groupId: groupA.id, field: 'MemberProfile', role: 'Ai' } })
+  assert(includeAiTurns.some((t) => t.outcome === 'None' && t.proposedText === null), 'an Ai turn documenting the include was posted (no pending proposal — already applied)')
+  console.log('  12. Accept/Include: real AI call folds the comment in, resolves it, versions the change ok')
+
+  // --- 13. "Disregard": a fresh NA comment resolved with no text change at all.
+  const companiesProfileBeforeDisregard = (await prisma.group.findUniqueOrThrow({ where: { id: groupA.id } })).companiesProfile
+  const latestVersionForDisregard = await prisma.dnaVersion.findFirstOrThrow({ where: { groupId: groupA.id }, orderBy: { versionNumber: 'desc' } })
+  const disregardComment = await prisma.comment.create({
+    data: {
+      groupId: groupA.id,
+      dnaVersionId: latestVersionForDisregard.id,
+      field: 'CompaniesProfile',
+      author: 'NetworkAdvisor',
+      text: 'Not sure this matters, just flagging for awareness.',
+    },
+  })
+  res = await call('/api/disregardChairComment', { method: 'POST', email: chair1, body: { groupId: groupA.id, commentId: disregardComment.id } })
+  assert(res.status === 200, `expected 200 for disregardChairComment, got ${res.status}: ${JSON.stringify(res.json)}`)
+  const commentAfterDisregard = await prisma.comment.findUniqueOrThrow({ where: { id: disregardComment.id } })
+  assert(commentAfterDisregard.resolved, 'the disregarded comment is resolved')
+  const groupAfterDisregard = await prisma.group.findUniqueOrThrow({ where: { id: groupA.id } })
+  assert(groupAfterDisregard.companiesProfile === companiesProfileBeforeDisregard, 'disregard never touched the field text')
+  console.log('  13. Disregard: resolved, text left untouched ok')
+
+  // --- 14. Ownership guards on all 3 new endpoints, and acting on an
+  // already-resolved (or nonexistent) comment is rejected, not repeated.
+  res = await call('/api/undoChairField', { method: 'POST', email: chair1, body: { groupId: groupB.id, field: 'GroupProfile' } })
+  assert(res.status === 404, `expected 404 undoing a field on chair2's group, got ${res.status}`)
+  res = await call('/api/includeChairComment', { method: 'POST', email: chair1, body: { groupId: groupB.id, commentId: includeComment.id } })
+  assert(res.status === 404, `expected 404 including a comment scoped to chair2's group, got ${res.status}`)
+  res = await call('/api/disregardChairComment', { method: 'POST', email: chair1, body: { groupId: groupA.id, commentId: includeComment.id } })
+  assert(res.status === 404, `expected 404 disregarding an already-resolved comment, got ${res.status}`)
+  console.log('  14. Ownership guards + already-resolved-comment guard on Include/Disregard/Undo ok')
 
   console.log('verify-chair-review: all checks passed')
 }

@@ -23,6 +23,11 @@ export type GetChairGroupsResponse = z.infer<typeof GetChairGroupsResponseSchema
 const ChairFieldCommentSchema = z.object({
   id: z.string(),
   text: z.string(),
+  // Comments are never deleted (api/prisma/schema.prisma's Comment model) —
+  // resolved ones stay in this list so the Chair can still see them behind
+  // the "See network advisor comments" toggle (prototype parity,
+  // HANDOFF.md §1's naToggle), instead of vanishing from the API response.
+  resolved: z.boolean(),
   createdAt: z.string(),
 })
 
@@ -30,10 +35,12 @@ const ChairFieldSchema = z.object({
   field: DnaFieldSchema,
   text: z.string(),
   approved: z.boolean(),
-  // At most one unresolved comment is expected in the pilot's single NA
-  // comment round, but this is an array (not nullable) so a future
-  // multi-round flow isn't a breaking response-shape change.
-  unresolvedComments: z.array(ChairFieldCommentSchema),
+  // Every comment on this field, resolved or not — ordered oldest first.
+  comments: z.array(ChairFieldCommentSchema),
+  // True when a single-level "Undo last change" is available for this field
+  // (Group.pendingUndo has an entry for it) — the actual previous text
+  // never leaves the server; undoChairField is the only thing that reads it.
+  canUndo: z.boolean(),
 })
 export type ChairField = z.infer<typeof ChairFieldSchema>
 
@@ -137,6 +144,43 @@ export const AcceptChairProposalResponseSchema = z.object({
   dnaVersionId: z.string(),
 })
 export type AcceptChairProposalResponse = z.infer<typeof AcceptChairProposalResponseSchema>
+
+// --- NA comment actions (Accept/Include, Disregard) — prototype parity,
+// HANDOFF.md §1's renderNaArea/naInclude/naDisregard ---
+
+export const IncludeChairCommentRequestSchema = z.object({
+  groupId: z.string().min(1),
+  commentId: z.string().min(1),
+})
+export const IncludeChairCommentResponseSchema = z.object({
+  field: DnaFieldSchema,
+  text: z.string(),
+  dnaVersionId: z.string(),
+})
+export type IncludeChairCommentResponse = z.infer<typeof IncludeChairCommentResponseSchema>
+
+export const DisregardChairCommentRequestSchema = z.object({
+  groupId: z.string().min(1),
+  commentId: z.string().min(1),
+})
+export const DisregardChairCommentResponseSchema = z.object({
+  commentId: z.string(),
+})
+export type DisregardChairCommentResponse = z.infer<typeof DisregardChairCommentResponseSchema>
+
+// --- Single-level per-field undo — prototype parity, HANDOFF.md §1's
+// previousText/undoField ---
+
+export const UndoChairFieldRequestSchema = z.object({
+  groupId: z.string().min(1),
+  field: DnaFieldSchema,
+})
+export const UndoChairFieldResponseSchema = z.object({
+  field: DnaFieldSchema,
+  text: z.string(),
+  dnaVersionId: z.string(),
+})
+export type UndoChairFieldResponse = z.infer<typeof UndoChairFieldResponseSchema>
 
 export const SuggestImprovementsRequestSchema = z.object({
   groupId: z.string().min(1),
