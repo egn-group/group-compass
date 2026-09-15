@@ -13,6 +13,11 @@ export const NaGroupDtoSchema = z.object({
   groupProfile: z.string(),
   memberProfile: z.string(),
   companiesProfile: z.string(),
+  // 'Launched' (needs the NA's comment — editable), 'ChairReview' (sent,
+  // read-only while the Chair works through it) or 'Approved' (read-only,
+  // "Approved by Chair"). The group stays in this list through all three —
+  // it never disappears the moment it's sent, unlike before.
+  lifecycleStatus: z.string(),
 })
 export type NaGroupDto = z.infer<typeof NaGroupDtoSchema>
 

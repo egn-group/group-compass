@@ -87,9 +87,12 @@ export const GroupDtoSchema = z.object({
   // without a separate per-row detail fetch first.
   latestDnaVersionId: z.string().nullable(),
   latestDnaVersionScore: z.number().nullable(),
-  // Mirrors launchGroup's own precondition check exactly (latest version's
-  // author is 'Ai') — the list can gate the Launch button on this instead
-  // of duplicating that business rule client-side.
+  // True only when the latest DnaVersion is Ai-authored AND its content
+  // still differs from the group's live text — i.e. a real Launch would
+  // actually change something. Launch copies the version onto the live
+  // fields without creating a new version, so "author is Ai" alone would
+  // stay true even right after launching; the list gates the Launch button
+  // on this instead of duplicating that comparison client-side.
   hasPendingAiDraft: z.boolean(),
 })
 export type GroupDto = z.infer<typeof GroupDtoSchema>
