@@ -37,7 +37,13 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
 
     const groups = await prisma.group.findMany({
       where: { networkAdvisorEmail: effectiveEmail, lifecycleStatus: { in: ['Launched', 'ChairReview', 'Approved'] } },
-      include: { chair: true },
+      include: {
+        chair: true,
+        // Only this NA's own comments (never a SalesLeader's, if that ever
+        // exists on the same group) — shown read-only once there's nothing
+        // left to type, so what was actually sent doesn't just disappear.
+        comments: { where: { author: 'NetworkAdvisor' }, orderBy: { createdAt: 'asc' } },
+      },
       orderBy: { name: 'asc' },
     })
     const body: NaGroupDto[] = groups.map((g) => ({
@@ -48,6 +54,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       memberProfile: g.memberProfile,
       companiesProfile: g.companiesProfile,
       lifecycleStatus: g.lifecycleStatus,
+      comments: g.comments.map((c) => ({ field: c.field, text: c.text, createdAt: c.createdAt.toISOString() })),
     }))
 
     // The guidance banner's own dismiss action is a write (dismissNaGuidance)

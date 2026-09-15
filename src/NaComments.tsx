@@ -192,24 +192,35 @@ function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
             )}
           </div>
           <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>Chair: {g.chairName ?? '—'}</p>
-          {FIELDS.map((f) => (
-            <div key={f.field} className="field">
-              <label className="lbl">{f.label}</label>
-              <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{formatFieldText(g[f.textKey])}</p>
-              {editable && (
-                <>
-                  <label className="lbl" htmlFor={`comment-${g.id}-${f.field}`}>
-                    Comment for the Chair (optional)
-                  </label>
-                  <textarea
-                    id={`comment-${g.id}-${f.field}`}
-                    value={drafts[g.id]?.[f.field] ?? ''}
-                    onChange={(e) => updateDraft(g.id, f.field, e.target.value)}
-                  />
-                </>
-              )}
-            </div>
-          ))}
+          {FIELDS.map((f) => {
+            const sentComment = g.comments.find((c) => c.field === f.field)
+            return (
+              <div key={f.field} className="field">
+                <label className="lbl">{f.label}</label>
+                <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{formatFieldText(g[f.textKey])}</p>
+                {editable ? (
+                  <>
+                    <label className="lbl" htmlFor={`comment-${g.id}-${f.field}`}>
+                      Comment for the Chair (optional)
+                    </label>
+                    <textarea
+                      id={`comment-${g.id}-${f.field}`}
+                      value={drafts[g.id]?.[f.field] ?? ''}
+                      onChange={(e) => updateDraft(g.id, f.field, e.target.value)}
+                    />
+                  </>
+                ) : (
+                  // Once sent, there's nothing left to type — but what was
+                  // actually sent shouldn't just disappear from the page.
+                  sentComment && (
+                    <div className="card" style={{ background: '#FEF3E7', padding: 10 }}>
+                      <strong>Your comment:</strong> {sentComment.text}
+                    </div>
+                  )
+                )}
+              </div>
+            )
+          })}
           {groupErrors[g.id] && (
             <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
               {groupErrors[g.id]}
