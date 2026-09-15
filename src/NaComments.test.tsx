@@ -10,6 +10,7 @@ const group = {
   memberProfile: 'MEMBER TEXT',
   companiesProfile: 'COMPANIES TEXT',
   lifecycleStatus: 'Launched',
+  comments: [],
 }
 
 function mockFetch(handlers: {
@@ -155,6 +156,36 @@ describe('NaComments', () => {
     expect(screen.getByText('Approved by Chair')).toBeInTheDocument()
     expect(screen.queryByText('Send to Chair')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Comment for the Chair (optional)')).not.toBeInTheDocument()
+  })
+
+  it('shows the NA\'s own already-sent comments read-only once the group is in ChairReview ("Sent") status', async () => {
+    const sentGroup = {
+      ...group,
+      lifecycleStatus: 'ChairReview',
+      comments: [{ field: 'GroupProfile', text: 'Please double-check this section.', createdAt: new Date().toISOString() }],
+    }
+    vi.stubGlobal('fetch', mockFetch({ getNaGroups: { groups: [sentGroup], showGuidance: false } }))
+    render(<NaComments />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+    expect(screen.getByText('Please double-check this section.')).toBeInTheDocument()
+    // No comment box for a field with nothing sent on it.
+    expect(screen.queryByLabelText('Comment for the Chair (optional)')).not.toBeInTheDocument()
+  })
+
+  it('shows nothing extra for a field with no comment sent, once the group is read-only', async () => {
+    const sentGroup = { ...group, lifecycleStatus: 'ChairReview', comments: [] }
+    vi.stubGlobal('fetch', mockFetch({ getNaGroups: { groups: [sentGroup], showGuidance: false } }))
+    render(<NaComments />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+    expect(screen.queryByText('Your comment:')).not.toBeInTheDocument()
   })
 
   it('renders bold DNA field headlines instead of raw markdown', async () => {
