@@ -146,6 +146,14 @@ function ImportGroups() {
   const [error, setError] = useState('')
 
   const [manualForm, setManualForm] = useState(emptyManualForm())
+  // Optional roster paste (titles + companies, no names — spec §8) for the
+  // group being manually added, carried forward to that group's own Generate
+  // roster box once it's created (matched by egnGroupId below) — never sent
+  // anywhere itself, and never persisted server-side (prototype parity:
+  // ai-pipeline-test.html's own "it is not saved anywhere" note), so it's
+  // lost on refresh like the rest of this in-memory map.
+  const [manualRoster, setManualRoster] = useState('')
+  const [rosterByEgnGroupId, setRosterByEgnGroupId] = useState<Record<string, string>>({})
   const [csvBanner, setCsvBanner] = useState<{ kind: 'error' | 'warning'; title: string; items: string[] } | null>(null)
   const [csvRows, setCsvRows] = useState<RawImportRow[]>([])
   const [csvFileName, setCsvFileName] = useState('')
@@ -281,6 +289,17 @@ function ImportGroups() {
   useEffect(() => {
     setProfileView('current')
   }, [selectedGroupId])
+
+  // Group roster — titles + companies, optional (spec §8) — grounding
+  // context for Stage 2 only, sharpens Member/Companies profile. Pre-filled
+  // from whatever was pasted in "Add one group manually" for this same
+  // group (matched by egnGroupId), otherwise starts empty; never persisted
+  // server-side, only carried along with whichever Generate/Regenerate call
+  // is made next.
+  const [rosterDraft, setRosterDraft] = useState('')
+  useEffect(() => {
+    if (detail) setRosterDraft(rosterByEgnGroupId[detail.egnGroupId] ?? '')
+  }, [detail?.egnGroupId])
 
   // Edit/Delete triggered from the list's row Actions menu (issue: "Delete
   // and Edit actions in the Actions menu on the list as well") reuse the
@@ -433,7 +452,7 @@ function ImportGroups() {
   // its own request (not combined) because generateDnaStage1/2 already
   // budget close to SWA's 45s cap on their own; see those endpoints'
   // comments.
-  async function generateDna(groupId: string) {
+  async function generateDna(groupId: string, roster?: string) {
     setActionError((e) => ({ ...e, [groupId]: undefined }))
     setActionBusy((b) => ({ ...b, [groupId]: 'generate' }))
     try {
@@ -452,7 +471,7 @@ function ImportGroups() {
       const s2 = await fetch('/api/generateDnaStage2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, stage1Text }),
+        body: JSON.stringify({ groupId, stage1Text, ...(roster?.trim() ? { roster: roster.trim() } : {}) }),
       })
       if (!s2.ok) {
         const body = (await s2.json().catch(() => null)) as { error?: string } | null
@@ -710,10 +729,16 @@ function ImportGroups() {
       // action may already own — is gated on still being current.
       await queryClient.invalidateQueries({ queryKey: ['groups'] })
       if (gen === workflowGeneration.current) {
+        // Carry the manual-add form's roster forward to this exact group
+        // (matched by egnGroupId) — read before manualForm resets below.
+        if (manualRoster.trim() && rows.some((r) => r.egnGroupId === manualForm.egnGroupId)) {
+          setRosterByEgnGroupId((m) => ({ ...m, [manualForm.egnGroupId]: manualRoster.trim() }))
+        }
         setReview(null)
         setCsvRows([])
         setCsvFileName('')
         setManualForm(emptyManualForm())
+        setManualRoster('')
         setOpenPanel(null)
       }
     } finally {
@@ -1026,6 +1051,21 @@ function ImportGroups() {
                     {actionError[detail.id]}
                   </p>
                 )}
+                <div className="field" style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+                  <label className="lbl" htmlFor="roster-draft">
+                    Group roster — titles + companies (optional)
+                  </label>
+                  <textarea
+                    id="roster-draft"
+                    value={rosterDraft}
+                    onChange={(e) => setRosterDraft(e.target.value)}
+                    placeholder={'Paste one member per line, e.g.:\nCFO — Acme A/S\nHead of Operations — Northco ApS'}
+                    style={{ minHeight: 90 }}
+                  />
+                  <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+                    Optional. Used only to sharpen the Member and Companies profile on the next Generate/Regenerate — not saved anywhere.
+                  </p>
+                </div>
                 <div
                   style={{
                     display: 'grid',
@@ -1050,7 +1090,7 @@ function ImportGroups() {
                     className="btn btn-secondary"
                     style={detailActionBtnStyle}
                     disabled={!!busy}
-                    onClick={() => void generateDna(detail.id)}
+                    onClick={() => void generateDna(detail.id, rosterDraft)}
                   >
                     {busy === 'generate' ? 'Generating…' : latest ? 'Regenerate' : 'Generate'}
                   </button>
@@ -1344,6 +1384,20 @@ function ImportGroups() {
                 <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>{FIELD_EXAMPLES[key]}</p>
               </div>
             ))}
+            <div className="field">
+              <label className="lbl" htmlFor="manual-roster">
+                Group roster — titles + companies (optional)
+              </label>
+              <textarea
+                id="manual-roster"
+                value={manualRoster}
+                onChange={(e) => setManualRoster(e.target.value)}
+                placeholder={'Paste one member per line, e.g.:\nCFO — Acme A/S\nHead of Operations — Northco ApS'}
+              />
+              <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+                Optional. Carried over to this group's own Generate/Regenerate once it's created — not saved anywhere.
+              </p>
+            </div>
             <button type="submit" className="btn btn-primary" disabled={checking}>
               {checking ? 'Checking…' : 'Check group'}
             </button>

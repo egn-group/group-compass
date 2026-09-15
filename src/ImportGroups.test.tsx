@@ -477,6 +477,116 @@ describe('ImportGroups', () => {
     })
   })
 
+  it('includes a pasted roster in the detail view\'s Generate/Regenerate call, but not when left blank', async () => {
+    const fetchMock = mockFetch({ getGroups: [group], getGroup: groupDetail })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportGroups />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Regenerate')).toBeInTheDocument())
+
+    fireEvent.change(screen.getByLabelText('Group roster — titles + companies (optional)'), {
+      target: { value: 'CFO — Acme A/S\nHead of Operations — Northco ApS' },
+    })
+    fireEvent.click(screen.getByText('Regenerate'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/generateDnaStage2',
+        expect.objectContaining({
+          body: JSON.stringify({ groupId: 'g1', stage1Text: 'stage1', roster: 'CFO — Acme A/S\nHead of Operations — Northco ApS' }),
+        }),
+      )
+    })
+  })
+
+  it('sends no roster field at all when the roster box is left blank', async () => {
+    const fetchMock = mockFetch({ getGroups: [group], getGroup: groupDetail })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportGroups />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Regenerate')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('Regenerate'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/generateDnaStage2', expect.objectContaining({ body: JSON.stringify({ groupId: 'g1', stage1Text: 'stage1' }) }))
+    })
+  })
+
+  it('carries a roster pasted in "Add one group manually" over to that same group\'s own Generate box', async () => {
+    const createdGroup = { ...group, id: 'g-new', egnGroupId: '999', name: 'New Group' }
+    const createdDetail = { ...groupDetail, id: 'g-new', egnGroupId: '999', name: 'New Group', latestDnaVersion: null }
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => [chair, advisor] }
+      if (url === '/api/getGroups') {
+        const priorCalls = fetchMock.mock.calls.filter((c) => c[0] === '/api/getGroups').length
+        return { ok: true, status: 200, json: async () => (priorCalls > 1 ? [group, createdGroup] : [group]) }
+      }
+      if (url === '/api/checkGroupImport') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [
+            {
+              row: {
+                egnGroupName: 'New Group',
+                egnGroupId: '999',
+                mmsGroupCode: 'MMS-1',
+                partnerCode: 'EGDK',
+                groupProfile: '',
+                memberProfile: '',
+                companiesProfile: '',
+                responsibleChairName: 'Chair Person',
+                responsibleChairEmail: chair.email,
+                responsibleSalesName: 'NA Person',
+                responsibleSalesEmail: advisor.email,
+              },
+              status: 'new',
+              existingGroupId: null,
+              suggestedChairEmail: chair.email,
+              suggestedNetworkAdvisorEmail: advisor.email,
+              chairMatchedByName: false,
+              networkAdvisorMatchedByName: false,
+            },
+          ],
+        }
+      }
+      if (url === '/api/putGroups') return { ok: true, status: 200, json: async () => ({}) }
+      if (url.startsWith('/api/getGroup?groupId=g-new')) return { ok: true, status: 200, json: async () => createdDetail }
+      if (url.startsWith('/api/getGroup?')) return { ok: true, status: 200, json: async () => groupDetail }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportGroups />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Add group'))
+    fireEvent.change(screen.getByLabelText('EGN Group Name'), { target: { value: 'New Group' } })
+    fireEvent.change(screen.getByLabelText('EGN Group Id'), { target: { value: '999' } })
+    fireEvent.change(screen.getByLabelText('MMSGroup: Name'), { target: { value: 'MMS-1' } })
+    fireEvent.change(screen.getByLabelText('Partner Code'), { target: { value: 'EGDK' } })
+    fireEvent.change(screen.getByLabelText('Responsible Chair'), { target: { value: 'Chair Person' } })
+    fireEvent.change(screen.getByLabelText('Responsible Chair Email'), { target: { value: chair.email } })
+    fireEvent.change(screen.getByLabelText('Responsible Sales'), { target: { value: 'NA Person' } })
+    fireEvent.change(screen.getByLabelText('Responsible Sales Email'), { target: { value: advisor.email } })
+    fireEvent.change(screen.getByLabelText('Group roster — titles + companies (optional)'), { target: { value: 'CFO — Acme A/S' } })
+    fireEvent.click(screen.getByText('Check group'))
+
+    await waitFor(() => expect(screen.getByText('Review before import')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Confirm import'))
+
+    await waitFor(() => expect(screen.getByText('New Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('New Group'))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Group roster — titles + companies (optional)')).toHaveValue('CFO — Acme A/S')
+    })
+  })
+
   it('labels a failed Generate step by stage, so a generic server error is still actionable', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => [] }
