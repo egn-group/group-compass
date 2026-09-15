@@ -20,6 +20,19 @@ const STATUS_LABEL: Record<string, string> = {
 
 type StatusFilter = 'all' | 'Launched' | 'ChairReview' | 'Approved'
 
+// Read-mode formatting for DNA field text (prototype parity, HANDOFF.md §1's
+// formatFieldText) — bold `**headline**` markers, everything else as plain
+// text. Line breaks are handled by the caller's `white-space: pre-wrap`, not
+// here. Edit mode shows the same text completely raw (the textarea's value)
+// so the Chair edits exactly what's stored, asterisks included.
+function formatFieldText(raw: string) {
+  const parts = raw.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) => {
+    const match = /^\*\*([^*]+)\*\*$/.exec(part)
+    return match ? <strong key={i}>{match[1]}</strong> : <span key={i}>{part}</span>
+  })
+}
+
 interface ChairReviewProps {
   // Set only by App.tsx's Admin-only "View as" preview — when present,
   // every fetch here carries x-view-as-email. Read-only by default
