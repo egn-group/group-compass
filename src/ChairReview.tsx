@@ -12,10 +12,14 @@ const FIELD_LABELS: Record<DnaFieldValue, string> = {
 }
 const ALL_FIELDS: DnaFieldValue[] = ['GroupProfile', 'MemberProfile', 'CompaniesProfile']
 
-const STATUS_LABEL: Record<string, string> = {
-  Launched: 'Waiting on Network Advisor',
-  ChairReview: 'Needs your review',
-  Approved: 'Approved',
+// Same bg/color per status as the Admin's own Groups list (ImportGroups.tsx's
+// STATUS_PILL) and the NA's own list (NaComments.tsx's STATUS_LABEL) — text
+// stays Chair-perspective wording, but the color coding is consistent across
+// every screen that shows a group's lifecycle status.
+const STATUS_LABEL: Record<string, { text: string; bg: string; color: string }> = {
+  Launched: { text: 'Waiting on Network Advisor', bg: 'var(--egn-light-blue)', color: 'var(--status-info)' },
+  ChairReview: { text: 'Needs your review', bg: 'var(--egn-light-blue)', color: 'var(--status-info)' },
+  Approved: { text: 'Approved', bg: '#ecfdf5', color: 'var(--status-success)' },
 }
 
 type StatusFilter = 'all' | 'Launched' | 'ChairReview' | 'Approved'
@@ -453,7 +457,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
               className={f === statusFilter ? 'btn btn-primary' : 'btn btn-secondary'}
               onClick={() => setStatusFilter(f)}
             >
-              {f === 'all' ? 'All groups' : STATUS_LABEL[f]}
+              {f === 'all' ? 'All groups' : STATUS_LABEL[f].text}
             </button>
           ))}
         </div>
@@ -484,7 +488,16 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
                   <td style={cellStyle}>{g.name}</td>
                   <td style={cellStyle}>{g.networkAdvisorName ?? '—'}</td>
                   <td style={cellStyle}>
-                    {STATUS_LABEL[g.lifecycleStatus] ?? g.lifecycleStatus}
+                    {(() => {
+                      const statusMeta = STATUS_LABEL[g.lifecycleStatus]
+                      return statusMeta ? (
+                        <span className="badge" style={{ background: statusMeta.bg, color: statusMeta.color }}>
+                          {statusMeta.text}
+                        </span>
+                      ) : (
+                        g.lifecycleStatus
+                      )
+                    })()}
                     {g.pendingReapproval && ' (edited since approval)'}
                   </td>
                   <td style={cellStyle}>
@@ -518,7 +531,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
         <>
           <h2 style={{ marginBottom: 4 }}>{detail.name}</h2>
           <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-            {detail.country} · Network Advisor: {detail.networkAdvisorName ?? '—'} · {STATUS_LABEL[detail.lifecycleStatus] ?? detail.lifecycleStatus}
+            {detail.country} · Network Advisor: {detail.networkAdvisorName ?? '—'} · {STATUS_LABEL[detail.lifecycleStatus]?.text ?? detail.lifecycleStatus}
           </p>
 
           {detail.lifecycleStatus === 'Launched' && (
