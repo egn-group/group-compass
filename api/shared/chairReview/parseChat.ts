@@ -3,6 +3,7 @@
 // prototypes/group-dna-live-prototype/server.js's /api/chat and
 // /api/suggest-improvements handlers — parsed strictly here rather than
 // trusting free-form text, same reasoning as shared/dna/parseScore.ts.
+import type { AiMessage } from '../ai/types'
 
 export interface ChatParseResult {
   clarifyingQuestion: string | null
@@ -40,4 +41,21 @@ export function parseSuggestions(raw: string): RawSuggestion[] {
     if (m) suggestions.push({ fieldLabel: m[1].trim(), suggestion: m[2].trim() })
   })
   return suggestions.slice(0, 3)
+}
+
+// Reconstructs a field's persisted AiConversationTurn rows as AI-call
+// history (issue: "the AI seems to know its own previous message" — before
+// this, chairChat sent only the newest message, with nothing from earlier
+// in the SAME conversation, so a reply like "ok, implement your
+// suggestions" had nothing to point at). An 'Ai' turn that carries a
+// proposal is reconstructed in the same TEKST:/NOTE: shape the model
+// originally produced it in, so its own past reasoning reads back
+// consistently; a plain-feedback or clarifying-question turn (proposedText
+// null) is just its messageText.
+export function buildChatHistory(turns: Array<{ role: string; messageText: string | null; proposedText: string | null }>): AiMessage[] {
+  return turns.map((t) => {
+    if (t.role === 'Chair') return { role: 'user', content: t.messageText ?? '' }
+    const content = t.proposedText ? `TEKST: ${t.proposedText}\nNOTE: ${t.messageText ?? ''}` : (t.messageText ?? '')
+    return { role: 'assistant', content }
+  })
 }

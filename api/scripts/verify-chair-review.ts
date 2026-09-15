@@ -150,15 +150,17 @@ async function main() {
   console.log('  5. Read & accept: field approved, NA comment resolved ok')
 
   // --- 6. Manual edit path: rewrite MemberProfile — versions it, updates the group's live text,
-  // and asks the AI for feedback (real call), posted as an AiConversationTurn.
+  // and asks the AI for feedback (real call) — both the edit note and the
+  // feedback post into the field's own chat conversation (not an inline
+  // card), so opening "Ask AI assistant" afterward shows them.
   res = await call('/api/editChairField', {
     method: 'POST',
     email: chair1,
     body: { groupId: groupA.id, field: 'MemberProfile', text: 'REWRITTEN MEMBER A TEXT — CEOs of mid-sized companies, 50-150 employees.' },
   })
   assert(res.status === 200, `expected 200 for editing MemberProfile, got ${res.status}: ${JSON.stringify(res.json)}`)
-  const editResult = res.json as { dnaVersionId: string; aiFeedback: string }
-  assert(editResult.aiFeedback.length > 0, 'editChairField returned non-empty AI feedback')
+  const editResult = res.json as { dnaVersionId: string; aiFeedback: string | null }
+  assert(!!editResult.aiFeedback && editResult.aiFeedback.length > 0, 'editChairField returned non-empty AI feedback for a real change')
 
   const groupAfterEdit = await prisma.group.findUniqueOrThrow({ where: { id: groupA.id } })
   assert(groupAfterEdit.memberProfile.startsWith('REWRITTEN MEMBER A TEXT'), "group's live memberProfile was updated")
@@ -168,9 +170,25 @@ async function main() {
   const contentAfterEdit = versionAfterEdit.content as { groupProfile: string; memberProfile: string; companiesProfile: string }
   assert(contentAfterEdit.groupProfile === 'GROUP A TEXT', 'the new version kept the unrelated GroupProfile text unchanged')
 
-  const turns = await prisma.aiConversationTurn.findMany({ where: { groupId: groupA.id, field: 'MemberProfile' } })
-  assert(turns.length === 1 && turns[0].role === 'Ai' && turns[0].messageText === editResult.aiFeedback, "the AI's feedback was posted into that field's conversation")
-  console.log('  6. Manual edit: versioned, group text updated, real AI feedback posted to conversation ok')
+  const turns = await prisma.aiConversationTurn.findMany({ where: { groupId: groupA.id, field: 'MemberProfile' }, orderBy: { createdAt: 'asc' } })
+  assert(turns.length === 2, `expected an edit-note turn plus the AI's feedback turn, got ${turns.length}`)
+  assert(turns[0].role === 'Chair' && turns[0].messageText === 'I edited the Member Profile.', "a Chair-side note announces the edit, in the field's own conversation")
+  assert(turns[1].role === 'Ai' && turns[1].messageText === editResult.aiFeedback, "the AI's feedback follows, in the same conversation")
+  console.log('  6. Manual edit: versioned, group text updated, edit note + real AI feedback posted to the chat ok')
+
+  // --- 6b. Saving with the SAME text (Chair clicked Edit then Save without
+  // changing anything) must not call the AI or post anything — nothing to
+  // give feedback on.
+  res = await call('/api/editChairField', {
+    method: 'POST',
+    email: chair1,
+    body: { groupId: groupA.id, field: 'MemberProfile', text: groupAfterEdit.memberProfile },
+  })
+  assert(res.status === 200, `expected 200 for a no-op save, got ${res.status}: ${JSON.stringify(res.json)}`)
+  assert((res.json as { aiFeedback: string | null }).aiFeedback === null, 'a no-op save reports aiFeedback null — nothing for the AI to review')
+  const turnsAfterNoOpSave = await prisma.aiConversationTurn.findMany({ where: { groupId: groupA.id, field: 'MemberProfile' } })
+  assert(turnsAfterNoOpSave.length === 2, 'a no-op save posted nothing new to the conversation')
+  console.log('  6b. No-op save (unchanged text): no AI call, nothing posted to the conversation ok')
 
   // --- 7. Approve the remaining 2 fields — the 3rd approval flips the group to Approved.
   res = await call('/api/approveChairField', { method: 'POST', email: chair1, body: { groupId: groupA.id, field: 'MemberProfile' } })

@@ -187,8 +187,16 @@ describe('ChairReview', () => {
     })
   })
 
-  it('edits a field and shows the AI feedback afterward', async () => {
-    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+  it('edits a field, then opens the AI assistant showing the edit note and the AI feedback as chat turns', async () => {
+    const fetchMock = mockFetch({
+      getChairGroups: { groups: [groupListItem] },
+      getChairFieldConversation: {
+        turns: [
+          { id: 'edit-note', role: 'Chair', messageText: 'I edited the Group Profile.', proposedText: null, outcome: 'None', createdAt: new Date().toISOString() },
+          { id: 'edit-feedback', role: 'Ai', messageText: 'Looks good.', proposedText: null, outcome: 'None', createdAt: new Date().toISOString() },
+        ],
+      },
+    })
     vi.stubGlobal('fetch', fetchMock)
     render(<ChairReview />)
 
@@ -209,8 +217,50 @@ describe('ChairReview', () => {
         }),
       )
     })
+    // The AI assistant opens on its own — no inline "AI feedback" card.
+    await waitFor(() => {
+      expect(screen.getByText('AI assistant — Group Profile')).toBeInTheDocument()
+    })
     await waitFor(() => {
       expect(screen.getByText('Looks good.')).toBeInTheDocument()
+    })
+    expect(screen.getByText('I edited the Group Profile.')).toBeInTheDocument()
+  })
+
+  it('does not open the AI assistant when Save is clicked with no actual change', async () => {
+    const fetchMock = mockFetch({
+      getChairGroups: { groups: [groupListItem] },
+      editChairField: { status: 200, body: { field: 'GroupProfile', dnaVersionId: 'v2', aiFeedback: null } },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText('Edit')[0])
+    fireEvent.click(screen.getByText('Save'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/editChairField', expect.objectContaining({ method: 'POST' }))
+    })
+    expect(screen.queryByText('AI assistant — Group Profile')).not.toBeInTheDocument()
+  })
+
+  it('greets with "How can I assist you?" when a field\'s AI conversation is empty', async () => {
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText('Ask AI assistant')[0])
+
+    await waitFor(() => {
+      expect(screen.getByText('How can I assist you?')).toBeInTheDocument()
     })
   })
 

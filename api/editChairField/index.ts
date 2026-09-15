@@ -59,29 +59,41 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       return
     }
 
-    let aiFeedback: string
-    try {
-      const result = await callAi({
-        promptVersion: editFeedbackPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: `Felt: ${DNA_FIELD_LABEL[field]}\n\nFør Chairs redigering:\n${oldText}\n\nEfter Chairs redigering:\n${text}`,
-          },
-        ],
-        model: CHAIR_REVIEW_MODEL,
-        maxTokens: 200,
-        log: (entry) => context.log(entry),
+    // No actual change (Chair clicked Edit then Save without touching the
+    // text) — nothing for the AI to review, so no feedback call and nothing
+    // posted to the conversation; the client leaves the AI assistant closed.
+    let aiFeedback: string | null = null
+    if (text !== oldText) {
+      // Both the edit note and the feedback land in this field's own chat
+      // conversation (not an inline card) — all AI interaction happens in
+      // the chat, and a later reply here ("implement your suggestions")
+      // sees this feedback as real history (chairChat's own history build).
+      await prisma.aiConversationTurn.create({
+        data: { groupId, field, chairEmail: effectiveEmail, role: 'Chair', messageText: `I edited the ${DNA_FIELD_LABEL[field]}.`, outcome: 'None' },
       })
-      aiFeedback = result.text.trim()
+      try {
+        const result = await callAi({
+          promptVersion: editFeedbackPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: `Felt: ${DNA_FIELD_LABEL[field]}\n\nFør Chairs redigering:\n${oldText}\n\nEfter Chairs redigering:\n${text}`,
+            },
+          ],
+          model: CHAIR_REVIEW_MODEL,
+          maxTokens: 200,
+          log: (entry) => context.log(entry),
+        })
+        aiFeedback = result.text.trim()
+      } catch (err) {
+        // Never blocks the save, which has already committed by this point —
+        // the Chair always decides, feedback is advisory only (spec §11).
+        context.log.error(err)
+        aiFeedback = "Couldn't reach the AI assistant for feedback on this edit."
+      }
       await prisma.aiConversationTurn.create({
         data: { groupId, field, chairEmail: effectiveEmail, role: 'Ai', messageText: aiFeedback, outcome: 'None' },
       })
-    } catch (err) {
-      // Never blocks the save, which has already committed by this point —
-      // the Chair always decides, feedback is advisory only (spec §11).
-      context.log.error(err)
-      aiFeedback = "Couldn't reach the AI assistant for feedback on this edit."
     }
 
     const body: EditChairFieldResponse = { field, dnaVersionId: saved.dnaVersionId, aiFeedback }
