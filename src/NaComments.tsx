@@ -5,7 +5,11 @@ import { formatFieldText } from './lib/formatFieldText'
 import type { DnaFieldValue } from '../shared/schemas/dna'
 import type { GetNaGroupsResponse } from '../shared/schemas/naComment'
 
+// Shared by the list's Status column and the detail view's badge — every
+// status this list can report (Launched/ChairReview/Approved) has one entry
+// here so both views agree on label/color.
 const STATUS_LABEL: Record<string, { text: string; bg: string; color: string }> = {
+  Launched: { text: 'Needs your comment', bg: '#fffbeb', color: 'var(--status-warning)' },
   ChairReview: { text: 'Sent — waiting on the Chair', bg: 'var(--egn-light-blue)', color: 'var(--status-info)' },
   Approved: { text: 'Approved by Chair', bg: '#ecfdf5', color: 'var(--status-success)' },
 }
@@ -32,6 +36,7 @@ function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
   const queryClient = useQueryClient()
   const viewAsKey = viewAsEmail ?? null
   const [dismissed, setDismissed] = useState(false)
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Record<string, Partial<Record<DnaFieldValue, string>>>>({})
   const [sending, setSending] = useState<Record<string, boolean>>({})
   const [groupErrors, setGroupErrors] = useState<Record<string, string>>({})
@@ -49,8 +54,10 @@ function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
   useEffect(() => {
     // App.tsx can switch "View as" targets without unmounting this
     // component — a locally-dismissed guidance banner shouldn't carry over
-    // to a different identity's own dismissal state.
+    // to a different identity's own dismissal state, and a stale selection
+    // shouldn't stay open under the new identity either.
     setDismissed(false)
+    setSelectedGroupId(null)
   }, [viewAsEmail])
 
   function dismissGuidance() {
@@ -84,7 +91,7 @@ function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
         setGroupErrors((e) => ({ ...e, [groupId]: body?.error ?? `Send failed (${res.status}).` }))
         return
       }
-      // The group stays in this list (now read-only) rather than
+      // The group stays in the list (now read-only) rather than
       // disappearing — refetch so its lifecycleStatus flips from server.
       await queryClient.invalidateQueries({ queryKey: ['naGroups', viewAsKey] })
     } finally {
@@ -92,82 +99,133 @@ function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
     }
   }
 
+  if (!selectedGroupId) {
+    return (
+      <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
+        <h2 style={{ marginBottom: 16 }}>My groups</h2>
+        {error && (
+          <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
+            {error}
+          </p>
+        )}
+
+        {showGuidance && !readOnly && (
+          <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
+            <p style={{ fontWeight: 600, marginBottom: 8 }}>When you read a Group DNA, please consider the following:</p>
+            <ul style={{ marginBottom: 12, paddingLeft: 18 }}>
+              <li>Do you agree with the text as it is written?</li>
+              <li>Are there exceptions for the group where the Group DNA does not apply?</li>
+              <li>Do we do anything else that should be reflected in the Group DNA?</li>
+            </ul>
+            <button type="button" className="btn" onClick={dismissGuidance}>
+              Got it
+            </button>
+          </div>
+        )}
+
+        {groups.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>No groups have been assigned to you yet.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--egn-sand)' }}>
+                  <th style={cellStyle}>Group</th>
+                  <th style={cellStyle}>Chair</th>
+                  <th style={cellStyle}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((g) => {
+                  const statusMeta = STATUS_LABEL[g.lifecycleStatus]
+                  return (
+                    <tr key={g.id} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => setSelectedGroupId(g.id)}>
+                      <td style={cellStyle}>{g.name}</td>
+                      <td style={cellStyle}>{g.chairName ?? '—'}</td>
+                      <td style={cellStyle}>
+                        {statusMeta ? (
+                          <span className="badge" style={{ background: statusMeta.bg, color: statusMeta.color }}>
+                            {statusMeta.text}
+                          </span>
+                        ) : (
+                          g.lifecycleStatus
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  const g = groups.find((x) => x.id === selectedGroupId)
+  // Editable only while it's still awaiting the NA's own comment — once
+  // sent, the group stays reachable from the list but turns read-only
+  // (prototype parity would have hidden it entirely; this build keeps it
+  // visible so the NA can track it through to the Chair's approval).
+  const editable = !readOnly && g?.lifecycleStatus === 'Launched'
+  const statusMeta = g ? STATUS_LABEL[g.lifecycleStatus] : undefined
+
   return (
     <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
-      <h2 style={{ marginBottom: 16 }}>Network Advisor — comment on your groups</h2>
+      <button type="button" className="btn" style={{ marginBottom: 16 }} onClick={() => setSelectedGroupId(null)}>
+        ← Back to My groups
+      </button>
       {error && (
         <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
           {error}
         </p>
       )}
-
-      {showGuidance && !readOnly && (
-        <div className="card" style={{ background: 'var(--egn-light-blue)', padding: 16, marginBottom: 16 }}>
-          <p style={{ fontWeight: 600, marginBottom: 8 }}>When you read a Group DNA, please consider the following:</p>
-          <ul style={{ marginBottom: 12, paddingLeft: 18 }}>
-            <li>Do you agree with the text as it is written?</li>
-            <li>Are there exceptions for the group where the Group DNA does not apply?</li>
-            <li>Do we do anything else that should be reflected in the Group DNA?</li>
-          </ul>
-          <button type="button" className="btn" onClick={dismissGuidance}>
-            Got it
-          </button>
-        </div>
-      )}
-
-      {groups.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No groups have been assigned to you yet.</p>}
-
-      {groups.map((g) => {
-        // Editable only while it's still awaiting the NA's own comment —
-        // once sent, the group stays in this list but turns read-only
-        // (prototype parity would have hidden it entirely; this build keeps
-        // it visible so the NA can track it through to the Chair's approval).
-        const editable = !readOnly && g.lifecycleStatus === 'Launched'
-        const statusMeta = STATUS_LABEL[g.lifecycleStatus]
-        return (
-          <div key={g.id} className="card" style={{ padding: 16, marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <h3>{g.name}</h3>
-              {statusMeta && (
-                <span className="badge" style={{ background: statusMeta.bg, color: statusMeta.color }}>
-                  {statusMeta.text}
-                </span>
-              )}
-            </div>
-            <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>Chair: {g.chairName ?? '—'}</p>
-            {FIELDS.map((f) => (
-              <div key={f.field} className="field">
-                <label className="lbl">{f.label}</label>
-                <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{formatFieldText(g[f.textKey])}</p>
-                {editable && (
-                  <>
-                    <label className="lbl" htmlFor={`comment-${g.id}-${f.field}`}>
-                      Comment for the Chair (optional)
-                    </label>
-                    <textarea
-                      id={`comment-${g.id}-${f.field}`}
-                      value={drafts[g.id]?.[f.field] ?? ''}
-                      onChange={(e) => updateDraft(g.id, f.field, e.target.value)}
-                    />
-                  </>
-                )}
-              </div>
-            ))}
-            {groupErrors[g.id] && (
-              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
-                {groupErrors[g.id]}
-              </p>
-            )}
-            {editable && (
-              <button type="button" className="btn btn-primary" disabled={!!sending[g.id]} onClick={() => void sendToChair(g.id)}>
-                {sending[g.id] ? 'Sending…' : 'Send to Chair'}
-              </button>
+      {!g && !error && <p>Loading…</p>}
+      {g && (
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <h3>{g.name}</h3>
+            {statusMeta && (
+              <span className="badge" style={{ background: statusMeta.bg, color: statusMeta.color }}>
+                {statusMeta.text}
+              </span>
             )}
           </div>
-        )
-      })}
+          <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>Chair: {g.chairName ?? '—'}</p>
+          {FIELDS.map((f) => (
+            <div key={f.field} className="field">
+              <label className="lbl">{f.label}</label>
+              <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{formatFieldText(g[f.textKey])}</p>
+              {editable && (
+                <>
+                  <label className="lbl" htmlFor={`comment-${g.id}-${f.field}`}>
+                    Comment for the Chair (optional)
+                  </label>
+                  <textarea
+                    id={`comment-${g.id}-${f.field}`}
+                    value={drafts[g.id]?.[f.field] ?? ''}
+                    onChange={(e) => updateDraft(g.id, f.field, e.target.value)}
+                  />
+                </>
+              )}
+            </div>
+          ))}
+          {groupErrors[g.id] && (
+            <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
+              {groupErrors[g.id]}
+            </p>
+          )}
+          {editable && (
+            <button type="button" className="btn btn-primary" disabled={!!sending[g.id]} onClick={() => void sendToChair(g.id)}>
+              {sending[g.id] ? 'Sending…' : 'Send to Chair'}
+            </button>
+          )}
+        </div>
+      )}
     </section>
   )
 }
+
+const cellStyle = { textAlign: 'left' as const, padding: '10px 12px' }
 
 export default NaComments

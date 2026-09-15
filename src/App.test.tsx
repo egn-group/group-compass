@@ -48,7 +48,8 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetch(['NetworkAdvisor']))
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Network Advisor — comment on your groups')).toBeInTheDocument())
+    // Both the tab button and NaComments' own heading read "My groups".
+    await waitFor(() => expect(screen.getAllByText('My groups')).toHaveLength(2))
     expect(screen.getByRole('button', { name: 'My groups' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Groups' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Users' })).not.toBeInTheDocument()
