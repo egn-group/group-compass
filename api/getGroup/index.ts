@@ -67,6 +67,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
             }
           : null,
       importedSnapshot: importedSnapshot && importedSnapshot.success ? importedSnapshot.data : null,
+      roster: group.roster,
     }
 
     context.res = {

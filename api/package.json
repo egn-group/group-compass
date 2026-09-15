@@ -20,6 +20,7 @@
     "verify:edit-group": "npm run build && node dist/api/scripts/verify-edit-group.js",
     "verify:delete-group": "npm run build && node dist/api/scripts/verify-delete-group.js",
     "verify:reset-group": "npm run build && node dist/api/scripts/verify-reset-group.js",
+    "verify:group-roster": "npm run build && node dist/api/scripts/verify-group-roster.js",
     "verify:chair-review": "npm run build && node dist/api/scripts/verify-chair-review.js",
     "verify:chair-chat": "npm run build && node dist/api/scripts/verify-chair-chat.js",
     "verify:get-me": "npm run build && node dist/api/scripts/verify-get-me.js"

@@ -45,6 +45,7 @@ const groupDetail = {
     content: { groupProfile: 'draft group profile', memberProfile: 'draft member profile', companiesProfile: 'draft companies profile' },
   },
   importedSnapshot: null,
+  roster: null,
 }
 
 function mockFetch(handlers: {
@@ -63,6 +64,7 @@ function mockFetch(handlers: {
   editGroup?: { status: number; body: unknown }
   deleteGroup?: { status: number; body: unknown }
   resetGroup?: { status: number; body: unknown }
+  saveGroupRoster?: { status: number; body: unknown }
 }) {
   return vi.fn(async (url: string) => {
     if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => handlers.getUsers ?? [] }
@@ -111,6 +113,10 @@ function mockFetch(handlers: {
     }
     if (url === '/api/resetGroup') {
       const { status, body } = handlers.resetGroup ?? { status: 200, body: { ...groupDetail, pendingReapproval: false } }
+      return { ok: status < 300, status, json: async () => body }
+    }
+    if (url === '/api/saveGroupRoster') {
+      const { status, body } = handlers.saveGroupRoster ?? { status: 200, body: { groupId: 'g1', roster: null } }
       return { ok: status < 300, status, json: async () => body }
     }
     throw new Error(`Unexpected fetch: ${url}`)
@@ -499,6 +505,38 @@ describe('ImportGroups', () => {
         }),
       )
     })
+    // Generate also persists it — so it's still there next time even if
+    // the admin never separately clicked "Save roster".
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/saveGroupRoster',
+      expect.objectContaining({ body: JSON.stringify({ groupId: 'g1', roster: 'CFO — Acme A/S\nHead of Operations — Northco ApS' }) }),
+    )
+  })
+
+  it('pre-fills the roster box from the group\'s own persisted roster, and saves edits on click', async () => {
+    const fetchMock = mockFetch({ getGroups: [group], getGroup: { ...groupDetail, roster: 'CFO — Acme A/S' } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportGroups />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Group roster — titles + companies (optional)')).toHaveValue('CFO — Acme A/S')
+    })
+
+    fireEvent.change(screen.getByLabelText('Group roster — titles + companies (optional)'), { target: { value: 'CFO — Acme A/S\nCOO — Beta ApS' } })
+    fireEvent.click(screen.getByText('Save roster'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/saveGroupRoster',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ groupId: 'g1', roster: 'CFO — Acme A/S\nCOO — Beta ApS' }) }),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Saved')).toBeInTheDocument()
+    })
   })
 
   it('sends no roster field at all when the roster box is left blank', async () => {
@@ -519,7 +557,9 @@ describe('ImportGroups', () => {
 
   it('carries a roster pasted in "Add one group manually" over to that same group\'s own Generate box', async () => {
     const createdGroup = { ...group, id: 'g-new', egnGroupId: '999', name: 'New Group' }
-    const createdDetail = { ...groupDetail, id: 'g-new', egnGroupId: '999', name: 'New Group', latestDnaVersion: null }
+    // Simulates the server already having the roster saved by the time the
+    // detail view is opened — the real save call is asserted separately below.
+    const createdDetail = { ...groupDetail, id: 'g-new', egnGroupId: '999', name: 'New Group', latestDnaVersion: null, roster: 'CFO — Acme A/S' }
     const fetchMock = vi.fn(async (url: string) => {
       if (url === '/api/getUsers') return { ok: true, status: 200, json: async () => [chair, advisor] }
       if (url === '/api/getGroups') {
@@ -555,7 +595,8 @@ describe('ImportGroups', () => {
           ],
         }
       }
-      if (url === '/api/putGroups') return { ok: true, status: 200, json: async () => ({}) }
+      if (url === '/api/putGroups') return { ok: true, status: 200, json: async () => ({ created: ['g-new'], overwritten: [] }) }
+      if (url === '/api/saveGroupRoster') return { ok: true, status: 200, json: async () => ({ groupId: 'g-new', roster: 'CFO — Acme A/S' }) }
       if (url.startsWith('/api/getGroup?groupId=g-new')) return { ok: true, status: 200, json: async () => createdDetail }
       if (url.startsWith('/api/getGroup?')) return { ok: true, status: 200, json: async () => groupDetail }
       throw new Error(`Unexpected fetch: ${url}`)
@@ -578,6 +619,13 @@ describe('ImportGroups', () => {
 
     await waitFor(() => expect(screen.getByText('Review before import')).toBeInTheDocument())
     fireEvent.click(screen.getByText('Confirm import'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/saveGroupRoster',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ groupId: 'g-new', roster: 'CFO — Acme A/S' }) }),
+      )
+    })
 
     await waitFor(() => expect(screen.getByText('New Group')).toBeInTheDocument())
     fireEvent.click(screen.getByText('New Group'))
