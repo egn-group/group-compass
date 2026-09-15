@@ -223,8 +223,13 @@ model Comment {
   text         String
   createdAt    DateTime          @default(now())
   // Set once the Chair has addressed this comment — via "Read & accept"
-  // (approving the field as-is) or a manual edit to that field (issue
-  // #25). Comments are never deleted; this is the only state that changes.
+  // (approving the field as-is) or a manual edit to that field (issue #25).
+  // A comment does get deleted in two cases: putNaComments replaces (not
+  // appends) any existing NA comment for the same field when a new round's
+  // comment comes in, and resetGroup clears all of a group's NA comments —
+  // both keep "at most one NA comment per field, at any time" true. Neither
+  // touches `resolved` directly, which is why it still exists as its own
+  // flag rather than being folded into deletion.
   resolved     Boolean           @default(false)
 }
 

@@ -240,6 +240,32 @@ async function main() {
   assert(listAfterApproval.groups[0].comments.length === 2, 'sent comments are still visible after the Chair approves')
   console.log('  10. Approved group still listed for the NA, reporting Approved, comments still visible ok')
 
+  // --- 11. A later review round replaces (not appends to) the NA's comment
+  // on a field it resubmits, while leaving an untouched field's older
+  // comment alone — at most one NA comment per field at any time.
+  const groupProfileCommentId = comments.find((c) => c.field === 'GroupProfile')!.id
+  await prisma.group.update({ where: { id: groupA.id }, data: { lifecycleStatus: 'Launched' } })
+  res = await call('/api/putNaComments', {
+    method: 'POST',
+    email: na1,
+    body: { groupId: groupA.id, comments: [{ field: 'GroupProfile', text: 'second round: this is fixed now' }] },
+  })
+  assert(res.status === 200, `expected 200 for the second round's Send to Chair, got ${res.status}: ${JSON.stringify(res.json)}`)
+
+  const commentsAfterSecondRound = await prisma.comment.findMany({ where: { groupId: groupA.id } })
+  assert(commentsAfterSecondRound.length === 2, `expected still 2 Comment rows (1 replaced + 1 untouched), got ${commentsAfterSecondRound.length}`)
+  assert(
+    !commentsAfterSecondRound.some((c) => c.id === groupProfileCommentId),
+    'the first round\'s GroupProfile comment is gone, not left behind alongside the new one',
+  )
+  const newGroupProfileComment = commentsAfterSecondRound.find((c) => c.field === 'GroupProfile')
+  assert(newGroupProfileComment?.text === 'second round: this is fixed now', "GroupProfile now shows only the second round's comment")
+  assert(
+    commentsAfterSecondRound.some((c) => c.field === 'MemberProfile' && c.text === 'membership count looks off'),
+    "MemberProfile's comment from the first round is untouched — it wasn't resubmitted",
+  )
+  console.log('  11. A resubmitted field replaces its NA comment; an untouched field keeps its old one — one NA comment per field ok')
+
   console.log('verify-na-comments: all checks passed')
 }
 

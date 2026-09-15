@@ -8,6 +8,14 @@ import { errorResponse, serverError } from '../shared/errors'
 // the group up scoped to networkAdvisorEmail === caller (not just by id) is
 // the actual authorization check here — a client-sent groupId alone proves
 // nothing about who it belongs to.
+//
+// At most one NA comment can exist per (group, field) at any time: a group
+// can cycle Launched -> ChairReview -> Launched again across multiple review
+// rounds, and without this, each round's comment would just pile up behind
+// the last one instead of replacing it (the actual bug this guards
+// against — a field showing several stale NA comments at once). So any
+// existing NA comment for a field being submitted here is deleted first,
+// in the same transaction, before the new one is created.
 const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {
   const authFailure = requireAuth(req)
   if (authFailure) {
@@ -50,7 +58,10 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       return
     }
 
+    const fields = comments.map((c) => c.field)
+
     await prisma.$transaction([
+      prisma.comment.deleteMany({ where: { groupId, author: 'NetworkAdvisor', field: { in: fields } } }),
       ...comments.map((c) =>
         prisma.comment.create({
           data: { groupId, dnaVersionId: dnaVersion.id, field: c.field, author: 'NetworkAdvisor', text: c.text },
