@@ -53,6 +53,14 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
   const [chatInput, setChatInput] = useState('')
   const [chatBusy, setChatBusy] = useState(false)
   const [chatError, setChatError] = useState('')
+  // Shown instantly in the chat feed the moment the Chair hits Send — the
+  // real turn only exists once chairChat's response comes back and the
+  // conversation refetches, which can take several seconds (a real AI
+  // call); waiting for that before showing anything made it look like the
+  // message hadn't been sent at all. Cleared as soon as that refetch lands
+  // (in sendChatMessage's own finally), by which point the real persisted
+  // turn is already showing in its place — never both at once.
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<Array<{ field: DnaFieldValue; suggestion: string }> | null>(null)
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
 
@@ -295,24 +303,28 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
   const chatTurns = chatQuery.data?.turns ?? []
   const chatLoadError = chatQuery.isError ? chatQuery.error.message : ''
   const chatMessagesRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    // Opening the panel, or a new turn arriving (sent/accepted/rejected),
-    // should always land on the latest message, not wherever the scroll
-    // position happened to be left (e.g. top, on a long conversation).
+    // Opening the panel, a new turn arriving (sent/accepted/rejected), or
+    // the optimistic message/"Thinking…" bubble appearing, should always
+    // land on the latest message, not wherever the scroll position
+    // happened to be left (e.g. top, on a long conversation).
     const el = chatMessagesRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [chatField, chatTurns.length])
+  }, [chatField, chatTurns.length, pendingMessage, chatBusy])
 
   function openChat(field: DnaFieldValue) {
     setChatField(field)
     setChatError('')
     setChatInput('')
+    setPendingMessage(null)
     setEditingField(null)
   }
   function closeChat() {
     setChatField(null)
     setChatInput('')
+    setPendingMessage(null)
   }
   useEffect(() => {
     if (chatField === null) return
@@ -328,6 +340,8 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
     const field = chatField
     const message = chatInput.trim()
     setChatInput('')
+    if (chatInputRef.current) chatInputRef.current.style.height = 'auto'
+    setPendingMessage(message)
     setChatBusy(true)
     setChatError('')
     try {
@@ -346,6 +360,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
       await queryClient.invalidateQueries({ queryKey: ['chairChat', selectedGroupId, field] })
     } finally {
       setChatBusy(false)
+      setPendingMessage(null)
     }
   }
 
@@ -417,7 +432,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
   if (!selectedGroupId) {
     return (
       <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
-        <h2 style={{ marginBottom: 16 }}>My groups</h2>
+        <h2 style={{ marginBottom: 16 }}>My groups (Chair)</h2>
         {error && (
           <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
             {error}
@@ -731,6 +746,18 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
               )}
             </div>
           ))}
+          {pendingMessage !== null && (
+            // Shown the instant Send is clicked — the real Chair turn only
+            // exists once the response comes back (see sendChatMessage).
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <p className="chatBubble chair">{pendingMessage}</p>
+            </div>
+          )}
+          {chatBusy && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <p className="chatBubble ai">Thinking…</p>
+            </div>
+          )}
         </div>
         {(chatError || chatLoadError) && (
           <p role="alert" style={{ color: 'var(--status-danger)', padding: '0 16px 8px' }}>
@@ -738,10 +765,17 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
           </p>
         )}
         <div className="chatInputRow">
-          <input
+          <textarea
+            ref={chatInputRef}
             aria-label={chatField ? `Message the AI assistant about ${FIELD_LABELS[chatField]}` : 'Message the AI assistant'}
             value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
+            rows={1}
+            onChange={(e) => {
+              setChatInput(e.target.value)
+              const el = e.target
+              el.style.height = 'auto'
+              el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
@@ -751,9 +785,10 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
             placeholder="e.g. incorporate the Network Advisor's comment"
           />
           <button type="button" className="btn btn-primary" disabled={chatBusy || !chatInput.trim()} onClick={() => void sendChatMessage()}>
-            {chatBusy ? 'Sending…' : 'Send'}
+            Send
           </button>
         </div>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', padding: '0 16px 10px' }}>Enter to send · Shift+Enter for a new line</p>
       </div>
     </section>
   )

@@ -334,6 +334,64 @@ describe('ChairReview', () => {
     })
   })
 
+  it('shows the Chair\'s message instantly and a "Thinking…" bubble while waiting for the AI, then clears both once it replies', async () => {
+    let resolveChat: (value: unknown) => void = () => {}
+    const chatPromise = new Promise((resolve) => {
+      resolveChat = resolve
+    })
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/api/getChairGroups') return { ok: true, status: 200, json: async () => ({ groups: [groupListItem] }) }
+      if (url.startsWith('/api/getChairGroup?')) return { ok: true, status: 200, json: async () => groupDetail }
+      if (url.startsWith('/api/getChairFieldConversation?')) return { ok: true, status: 200, json: async () => ({ turns: [] }) }
+      if (url === '/api/chairChat') {
+        await chatPromise
+        return { ok: true, status: 200, json: async () => ({ clarifyingQuestion: null, turnId: 'turn-1', proposedText: 'REWRITTEN TEXT', note: 'Shorter.' }) }
+      }
+      throw new Error(`Unexpected fetch: ${url} ${init?.method}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText('Ask AI assistant')[0])
+    fireEvent.change(screen.getByLabelText('Message the AI assistant about Group Profile'), { target: { value: 'Please rewrite this.' } })
+    fireEvent.click(screen.getByText('Send'))
+
+    // Instantly, before the AI has responded: the Chair's own message shows
+    // in the feed, a "Thinking…" bubble appears, and the input is cleared.
+    await waitFor(() => {
+      expect(screen.getByText('Please rewrite this.')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Thinking…')).toBeInTheDocument()
+    expect(screen.getByLabelText('Message the AI assistant about Group Profile')).toHaveValue('')
+
+    resolveChat(undefined)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Thinking…')).not.toBeInTheDocument()
+    })
+  })
+
+  it('sends on Enter but inserts a new line on Shift+Enter, so a message can span more than one line', async () => {
+    const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
+    fireEvent.click(screen.getAllByText('Ask AI assistant')[0])
+    const textarea = screen.getByLabelText('Message the AI assistant about Group Profile')
+    fireEvent.change(textarea, { target: { value: 'Line one' } })
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true })
+
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/chairChat', expect.anything())
+  })
+
   it('shows a clarifying question instead of a proposal for ambiguous input', async () => {
     const fetchMock = mockFetch({
       getChairGroups: { groups: [groupListItem] },

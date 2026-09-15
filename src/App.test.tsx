@@ -48,8 +48,8 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetch(['NetworkAdvisor']))
     render(<App />)
 
-    // Both the tab button and NaComments' own heading read "My groups".
-    await waitFor(() => expect(screen.getAllByText('My groups')).toHaveLength(2))
+    // The tab button reads "My groups"; NaComments' own heading names the role.
+    await waitFor(() => expect(screen.getByText('My groups (Network Advisor)', { selector: 'h2' })).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'My groups' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Groups' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Users' })).not.toBeInTheDocument()
@@ -59,8 +59,8 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetch(['Chair']))
     render(<App />)
 
-    // Both the tab button and ChairReview's own heading read "My groups".
-    await waitFor(() => expect(screen.getAllByText('My groups')).toHaveLength(2))
+    // The tab button reads "My groups"; ChairReview's own heading names the role.
+    await waitFor(() => expect(screen.getByText('My groups (Chair)', { selector: 'h2' })).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'My groups' })).toBeInTheDocument()
   })
 
@@ -106,7 +106,7 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: 'Groups' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Users' })).not.toBeInTheDocument()
     // ChairReview's own heading confirms the right screen rendered.
-    expect(screen.getByText('My groups', { selector: 'h2' })).toBeInTheDocument()
+    expect(screen.getByText('My groups (Chair)', { selector: 'h2' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Exit view as'))
     await waitFor(() => expect(screen.getByText('Groups', { selector: 'h2' })).toBeInTheDocument())
