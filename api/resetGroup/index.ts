@@ -27,6 +27,14 @@ import { countryForPartnerCode } from '../shared/partnerCodeCountry'
 // own live fields, for previewing an unlaunched draft before Launch) would
 // keep showing that stale generated text to the Admin instead of the
 // just-restored one.
+//
+// Reset also clears the group's Network Advisor comments and Chair-AI chat
+// history: both are tied to the review round(s) that produced the discarded
+// text, and none of it applies to the freshly-restored imported text — left
+// in place, they'd resurface as stale/orphaned history the next time the
+// group is launched and reviewed. Comments authored by a SalesLeader (an
+// enum value with no wired-up feature yet) are left alone; only
+// NetworkAdvisor-authored ones are cleared here.
 const httpTrigger = async function (context: Context, req: HttpRequest): Promise<void> {
   const authFailure = requireAuth(req)
   if (authFailure) {
@@ -92,6 +100,8 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       prisma.dnaVersion.create({
         data: { groupId, versionNumber: (latest?.versionNumber ?? 0) + 1, content: restoredContent, author: null, scoreStage: 'Imported' },
       }),
+      prisma.comment.deleteMany({ where: { groupId, author: 'NetworkAdvisor' } }),
+      prisma.aiConversationTurn.deleteMany({ where: { groupId } }),
       prisma.event.create({ data: { groupId, type: 'Reset', actorEmail: principal.email } }),
     ])
 
