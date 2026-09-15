@@ -1,3 +1,4 @@
+import EgnLogo from './EgnLogo'
 import NotificationBell from './NotificationBell'
 
 interface HeaderProps {
@@ -23,24 +24,19 @@ function Header({ email, name, initials, isAdmin, onOpenViewAs }: HeaderProps) {
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 8, paddingTop: 10, paddingBottom: 10, minHeight: 68 }}
       >
         <a href="/" aria-label="Group DNA Bot — go to the start page" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
-          {/* Placeholder mark — swap for the real EGN icon asset once it's
-              provided; no logo image file exists anywhere in this repo. */}
           <div
             style={{
               width: 36,
               height: 36,
               borderRadius: 8,
               background: 'var(--egn-navy)',
-              color: 'var(--egn-white)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 14,
               flexShrink: 0,
             }}
           >
-            GDB
+            <EgnLogo size={20} />
           </div>
           <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 18 }}>Group DNA Bot</span>
         </a>
