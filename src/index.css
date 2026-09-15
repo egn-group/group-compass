@@ -407,12 +407,17 @@ input::placeholder, textarea::placeholder {
   flex-shrink: 0;
 }
 /* Grows with the message (up to a max-height, capped in JS) instead of a
-   single-line input whose placeholder/text just gets clipped. */
+   single-line input whose placeholder/text just gets clipped. min-height
+   is a floor, not a fixed height — it's what keeps the box from shrinking
+   back below its default ~3-line size once the auto-grow JS recalculates
+   a shorter height for a short typed message, and it's also what actually
+   keeps the (multi-line) placeholder fully visible by default, since the
+   `rows` attribute alone only sets the *starting* height. */
 .chatInputRow textarea {
   width: auto;
   flex: 1;
   resize: none;
-  min-height: 40px;
+  min-height: 76px;
   max-height: 120px;
   overflow-y: auto;
   font-size: 14px;

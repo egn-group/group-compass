@@ -769,7 +769,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
             ref={chatInputRef}
             aria-label={chatField ? `Message the AI assistant about ${FIELD_LABELS[chatField]}` : 'Message the AI assistant'}
             value={chatInput}
-            rows={1}
+            rows={3}
             onChange={(e) => {
               setChatInput(e.target.value)
               const el = e.target
