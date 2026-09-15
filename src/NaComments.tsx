@@ -102,7 +102,7 @@ function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
   if (!selectedGroupId) {
     return (
       <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
-        <h2 style={{ marginBottom: 16 }}>My groups</h2>
+        <h2 style={{ marginBottom: 16 }}>My groups (Network Advisor)</h2>
         {error && (
           <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 16 }}>
             {error}

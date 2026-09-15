@@ -400,12 +400,25 @@ input::placeholder, textarea::placeholder {
 }
 .chatInputRow {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
-.chatInputRow input { width: auto; flex: 1; }
+/* Grows with the message (up to a max-height, capped in JS) instead of a
+   single-line input whose placeholder/text just gets clipped. */
+.chatInputRow textarea {
+  width: auto;
+  flex: 1;
+  resize: none;
+  min-height: 40px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 9px 12px;
+}
 @media (max-width: 480px) {
   .chatPanel { width: 100vw; right: -100vw; }
 }
