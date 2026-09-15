@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apiGet } from './lib/api'
 import { formatFieldText } from './lib/formatFieldText'
 import type { DnaFieldValue } from '../shared/schemas/dna'
@@ -294,6 +294,15 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
   })
   const chatTurns = chatQuery.data?.turns ?? []
   const chatLoadError = chatQuery.isError ? chatQuery.error.message : ''
+  const chatMessagesRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // Opening the panel, or a new turn arriving (sent/accepted/rejected),
+    // should always land on the latest message, not wherever the scroll
+    // position happened to be left (e.g. top, on a long conversation).
+    const el = chatMessagesRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chatField, chatTurns.length])
 
   function openChat(field: DnaFieldValue) {
     setChatField(field)
@@ -646,7 +655,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
                             disabled={isBusy}
                             onClick={() => void approveField(field)}
                           >
-                            {isBusy ? 'Approving…' : 'Read & accept'}
+                            {isBusy ? 'Approving…' : 'Approve'}
                           </button>
                         )}
                       </>
@@ -690,7 +699,7 @@ function ChairReview({ viewAsEmail, viewAsCanEdit }: ChairReviewProps = {}) {
             ✕
           </button>
         </div>
-        <div className="chatMessages">
+        <div className="chatMessages" ref={chatMessagesRef}>
           {chatQuery.isSuccess && chatTurns.length === 0 && (
             // A greeting only — never persisted, so it doesn't affect what
             // the AI sees as history if the Chair's first message here
