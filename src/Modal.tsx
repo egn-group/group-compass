@@ -26,7 +26,6 @@ function Modal({ title, onClose, children, maxWidth = 720 }: ModalProps) {
   return (
     <div
       role="presentation"
-      onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,
@@ -43,7 +42,6 @@ function Modal({ title, onClose, children, maxWidth = 720 }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        onClick={(e) => e.stopPropagation()}
         className="card"
         style={
           maxWidth === 'none'

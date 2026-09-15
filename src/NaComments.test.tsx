@@ -9,16 +9,18 @@ const group = {
   groupProfile: 'GROUP TEXT',
   memberProfile: 'MEMBER TEXT',
   companiesProfile: 'COMPANIES TEXT',
+  lifecycleStatus: 'Launched',
 }
 
 function mockFetch(handlers: {
-  getNaGroups?: { groups: unknown[]; showGuidance: boolean }
+  getNaGroups?: { groups: unknown[]; showGuidance: boolean } | (() => { groups: unknown[]; showGuidance: boolean })
   putNaComments?: { status: number; body: unknown }
   dismissNaGuidance?: { status: number }
 }) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/getNaGroups') {
-      return { ok: true, status: 200, json: async () => handlers.getNaGroups ?? { groups: [], showGuidance: false } }
+      const resolved = typeof handlers.getNaGroups === 'function' ? handlers.getNaGroups() : (handlers.getNaGroups ?? { groups: [], showGuidance: false })
+      return { ok: true, status: 200, json: async () => resolved }
     }
     if (url === '/api/putNaComments') {
       const { status, body } = handlers.putNaComments ?? { status: 200, body: { groupId: '', lifecycleStatus: 'ChairReview' } }
@@ -37,12 +39,12 @@ describe('NaComments', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows the empty state when there are no groups waiting', async () => {
+  it('shows the empty state when no groups are assigned', async () => {
     vi.stubGlobal('fetch', mockFetch({ getNaGroups: { groups: [], showGuidance: false } }))
     render(<NaComments />)
 
     await waitFor(() => {
-      expect(screen.getByText('No groups are waiting for your comment right now.')).toBeInTheDocument()
+      expect(screen.getByText('No groups have been assigned to you yet.')).toBeInTheDocument()
     })
   })
 
@@ -87,8 +89,12 @@ describe('NaComments', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Add at least one comment before sending to the Chair.')
   })
 
-  it('sends only the filled-in comments and removes the group from the list on success', async () => {
-    const fetchMock = mockFetch({ getNaGroups: { groups: [group], showGuidance: false } })
+  it('sends only the filled-in comments, then keeps the group in the list as read-only once its status flips', async () => {
+    // getNaGroups is re-fetched after a successful send (invalidateQueries) —
+    // this mock reflects the server-side lifecycleStatus transition that
+    // putNaComments actually performs, so the refetch sees 'ChairReview'.
+    let status = 'Launched'
+    const fetchMock = mockFetch({ getNaGroups: () => ({ groups: [{ ...group, lifecycleStatus: status }], showGuidance: false }) })
     vi.stubGlobal('fetch', fetchMock)
     render(<NaComments />)
 
@@ -98,6 +104,7 @@ describe('NaComments', () => {
     // Fill only the Group Profile comment textarea (the first "Comment for the Chair" field).
     const textareas = screen.getAllByLabelText('Comment for the Chair (optional)')
     fireEvent.change(textareas[0], { target: { value: 'check this section' } })
+    status = 'ChairReview'
     fireEvent.click(screen.getByText('Send to Chair'))
 
     await waitFor(() => {
@@ -109,9 +116,37 @@ describe('NaComments', () => {
         }),
       )
     })
+    // Still in the list, but now read-only: badge shown, no more Send/comment inputs.
     await waitFor(() => {
-      expect(screen.queryByText('Test Group')).not.toBeInTheDocument()
+      expect(screen.getByText('Sent — waiting on the Chair')).toBeInTheDocument()
     })
+    expect(screen.getByText('Test Group')).toBeInTheDocument()
+    expect(screen.queryByText('Send to Chair')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Comment for the Chair (optional)')).not.toBeInTheDocument()
+  })
+
+  it('shows an "Approved by Chair" badge, still read-only, once the Chair has approved', async () => {
+    vi.stubGlobal('fetch', mockFetch({ getNaGroups: { groups: [{ ...group, lifecycleStatus: 'Approved' }], showGuidance: false } }))
+    render(<NaComments />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Approved by Chair')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Send to Chair')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Comment for the Chair (optional)')).not.toBeInTheDocument()
+  })
+
+  it('renders bold DNA field headlines instead of raw markdown', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({ getNaGroups: { groups: [{ ...group, groupProfile: '**Hvem er gruppen for**\nCEOs only.' }], showGuidance: false } }),
+    )
+    render(<NaComments />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Hvem er gruppen for')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument()
   })
 
   it('shows the server error message when sending is rejected', async () => {
@@ -137,7 +172,7 @@ describe('NaComments', () => {
     expect(screen.getByText('Test Group')).toBeInTheDocument()
   })
 
-  it('sends x-view-as-email, disables comment textareas, and hides Send/guidance when viewAsEmail is set (Admin "View as" preview)', async () => {
+  it('sends x-view-as-email and hides every mutating affordance when viewAsEmail is set (Admin "View as" preview)', async () => {
     const fetchMock = mockFetch({ getNaGroups: { groups: [group], showGuidance: true } })
     vi.stubGlobal('fetch', fetchMock)
     render(<NaComments viewAsEmail="na@example.com" />)
@@ -150,9 +185,7 @@ describe('NaComments', () => {
     // No affordance to mutate anything — read-only, full stop.
     expect(screen.queryByText('Send to Chair')).not.toBeInTheDocument()
     expect(screen.queryByText('Got it')).not.toBeInTheDocument()
-    for (const textarea of screen.getAllByLabelText('Comment for the Chair (optional)')) {
-      expect(textarea).toBeDisabled()
-    }
+    expect(screen.queryByLabelText('Comment for the Chair (optional)')).not.toBeInTheDocument()
   })
 
   it('lets an Admin actually send a comment as the NA when viewAsCanEdit is set, attributed via the header', async () => {

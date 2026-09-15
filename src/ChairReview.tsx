@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { apiGet } from './lib/api'
+import { formatFieldText } from './lib/formatFieldText'
 import type { DnaFieldValue } from '../shared/schemas/dna'
 import type { ChairChatResponse, ChairGroupDetail, ChairGroupListItem, ConversationTurnDto } from '../shared/schemas/chairReview'
 
@@ -18,19 +19,6 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 type StatusFilter = 'all' | 'Launched' | 'ChairReview' | 'Approved'
-
-// Read-mode formatting for DNA field text (prototype parity, HANDOFF.md §1's
-// formatFieldText) — bold `**headline**` markers, everything else as plain
-// text. Line breaks are handled by the caller's `white-space: pre-wrap`, not
-// here. Edit mode shows the same text completely raw (the textarea's value)
-// so the Chair edits exactly what's stored, asterisks included.
-function formatFieldText(raw: string) {
-  const parts = raw.split(/(\*\*[^*]+\*\*)/g)
-  return parts.map((part, i) => {
-    const match = /^\*\*([^*]+)\*\*$/.exec(part)
-    return match ? <strong key={i}>{match[1]}</strong> : <span key={i}>{part}</span>
-  })
-}
 
 interface ChairReviewProps {
   // Set only by App.tsx's Admin-only "View as" preview — when present,

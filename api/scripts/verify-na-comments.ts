@@ -209,10 +209,21 @@ async function main() {
   assert(commentEvents.length === 1 && commentEvents[0].actorEmail === na1, 'a Comment event was logged for na1')
   console.log('  8. Send to Chair: comments written, status transitioned, event logged ok')
 
-  // --- 9. groupA no longer shows up in na1's list (it's ChairReview now, not Launched).
+  // --- 9. groupA stays in na1's list after being sent — it just switches to
+  // ChairReview (read-only on the client), instead of disappearing.
   res = await call('/api/getNaGroups', { method: 'GET', email: na1 })
-  assert((res.json as { groups: unknown[] }).groups.length === 0, "groupA no longer listed for na1 after moving to ChairReview")
-  console.log('  9. Sent group drops out of the NA list ok')
+  const listAfterSend = res.json as { groups: Array<{ id: string; lifecycleStatus: string }> }
+  assert(listAfterSend.groups.length === 1 && listAfterSend.groups[0].id === groupA.id, 'groupA is still listed for na1 after Send to Chair')
+  assert(listAfterSend.groups[0].lifecycleStatus === 'ChairReview', "groupA's reported status is ChairReview, not dropped from the list")
+  console.log('  9. Sent group stays in the NA list, now reporting ChairReview ok')
+
+  // --- 10. Once the Chair actually approves the group, it stays listed for
+  // na1 too, now reporting Approved — the "Approved by Chair" case.
+  await prisma.group.update({ where: { id: groupA.id }, data: { lifecycleStatus: 'Approved' } })
+  res = await call('/api/getNaGroups', { method: 'GET', email: na1 })
+  const listAfterApproval = res.json as { groups: Array<{ id: string; lifecycleStatus: string }> }
+  assert(listAfterApproval.groups.length === 1 && listAfterApproval.groups[0].lifecycleStatus === 'Approved', "groupA still listed for na1, now reporting Approved")
+  console.log('  10. Approved group still listed for the NA, reporting Approved ok')
 
   console.log('verify-na-comments: all checks passed')
 }

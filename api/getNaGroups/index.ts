@@ -3,11 +3,15 @@ import type { NaGroupDto } from '../../shared/schemas/naComment'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireNetworkAdvisor, resolveViewAs } from '../shared/auth'
 import { serverError } from '../shared/errors'
 
-// Network-Advisor-only: a caller's own Launched groups, awaiting their
-// comment before moving to Chair review (spec §5). Scoped server-side to
-// networkAdvisorEmail === caller — never trust a client-sent identifier for
-// this. Deliberately reads only Group's own profile fields, never
-// DnaVersion.score — spec §4/§15 says NA sees no scores anywhere here.
+// Network-Advisor-only: a caller's own groups from the moment they're
+// launched onward — Launched (awaiting the NA's comment, spec §5),
+// ChairReview (sent, read-only while the Chair works through it) and
+// Approved (read-only, "Approved by Chair") — so a group never disappears
+// from the NA's list just because they sent it; it just stops being
+// editable. Scoped server-side to networkAdvisorEmail === caller — never
+// trust a client-sent identifier for this. Deliberately reads only Group's
+// own profile fields, never DnaVersion.score — spec §4/§15 says NA sees no
+// scores anywhere here.
 //
 // An Admin's own "View as" preview (resolveViewAs) is the one exception to
 // "Network-Advisor-only" — see getChairGroups' own comment for the full
@@ -32,7 +36,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     }
 
     const groups = await prisma.group.findMany({
-      where: { networkAdvisorEmail: effectiveEmail, lifecycleStatus: 'Launched' },
+      where: { networkAdvisorEmail: effectiveEmail, lifecycleStatus: { in: ['Launched', 'ChairReview', 'Approved'] } },
       include: { chair: true },
       orderBy: { name: 'asc' },
     })
@@ -43,6 +47,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       groupProfile: g.groupProfile,
       memberProfile: g.memberProfile,
       companiesProfile: g.companiesProfile,
+      lifecycleStatus: g.lifecycleStatus,
     }))
 
     // The guidance banner's own dismiss action is a write (dismissNaGuidance)

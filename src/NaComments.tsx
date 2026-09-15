@@ -1,8 +1,14 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { apiGet } from './lib/api'
+import { formatFieldText } from './lib/formatFieldText'
 import type { DnaFieldValue } from '../shared/schemas/dna'
 import type { GetNaGroupsResponse } from '../shared/schemas/naComment'
+
+const STATUS_LABEL: Record<string, { text: string; bg: string; color: string }> = {
+  ChairReview: { text: 'Sent — waiting on the Chair', bg: 'var(--egn-light-blue)', color: 'var(--status-info)' },
+  Approved: { text: 'Approved by Chair', bg: '#ecfdf5', color: 'var(--status-success)' },
+}
 
 const FIELDS: Array<{ field: DnaFieldValue; label: string; textKey: 'groupProfile' | 'memberProfile' | 'companiesProfile' }> = [
   { field: 'GroupProfile', label: 'Group Profile', textKey: 'groupProfile' },
@@ -23,16 +29,17 @@ interface NaCommentsProps {
 
 function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
   const readOnly = !!viewAsEmail && !viewAsCanEdit
+  const queryClient = useQueryClient()
+  const viewAsKey = viewAsEmail ?? null
   const [dismissed, setDismissed] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, Partial<Record<DnaFieldValue, string>>>>({})
   const [sending, setSending] = useState<Record<string, boolean>>({})
   const [groupErrors, setGroupErrors] = useState<Record<string, string>>({})
-  const [sentGroupIds, setSentGroupIds] = useState<Set<string>>(new Set())
 
   const viewAsHeaders: HeadersInit | undefined = viewAsEmail ? { 'x-view-as-email': viewAsEmail } : undefined
 
   const groupsQuery = useQuery({
-    queryKey: ['naGroups', viewAsEmail ?? null],
+    queryKey: ['naGroups', viewAsKey],
     queryFn: () => apiGet<GetNaGroupsResponse>('/api/getNaGroups', 'Could not load groups', viewAsHeaders),
   })
   const groups = groupsQuery.data?.groups ?? []
@@ -77,13 +84,13 @@ function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
         setGroupErrors((e) => ({ ...e, [groupId]: body?.error ?? `Send failed (${res.status}).` }))
         return
       }
-      setSentGroupIds((s) => new Set(s).add(groupId))
+      // The group stays in this list (now read-only) rather than
+      // disappearing — refetch so its lifecycleStatus flips from server.
+      await queryClient.invalidateQueries({ queryKey: ['naGroups', viewAsKey] })
     } finally {
       setSending((s) => ({ ...s, [groupId]: false }))
     }
   }
-
-  const pendingGroups = groups.filter((g) => !sentGroupIds.has(g.id))
 
   return (
     <section className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
@@ -108,41 +115,57 @@ function NaComments({ viewAsEmail, viewAsCanEdit }: NaCommentsProps = {}) {
         </div>
       )}
 
-      {pendingGroups.length === 0 && (
-        <p style={{ color: 'var(--text-muted)' }}>No groups are waiting for your comment right now.</p>
-      )}
+      {groups.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No groups have been assigned to you yet.</p>}
 
-      {pendingGroups.map((g) => (
-        <div key={g.id} className="card" style={{ padding: 16, marginBottom: 16 }}>
-          <h3 style={{ marginBottom: 4 }}>{g.name}</h3>
-          <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>Chair: {g.chairName ?? '—'}</p>
-          {FIELDS.map((f) => (
-            <div key={f.field} className="field">
-              <label className="lbl">{f.label}</label>
-              <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{g[f.textKey]}</p>
-              <label className="lbl" htmlFor={`comment-${g.id}-${f.field}`}>
-                Comment for the Chair (optional)
-              </label>
-              <textarea
-                id={`comment-${g.id}-${f.field}`}
-                value={drafts[g.id]?.[f.field] ?? ''}
-                onChange={(e) => updateDraft(g.id, f.field, e.target.value)}
-                disabled={readOnly}
-              />
+      {groups.map((g) => {
+        // Editable only while it's still awaiting the NA's own comment —
+        // once sent, the group stays in this list but turns read-only
+        // (prototype parity would have hidden it entirely; this build keeps
+        // it visible so the NA can track it through to the Chair's approval).
+        const editable = !readOnly && g.lifecycleStatus === 'Launched'
+        const statusMeta = STATUS_LABEL[g.lifecycleStatus]
+        return (
+          <div key={g.id} className="card" style={{ padding: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <h3>{g.name}</h3>
+              {statusMeta && (
+                <span className="badge" style={{ background: statusMeta.bg, color: statusMeta.color }}>
+                  {statusMeta.text}
+                </span>
+              )}
             </div>
-          ))}
-          {groupErrors[g.id] && (
-            <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
-              {groupErrors[g.id]}
-            </p>
-          )}
-          {!readOnly && (
-            <button type="button" className="btn btn-primary" disabled={!!sending[g.id]} onClick={() => void sendToChair(g.id)}>
-              {sending[g.id] ? 'Sending…' : 'Send to Chair'}
-            </button>
-          )}
-        </div>
-      ))}
+            <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>Chair: {g.chairName ?? '—'}</p>
+            {FIELDS.map((f) => (
+              <div key={f.field} className="field">
+                <label className="lbl">{f.label}</label>
+                <p style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{formatFieldText(g[f.textKey])}</p>
+                {editable && (
+                  <>
+                    <label className="lbl" htmlFor={`comment-${g.id}-${f.field}`}>
+                      Comment for the Chair (optional)
+                    </label>
+                    <textarea
+                      id={`comment-${g.id}-${f.field}`}
+                      value={drafts[g.id]?.[f.field] ?? ''}
+                      onChange={(e) => updateDraft(g.id, f.field, e.target.value)}
+                    />
+                  </>
+                )}
+              </div>
+            ))}
+            {groupErrors[g.id] && (
+              <p role="alert" style={{ color: 'var(--status-danger)', marginBottom: 8 }}>
+                {groupErrors[g.id]}
+              </p>
+            )}
+            {editable && (
+              <button type="button" className="btn btn-primary" disabled={!!sending[g.id]} onClick={() => void sendToChair(g.id)}>
+                {sending[g.id] ? 'Sending…' : 'Send to Chair'}
+              </button>
+            )}
+          </div>
+        )
+      })}
     </section>
   )
 }

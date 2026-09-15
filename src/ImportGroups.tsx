@@ -898,6 +898,18 @@ function ImportGroups() {
 
   if (selectedGroupId) {
     const latest = detail?.latestDnaVersion ?? null
+    // Mirrors getGroups' own isUnlaunchedAiDraft: an Ai-authored latest
+    // version only counts as pending if its content still differs from the
+    // group's live text — Launch copies it onto the live fields without
+    // creating a new version, so "author is Ai" alone stays true right
+    // after launching and would otherwise leave the button clickable.
+    const hasPendingAiDraft =
+      !!latest &&
+      !!detail &&
+      latest.author === 'Ai' &&
+      (latest.content.groupProfile !== detail.groupProfile ||
+        latest.content.memberProfile !== detail.memberProfile ||
+        latest.content.companiesProfile !== detail.companiesProfile)
     const pill = detail ? (STATUS_PILL[detail.lifecycleStatus] ?? { label: detail.lifecycleStatus, bg: 'var(--egn-sand)', color: 'var(--text-muted)' }) : null
     const chairName = detail ? (chairs.find((c) => c.email === detail.chairEmail)?.name ?? detail.chairEmail) : null
     const naName = detail ? (advisors.find((a) => a.email === detail.networkAdvisorEmail)?.name ?? detail.networkAdvisorEmail) : null
@@ -1028,7 +1040,7 @@ function ImportGroups() {
                     type="button"
                     className="btn btn-primary"
                     style={detailActionBtnStyle}
-                    disabled={!!busy || latest?.author !== 'Ai'}
+                    disabled={!!busy || !hasPendingAiDraft}
                     onClick={() => void launch(detail.id)}
                   >
                     {busy === 'launch' ? 'Launching…' : 'Launch'}
