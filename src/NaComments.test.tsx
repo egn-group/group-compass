@@ -48,20 +48,28 @@ describe('NaComments', () => {
     })
   })
 
-  it('renders a group with its three profile fields, and no guidance banner when already seen', async () => {
+  it('lists groups by name/chair/status without their field content, and opens the detail view on click', async () => {
     vi.stubGlobal('fetch', mockFetch({ getNaGroups: { groups: [group], showGuidance: false } }))
     render(<NaComments />)
 
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
-    expect(screen.getByText('GROUP TEXT')).toBeInTheDocument()
+    expect(screen.getByText('Chair Person')).toBeInTheDocument()
+    expect(screen.getByText('Needs your comment')).toBeInTheDocument()
+    // The list view shows no field content — only the detail view does.
+    expect(screen.queryByText('GROUP TEXT')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => {
+      expect(screen.getByText('GROUP TEXT')).toBeInTheDocument()
+    })
     expect(screen.getByText('MEMBER TEXT')).toBeInTheDocument()
     expect(screen.getByText('COMPANIES TEXT')).toBeInTheDocument()
-    expect(screen.queryByText('Got it')).not.toBeInTheDocument()
   })
 
-  it('shows the first-time guidance banner and dismisses it on click, notifying the server', async () => {
+  it('shows the first-time guidance banner on the list, and dismisses it on click, notifying the server', async () => {
     const fetchMock = mockFetch({ getNaGroups: { groups: [], showGuidance: true } })
     vi.stubGlobal('fetch', fetchMock)
     render(<NaComments />)
@@ -77,19 +85,30 @@ describe('NaComments', () => {
     })
   })
 
-  it('blocks sending to the Chair when no comment was entered', async () => {
+  it('no guidance banner once already seen', async () => {
     vi.stubGlobal('fetch', mockFetch({ getNaGroups: { groups: [group], showGuidance: false } }))
     render(<NaComments />)
 
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument()
     })
+    expect(screen.queryByText('Got it')).not.toBeInTheDocument()
+  })
+
+  it('blocks sending to the Chair when no comment was entered', async () => {
+    vi.stubGlobal('fetch', mockFetch({ getNaGroups: { groups: [group], showGuidance: false } }))
+    render(<NaComments />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Send to Chair')).toBeInTheDocument())
+
     fireEvent.click(screen.getByText('Send to Chair'))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Add at least one comment before sending to the Chair.')
   })
 
-  it('sends only the filled-in comments, then keeps the group in the list as read-only once its status flips', async () => {
+  it('sends only the filled-in comments, then shows the group as read-only once its status flips', async () => {
     // getNaGroups is re-fetched after a successful send (invalidateQueries) —
     // this mock reflects the server-side lifecycleStatus transition that
     // putNaComments actually performs, so the refetch sees 'ChairReview'.
@@ -98,9 +117,10 @@ describe('NaComments', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<NaComments />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Test Group')).toBeInTheDocument()
-    })
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Send to Chair')).toBeInTheDocument())
+
     // Fill only the Group Profile comment textarea (the first "Comment for the Chair" field).
     const textareas = screen.getAllByLabelText('Comment for the Chair (optional)')
     fireEvent.change(textareas[0], { target: { value: 'check this section' } })
@@ -116,22 +136,23 @@ describe('NaComments', () => {
         }),
       )
     })
-    // Still in the list, but now read-only: badge shown, no more Send/comment inputs.
+    // Still open on this group's detail, but now read-only: badge shown, no more Send/comment inputs.
     await waitFor(() => {
       expect(screen.getByText('Sent — waiting on the Chair')).toBeInTheDocument()
     })
-    expect(screen.getByText('Test Group')).toBeInTheDocument()
     expect(screen.queryByText('Send to Chair')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Comment for the Chair (optional)')).not.toBeInTheDocument()
   })
 
-  it('shows an "Approved by Chair" badge, still read-only, once the Chair has approved', async () => {
+  it('shows an "Approved by Chair" badge in the list and detail, still read-only, once the Chair has approved', async () => {
     vi.stubGlobal('fetch', mockFetch({ getNaGroups: { groups: [{ ...group, lifecycleStatus: 'Approved' }], showGuidance: false } }))
     render(<NaComments />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Approved by Chair')).toBeInTheDocument()
-    })
+    await waitFor(() => expect(screen.getByText('Approved by Chair')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+    expect(screen.getByText('Approved by Chair')).toBeInTheDocument()
     expect(screen.queryByText('Send to Chair')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Comment for the Chair (optional)')).not.toBeInTheDocument()
   })
@@ -142,6 +163,9 @@ describe('NaComments', () => {
       mockFetch({ getNaGroups: { groups: [{ ...group, groupProfile: '**Hvem er gruppen for**\nCEOs only.' }], showGuidance: false } }),
     )
     render(<NaComments />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
 
     await waitFor(() => {
       expect(screen.getByText('Hvem er gruppen for')).toBeInTheDocument()
@@ -159,9 +183,10 @@ describe('NaComments', () => {
     )
     render(<NaComments />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Test Group')).toBeInTheDocument()
-    })
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('Send to Chair')).toBeInTheDocument())
+
     const textareas = screen.getAllByLabelText('Comment for the Chair (optional)')
     fireEvent.change(textareas[0], { target: { value: 'check this' } })
     fireEvent.click(screen.getByText('Send to Chair'))
@@ -169,7 +194,7 @@ describe('NaComments', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Group is not awaiting a Network Advisor comment.')
     })
-    expect(screen.getByText('Test Group')).toBeInTheDocument()
+    expect(screen.getByText('GROUP TEXT')).toBeInTheDocument()
   })
 
   it('sends x-view-as-email and hides every mutating affordance when viewAsEmail is set (Admin "View as" preview)', async () => {
@@ -177,14 +202,16 @@ describe('NaComments', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<NaComments viewAsEmail="na@example.com" />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Test Group')).toBeInTheDocument()
-    })
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
     expect(fetchMock).toHaveBeenCalledWith('/api/getNaGroups', expect.objectContaining({ headers: { 'x-view-as-email': 'na@example.com' } }))
+    // No guidance banner on the list either, in read-only preview.
+    expect(screen.queryByText('Got it')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
 
     // No affordance to mutate anything — read-only, full stop.
     expect(screen.queryByText('Send to Chair')).not.toBeInTheDocument()
-    expect(screen.queryByText('Got it')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Comment for the Chair (optional)')).not.toBeInTheDocument()
   })
 
@@ -193,9 +220,10 @@ describe('NaComments', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<NaComments viewAsEmail="na@example.com" viewAsCanEdit />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Test Group')).toBeInTheDocument()
-    })
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Group'))
+    await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
+
     // Enabled, not read-only, once the Admin has opted into "Enable actions".
     const textareas = screen.getAllByLabelText('Comment for the Chair (optional)')
     for (const textarea of textareas) expect(textarea).not.toBeDisabled()
