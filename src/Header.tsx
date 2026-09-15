@@ -22,7 +22,9 @@ function Header({ email, name, initials, isAdmin, onOpenViewAs }: HeaderProps) {
         className="page-container"
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 8, paddingTop: 10, paddingBottom: 10, minHeight: 68 }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <a href="/" aria-label="Group DNA Bot — go to the start page" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
+          {/* Placeholder mark — swap for the real EGN icon asset once it's
+              provided; no logo image file exists anywhere in this repo. */}
           <div
             style={{
               width: 36,
@@ -38,10 +40,10 @@ function Header({ email, name, initials, isAdmin, onOpenViewAs }: HeaderProps) {
               flexShrink: 0,
             }}
           >
-            GC
+            GDB
           </div>
-          <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 18 }}>Group Compass</span>
-        </div>
+          <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: 18 }}>Group DNA Bot</span>
+        </a>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <NotificationBell />

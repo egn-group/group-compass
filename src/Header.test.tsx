@@ -6,9 +6,17 @@ describe('Header', () => {
   it('shows the app name, initials, and name', () => {
     render(<Header email="chair@example.com" name="Chair Person" initials="CP" isAdmin={false} onOpenViewAs={() => {}} />)
 
-    expect(screen.getByText('Group Compass')).toBeInTheDocument()
+    expect(screen.getByText('Group DNA Bot')).toBeInTheDocument()
     expect(screen.getByText('CP')).toBeInTheDocument()
     expect(screen.getByTestId('who-am-i')).toHaveTextContent('Chair Person')
+  })
+
+  it('links the logo and title to the start page', () => {
+    render(<Header email="chair@example.com" name="Chair Person" initials="CP" isAdmin={false} onOpenViewAs={() => {}} />)
+
+    const homeLink = screen.getByLabelText('Group DNA Bot — go to the start page')
+    expect(homeLink).toHaveAttribute('href', '/')
+    expect(homeLink).toContainElement(screen.getByText('Group DNA Bot'))
   })
 
   it('falls back to the email (and its first letter) when name/initials are not yet loaded', () => {

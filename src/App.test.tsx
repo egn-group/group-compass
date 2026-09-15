@@ -22,7 +22,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetch([]))
     render(<App />)
 
-    expect(screen.getByText('Group Compass')).toBeInTheDocument()
+    expect(screen.getByText('Group DNA Bot')).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByTestId('who-am-i')).toHaveTextContent('me@example.com')
     })
