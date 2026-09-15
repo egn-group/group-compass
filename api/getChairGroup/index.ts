@@ -1,6 +1,7 @@
 import type { Context, HttpRequest } from '@azure/functions'
 import { GetChairGroupRequestSchema, type ChairGroupDetail } from '../../shared/schemas/chairReview'
 import { getPrincipal, getUserByEmail, prisma, requireAuth, requireChair, resolveViewAs } from '../shared/auth'
+import { readPendingUndo } from '../shared/chairReview/saveField'
 import { ALL_DNA_FIELDS, DNA_FIELD_KEY } from '../shared/dna/fieldKeys'
 import { errorResponse, serverError } from '../shared/errors'
 
@@ -37,13 +38,16 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
     const { groupId } = parsed.data
     const group = await prisma.group.findFirst({
       where: { id: groupId, chairEmail: effectiveEmail },
-      include: { networkAdvisor: true, comments: { where: { resolved: false } } },
+      // Every comment, resolved or not — resolved ones stay visible behind
+      // the Chair-side toggle (prototype parity, HANDOFF.md §1's naToggle).
+      include: { networkAdvisor: true, comments: { orderBy: { createdAt: 'asc' } } },
     })
     if (!group) {
       context.res = errorResponse(404, `Group ${groupId} not found.`)
       return
     }
 
+    const pendingUndo = readPendingUndo(group)
     const body: ChairGroupDetail = {
       id: group.id,
       name: group.name,
@@ -55,9 +59,10 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
         field,
         text: group[DNA_FIELD_KEY[field]],
         approved: group.approvedFields.includes(field),
-        unresolvedComments: group.comments
+        comments: group.comments
           .filter((c) => c.field === field)
-          .map((c) => ({ id: c.id, text: c.text, createdAt: c.createdAt.toISOString() })),
+          .map((c) => ({ id: c.id, text: c.text, resolved: c.resolved, createdAt: c.createdAt.toISOString() })),
+        canUndo: pendingUndo[field] !== undefined,
       })),
     }
 
