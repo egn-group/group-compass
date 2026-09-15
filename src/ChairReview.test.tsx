@@ -133,6 +133,21 @@ describe('ChairReview', () => {
     expect(screen.getByText('Please check this.')).toBeInTheDocument()
   })
 
+  it('shows the group\'s status as a colored pill on the list, matching the Admin/NA lists\' own color coding', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({ getChairGroups: { groups: [groupListItem, { ...groupListItem, id: 'group-2', name: 'Approved Group', lifecycleStatus: 'Approved' }] } }),
+    )
+    render(<ChairReview />)
+
+    await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
+    const needsReviewPill = screen.getByText('Needs your review', { selector: 'span.badge' })
+    expect(needsReviewPill).toHaveStyle({ background: 'var(--egn-light-blue)', color: 'var(--status-info)' })
+
+    const approvedPill = screen.getByText('Approved', { selector: 'span.badge' })
+    expect(approvedPill).toHaveStyle({ background: '#ecfdf5', color: 'var(--status-success)' })
+  })
+
   it('shows Last updated in en-GB day-month-year with a 24-hour clock, not the browser default locale', async () => {
     vi.stubGlobal(
       'fetch',
