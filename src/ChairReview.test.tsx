@@ -147,7 +147,7 @@ describe('ChairReview', () => {
     expect(screen.queryByText(/\b(AM|PM)\b/)).not.toBeInTheDocument()
   })
 
-  it('approves a field with Read & accept', async () => {
+  it('approves a field with Approve', async () => {
     const fetchMock = mockFetch({ getChairGroups: { groups: [groupListItem] } })
     vi.stubGlobal('fetch', fetchMock)
     render(<ChairReview />)
@@ -156,7 +156,7 @@ describe('ChairReview', () => {
     fireEvent.click(screen.getByText('Test Group'))
     await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
 
-    fireEvent.click(screen.getAllByText('Read & accept')[0])
+    fireEvent.click(screen.getAllByText('Approve')[0])
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -180,7 +180,7 @@ describe('ChairReview', () => {
     await waitFor(() => expect(screen.getByText('Test Group')).toBeInTheDocument())
     fireEvent.click(screen.getByText('Test Group'))
     await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
-    fireEvent.click(screen.getAllByText('Read & accept')[0])
+    fireEvent.click(screen.getAllByText('Approve')[0])
 
     await waitFor(() => {
       expect(screen.getByText(/Thank you — the DNA has been updated/)).toBeInTheDocument()
@@ -192,7 +192,7 @@ describe('ChairReview', () => {
       getChairGroups: { groups: [groupListItem] },
       getChairFieldConversation: {
         turns: [
-          { id: 'edit-note', role: 'Chair', messageText: 'I edited the Group Profile.', proposedText: null, outcome: 'None', createdAt: new Date().toISOString() },
+          { id: 'edit-note', role: 'Chair', messageText: 'User edited the Group Profile.', proposedText: null, outcome: 'None', createdAt: new Date().toISOString() },
           { id: 'edit-feedback', role: 'Ai', messageText: 'Looks good.', proposedText: null, outcome: 'None', createdAt: new Date().toISOString() },
         ],
       },
@@ -224,7 +224,7 @@ describe('ChairReview', () => {
     await waitFor(() => {
       expect(screen.getByText('Looks good.')).toBeInTheDocument()
     })
-    expect(screen.getByText('I edited the Group Profile.')).toBeInTheDocument()
+    expect(screen.getByText('User edited the Group Profile.')).toBeInTheDocument()
   })
 
   it('does not open the AI assistant when Save is clicked with no actual change', async () => {
@@ -407,7 +407,7 @@ describe('ChairReview', () => {
     expect(screen.getByText('MEMBER TEXT')).toBeInTheDocument()
     expect(screen.getByText('COMPANIES TEXT')).toBeInTheDocument()
     expect(screen.queryByText('Edit')).not.toBeInTheDocument()
-    expect(screen.queryByText('Read & accept')).not.toBeInTheDocument()
+    expect(screen.queryByText('Approve')).not.toBeInTheDocument()
     expect(screen.queryByText('Ask AI assistant')).not.toBeInTheDocument()
     // The NA comment itself is still visible (transparency), but its
     // actions are mutating controls, gated the same as everything else.
@@ -597,7 +597,7 @@ describe('ChairReview', () => {
     )
 
     // No affordance to mutate anything is rendered — read-only, full stop.
-    expect(screen.queryByText('Read & accept')).not.toBeInTheDocument()
+    expect(screen.queryByText('Approve')).not.toBeInTheDocument()
     expect(screen.queryByText('Edit')).not.toBeInTheDocument()
     expect(screen.queryByText('Ask AI assistant')).not.toBeInTheDocument()
     expect(screen.queryByText('Approve whole DNA')).not.toBeInTheDocument()
@@ -614,8 +614,8 @@ describe('ChairReview', () => {
     await waitFor(() => expect(screen.getByText('GROUP TEXT')).toBeInTheDocument())
 
     // Mutating controls render once the Admin has opted into "Enable actions".
-    expect(screen.getAllByText('Read & accept')[0]).toBeInTheDocument()
-    fireEvent.click(screen.getAllByText('Read & accept')[0])
+    expect(screen.getAllByText('Approve')[0]).toBeInTheDocument()
+    fireEvent.click(screen.getAllByText('Approve')[0])
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(

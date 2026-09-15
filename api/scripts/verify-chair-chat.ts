@@ -309,7 +309,7 @@ async function main() {
     },
   })
   await prisma.aiConversationTurn.create({
-    data: { groupId: groupE.id, field: 'MemberProfile', chairEmail: chair1, role: 'Chair', messageText: 'I edited the Member Profile.', outcome: 'None' },
+    data: { groupId: groupE.id, field: 'MemberProfile', chairEmail: chair1, role: 'Chair', messageText: 'User edited the Member Profile.', outcome: 'None' },
   })
   await prisma.aiConversationTurn.create({
     data: {

@@ -172,7 +172,7 @@ async function main() {
 
   const turns = await prisma.aiConversationTurn.findMany({ where: { groupId: groupA.id, field: 'MemberProfile' }, orderBy: { createdAt: 'asc' } })
   assert(turns.length === 2, `expected an edit-note turn plus the AI's feedback turn, got ${turns.length}`)
-  assert(turns[0].role === 'Chair' && turns[0].messageText === 'I edited the Member Profile.', "a Chair-side note announces the edit, in the field's own conversation")
+  assert(turns[0].role === 'Chair' && turns[0].messageText === 'User edited the Member Profile.', "a Chair-side note announces the edit, in the field's own conversation")
   assert(turns[1].role === 'Ai' && turns[1].messageText === editResult.aiFeedback, "the AI's feedback follows, in the same conversation")
   console.log('  6. Manual edit: versioned, group text updated, edit note + real AI feedback posted to the chat ok')
 

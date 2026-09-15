@@ -69,7 +69,7 @@ const httpTrigger = async function (context: Context, req: HttpRequest): Promise
       // the chat, and a later reply here ("implement your suggestions")
       // sees this feedback as real history (chairChat's own history build).
       await prisma.aiConversationTurn.create({
-        data: { groupId, field, chairEmail: effectiveEmail, role: 'Chair', messageText: `I edited the ${DNA_FIELD_LABEL[field]}.`, outcome: 'None' },
+        data: { groupId, field, chairEmail: effectiveEmail, role: 'Chair', messageText: `User edited the ${DNA_FIELD_LABEL[field]}.`, outcome: 'None' },
       })
       try {
         const result = await callAi({
